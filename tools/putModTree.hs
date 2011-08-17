@@ -65,7 +65,7 @@ filterSource =
 	filter ( not . isPrefixOf "." )
 
 mkReg :: [ FilePath ] -> String
-mkReg fps = "^import\\s+(?:qualified\\s+)?(" ++ concat ( intersperse "|" fps ) ++ ")"
+mkReg fps = "^import\\s+(?:qualified\\s+)?(" ++ intercalate "|" fps ++ ")"
 
 initN :: Int -> [ a ] -> [ a ]
 initN n = ( !! n ) . iterate init

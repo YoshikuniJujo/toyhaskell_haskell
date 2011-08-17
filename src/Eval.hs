@@ -8,6 +8,7 @@ module Eval (
 import Value
 import "monads-tf" Control.Monad.Error
 import "monads-tf" Control.Monad.Error.Class
+import Data.Maybe
 
 initEnv :: Env
 initEnv = [
@@ -29,7 +30,7 @@ instance Error MyError where
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i ) =
-	eval env $ maybe ( Error $ "Not in scope: `" ++ i ++ "'" ) id $ lookup i env
+	eval env $ fromMaybe ( Error $ "Not in scope: `" ++ i ++ "'" ) $ lookup i env
 eval env ( Apply f a ) = let
 	mfun = eval env f
 	ret = case mfun of

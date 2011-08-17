@@ -93,7 +93,7 @@ parserInfix = do
 	return $ f p
 
 parserInfix' :: Parser ( Value -> Value )
-parserInfix' = do	op <- token $ operatorToValue
+parserInfix' = do	op <- token operatorToValue
 			p <- parser
 			f <- parserInfix'
 			return $ \v -> f $ Apply ( Apply op v ) p
@@ -138,8 +138,7 @@ parserLetin = do
 parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
 	_ <- token $ testToken $ Reserved "let"
-	pairs <- liftM catMaybes $ many $ parserDef
-	return pairs
+	liftM catMaybes $ many parserDef
 
 parserDef :: Parser ( Maybe ( String, Value ) )
 parserDef = do
@@ -166,14 +165,14 @@ parserIf = do
 
 parserParens :: Parser Value
 parserParens = do
-	_ <- token $ testToken $ OpenParen
+	_ <- token $ testToken OpenParen
 	ret <- parserInfix
-	_ <- token $ testToken $ CloseParen
+	_ <- token $ testToken CloseParen
 	return ret
 
 token :: ( Token -> Maybe a ) -> Parser a
 token test = P.token showToken posToken testTok
 	where
-	showToken tok = show tok
+	showToken = show
 	posToken _tok = initialPos ""
-	testTok tok = test tok
+	testTok = test
