@@ -22,7 +22,7 @@ addSemi n0 ( '\n' : rest ) = let n1 = length $ takeWhile ( == '\t' ) rest in
 addSemi n ( c : cs ) = c : addSemi n cs
 
 data Token =
-	Variable String | Operator String | OpenParen | CloseParen |
+	Variable String | TokConst String | Operator String | OpenParen | CloseParen |
 	Backslash | Rightarrow | Reserved String | ReservedOp String |
 	TokInteger Integer | TokString String | TokBool Bool | Yet
 	deriving ( Show, Eq )
@@ -46,20 +46,20 @@ operatorToValue ( Operator op )	= Just $ Identifier op
 operatorToValue _		= Nothing
 
 reserved, reservedOp :: [ String ]
-reserved = [ "let", "in", "if", "then", "else" ]
-reservedOp = [ "=", ";" ]
+reserved = [ "let", "in", "if", "then", "else", "case", "of" ]
+reservedOp = [ "=", ";", "->" ]
 
 lex :: String -> [ Token ]
 lex "" = [ ]
 lex ( '(' : cs )	= OpenParen : lex cs
 lex ( ')' : cs )	= CloseParen : lex cs
 lex ( '\\' : cs )	= Backslash : lex cs
-lex ( '-' : '>' : cs )	= Rightarrow : lex cs
+-- lex ( '-' : '>' : cs )	= Rightarrow : lex cs
 lex ( '"' : cs )	= let ( ret, '"' : rest ) = span (/= '"') cs in
 		TokString ret : lex rest
 lex s@( c : cs )
 	| isSpace c	= lex cs
-	| isLower c	= let ( ret, rest ) = span isAlphaNum s in
+	| isLow c	= let ( ret, rest ) = span isAlNum s in
 		( if ret `elem` reserved then Reserved else Variable ) ret :
 			lex rest
 	| isUpper c	= let
@@ -67,7 +67,8 @@ lex s@( c : cs )
 		tok = case ret of
 			"True"	-> TokBool True
 			"False"	-> TokBool False
-			_	-> Yet in tok : lex rest
+			_	-> TokConst ret in
+		tok : lex rest
 	| isSym c	= let ( ret, rest ) = span isSym s in
 		( if ret `elem` reservedOp then ReservedOp else Operator ) ret :
 			lex rest
@@ -75,6 +76,8 @@ lex s@( c : cs )
 		TokInteger ( read ret ) : lex rest
 	where
 	isSym cc = isSymbol cc || cc `elem` "\\-*;"
+	isLow cc = isLower cc || cc `elem` "_"
+	isAlNum cc = isAlphaNum cc || cc `elem` "_"
 lex s			= error $ "lex failed: " ++ s
 
 type Parser = GenParser Token ()
@@ -117,13 +120,14 @@ parserAtom =
 	parserLambda <|>
 	parserParens <|>
 	parserLetin <|>
-	parserIf
+	parserIf <|>
+	parserCase
 
 parserLambda :: Parser Value
 parserLambda = do
 	_ <- token $ testToken Backslash
 	vars <- many1 $ token variableToStr
-	_ <- token $ testToken Rightarrow
+	_ <- token $ testToken $ ReservedOp "->" -- Rightarrow
 	body <- parserInfix
 	return $ Lambda [ ] vars body
 
@@ -138,7 +142,12 @@ parserLetin = do
 parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
 	_ <- token $ testToken $ Reserved "let"
-	liftM catMaybes $ many parserDef
+	p <- parserDef
+	ps <- many $ do
+		_ <- token $ testToken $ ReservedOp ";"
+		ret <- parserDef
+		return ret
+	return $ catMaybes $ p : ps
 
 parserDef :: Parser ( Maybe ( String, Value ) )
 parserDef = do
@@ -150,7 +159,6 @@ parserDef = do
 		return $ if null args
 			then Just ( var, val )
 			else Just ( var, Lambda [ ] args val )
-	_ <- token $ testToken $ ReservedOp ";"
 	return ret
 
 parserIf :: Parser Value
@@ -162,6 +170,19 @@ parserIf = do
 	_ <- token $ testToken $ Reserved "else"
 	els <- parserInfix
 	return $ If test thn els
+
+parserCase :: Parser Value
+parserCase = do
+	_ <- token $ testToken $ Reserved "case"
+	val <- parserInfix
+	_ <- token $ testToken $ Reserved "of"
+	tests <- many1 $ do
+		pattern <- parserInfix
+		_ <- token $ testToken $ ReservedOp "->"
+		ret <- parserInfix
+		_ <- token $ testToken $ ReservedOp ";"
+		return ( pattern, ret )
+	return $ Case val tests
 
 parserParens :: Parser Value
 parserParens = do

@@ -19,6 +19,7 @@ data Value =
 	Letin [ ( String, Value ) ] Value |
 	Let [ ( String, Value ) ] |
 	If Value Value Value |
+	Case Value [ ( Value, Value ) ] |
 	Error String
 
 instance Show Value where
@@ -34,6 +35,7 @@ instance Show Value where
 	show ( Letin _ _ )	= "<let-in>"
 	show ( Let _ )		= "<let>"
 	show ( If _ _ _ )	= "<if>"
+	show ( Case _ _ )	= "<case>"
 	show ( Error msg )	= "Error: " ++ msg
 
 showValue :: Value -> IO ()
