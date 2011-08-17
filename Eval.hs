@@ -13,7 +13,8 @@ initEnv :: Env
 initEnv = [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
-	( "putStrLn", Function putStrLnFun )
+	( "putStrLn", Function putStrLnFun ),
+	( "==", mkIntCompFunction (==) )
  ]
 
 data MyError = MyError String
@@ -45,6 +46,13 @@ eval env ( Apply f a ) = let
 		_				->
 			Error $ "Not Function: " ++ show f in
 	ret
+eval env ( Let ps body ) = let
+	nenv = ps ++ env in
+	eval nenv body
+eval env ( If test thn els ) = case eval env test of
+	Bool True	-> eval env thn
+	Bool False	-> eval env els
+	_		-> Error $ "Not Bool: " ++ show test
 		
 eval env v = v
 
@@ -53,6 +61,13 @@ mkBinIntFunction op = Function fun
 	where
 	fun ( Integer x ) = let
 		funN ( Integer y ) = Integer $ x `op` y in
+		Function funN
+
+mkIntCompFunction :: ( Integer -> Integer -> Bool ) -> Value
+mkIntCompFunction p = Function fun
+	where
+	fun ( Integer x ) = let
+		funN ( Integer y ) = Bool $ x `p` y in
 		Function funN
 
 putStrLnFun :: Value -> Value

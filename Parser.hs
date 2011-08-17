@@ -11,14 +11,15 @@ import Text.ParserCombinators.Parsec hiding ( Parser, token )
 
 data Token =
 	Variable String | Operator String | OpenParen | CloseParen |
-	Backslash | Rightarrow |
-	TokInteger Integer | TokString String
+	Backslash | Rightarrow | Reserved String | ReservedOp String |
+	TokInteger Integer | TokString String | TokBool Bool | Yet
 	deriving ( Show, Eq )
 
 tokenToValue :: Token -> Maybe Value
 tokenToValue ( TokString str )	= Just $ String str
 tokenToValue ( TokInteger i )	= Just $ Integer i
 tokenToValue ( Variable var )	= Just $ Identifier var
+tokenToValue ( TokBool b )	= Just $ Bool b
 tokenToValue _			= Nothing
 
 testToken :: Token -> Token -> Maybe Token
@@ -32,6 +33,10 @@ operatorToValue :: Token -> Maybe Value
 operatorToValue ( Operator op )	= Just $ Identifier op
 operatorToValue _		= Nothing
 
+reserved, reservedOp :: [ String ]
+reserved = [ "let", "in", "if", "then", "else" ]
+reservedOp = [ "=" ]
+
 lex :: String -> [ Token ]
 lex "" = [ ]
 lex ( '(' : cs )	= OpenParen : lex cs
@@ -43,13 +48,21 @@ lex ( '"' : cs )	= let ( ret, '"' : rest ) = span (/= '"') cs in
 lex s@( c : cs )
 	| isSpace c	= lex cs
 	| isLower c	= let ( ret, rest ) = span isAlphaNum s in
-		Variable ret : lex rest
+		( if ret `elem` reserved then Reserved else Variable ) ret :
+			lex rest
+	| isUpper c	= let
+		( ret, rest ) = span isAlphaNum s
+		tok = case ret of
+			"True"	-> TokBool True
+			"False"	-> TokBool False
+			_	-> Yet in tok : lex rest
 	| isSym c	= let ( ret, rest ) = span isSym s in
-		Operator ret : lex rest
+		( if ret `elem` reservedOp then ReservedOp else Operator ) ret :
+			lex rest
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		TokInteger ( read ret ) : lex rest
 	where
-	isSym c = isSymbol c || c `elem` "\\-"
+	isSym c = isSymbol c || c `elem` "\\-*"
 lex s			= error $ "lex failed: " ++ s
 
 type Parser = GenParser Token ()
@@ -90,7 +103,9 @@ parserAtom :: Parser Value
 parserAtom =
 	token tokenToValue <|>
 	parserLambda <|>
-	parserParens
+	parserParens <|>
+	parserLet <|>
+	parserIf
 
 parserLambda :: Parser Value
 parserLambda = do
@@ -99,6 +114,28 @@ parserLambda = do
 	token $ testToken Rightarrow
 	body <- parserInfix
 	return $ Lambda [ ] vars body
+
+parserLet :: Parser Value
+parserLet = do
+	token $ testToken $ Reserved "let"
+	pairs <- many $ do
+		var <- token variableToStr
+		token $ testToken $ ReservedOp "="
+		val <- parserInfix
+		return ( var, val )
+	token $ testToken $ Reserved "in"
+	body <- parserInfix
+	return $ Let pairs body
+
+parserIf :: Parser Value
+parserIf = do
+	token $ testToken $ Reserved "if"
+	test <- parserInfix
+	token $ testToken $ Reserved "then"
+	thn <- parserInfix
+	token $ testToken $ Reserved "else"
+	els <- parserInfix
+	return $ If test thn els
 
 parserParens :: Parser Value
 parserParens = do
