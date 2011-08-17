@@ -29,7 +29,7 @@ instance Error MyError where
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i ) =
-	maybe ( Error $ "Not in scope: `" ++ i ++ "'" ) id $ lookup i env
+	eval env $ maybe ( Error $ "Not in scope: `" ++ i ++ "'" ) id $ lookup i env
 eval env ( Apply f a ) = let
 	mfun = eval env f
 	ret = case mfun of

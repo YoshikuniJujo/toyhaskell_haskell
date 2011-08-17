@@ -4,4 +4,6 @@ import System.Environment
 import MainTools
 
 main :: IO ()
-main = getArgs >>= mainGen
+main = do
+	[ fn ] <- getArgs
+	mainGen [ "-e", "main", fn ]
