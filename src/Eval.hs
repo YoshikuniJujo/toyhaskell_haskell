@@ -55,21 +55,30 @@ eval env ( If test thn els ) = case eval env test of
 	Bool False	-> eval env els
 	_		-> Error $ "Not Bool: " ++ show test
 		
-eval env v = v
+eval _ v = v
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
 mkBinIntFunction op = Function fun
 	where
 	fun ( Integer x ) = let
-		funN ( Integer y ) = Integer $ x `op` y in
+		funN vy =
+			case vy of
+				Integer y -> Integer $ x `op` y
+				_ -> Error "bad type" in
 		Function funN
+	fun _ = Error "bad type"
 
 mkIntCompFunction :: ( Integer -> Integer -> Bool ) -> Value
 mkIntCompFunction p = Function fun
 	where
 	fun ( Integer x ) = let
-		funN ( Integer y ) = Bool $ x `p` y in
+		funN vy =
+			case vy of
+				Integer y -> Bool $ x `p` y
+				_ -> Error "bad type" in
 		Function funN
+	fun _ = Error "bad type"
 
 putStrLnFun :: Value -> Value
 putStrLnFun ( String str ) = IOAction $ putStrLn str >> return Nil
+putStrLnFun v = Error $ "putStrLn :: String -> IO (): " ++ show v

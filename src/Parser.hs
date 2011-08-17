@@ -74,7 +74,7 @@ lex s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		TokInteger ( read ret ) : lex rest
 	where
-	isSym c = isSymbol c || c `elem` "\\-*;"
+	isSym cc = isSymbol cc || cc `elem` "\\-*;"
 lex s			= error $ "lex failed: " ++ s
 
 type Parser = GenParser Token ()
@@ -121,9 +121,9 @@ parserAtom =
 
 parserLambda :: Parser Value
 parserLambda = do
-	token $ testToken Backslash
+	_ <- token $ testToken Backslash
 	vars <- many1 $ token variableToStr
-	token $ testToken Rightarrow
+	_ <- token $ testToken Rightarrow
 	body <- parserInfix
 	return $ Lambda [ ] vars body
 
@@ -131,13 +131,13 @@ parserLetin :: Parser Value
 parserLetin = do
 	pairs <- parserLet
 	option ( Let pairs ) $ do
-		token $ testToken $ Reserved "in"
+		_ <- token $ testToken $ Reserved "in"
 		body <- parserInfix
 		return $ Letin pairs body
 
 parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
-	token $ testToken $ Reserved "let"
+	_ <- token $ testToken $ Reserved "let"
 	pairs <- liftM catMaybes $ many $ parserDef
 	return pairs
 
@@ -146,34 +146,34 @@ parserDef = do
 	ret <- option Nothing $ do
 		var <- token variableToStr
 		args <- many $ token variableToStr
-		token $ testToken $ ReservedOp "="
+		_ <- token $ testToken $ ReservedOp "="
 		val <- parserInfix
 		return $ if null args
 			then Just ( var, val )
 			else Just ( var, Lambda [ ] args val )
-	token $ testToken $ ReservedOp ";"
+	_ <- token $ testToken $ ReservedOp ";"
 	return ret
 
 parserIf :: Parser Value
 parserIf = do
-	token $ testToken $ Reserved "if"
+	_ <- token $ testToken $ Reserved "if"
 	test <- parserInfix
-	token $ testToken $ Reserved "then"
+	_ <- token $ testToken $ Reserved "then"
 	thn <- parserInfix
-	token $ testToken $ Reserved "else"
+	_ <- token $ testToken $ Reserved "else"
 	els <- parserInfix
 	return $ If test thn els
 
 parserParens :: Parser Value
 parserParens = do
-	token $ testToken $ OpenParen
+	_ <- token $ testToken $ OpenParen
 	ret <- parserInfix
-	token $ testToken $ CloseParen
+	_ <- token $ testToken $ CloseParen
 	return ret
 
 token :: ( Token -> Maybe a ) -> Parser a
-token test = P.token showToken posToken testToken
+token test = P.token showToken posToken testTok
 	where
 	showToken tok = show tok
-	posToken tok = initialPos ""
-	testToken tok = test tok
+	posToken _tok = initialPos ""
+	testTok tok = test tok
