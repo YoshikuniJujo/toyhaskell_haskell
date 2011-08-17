@@ -8,6 +8,18 @@ import Data.Char
 import Text.ParserCombinators.Parsec.Pos
 import qualified Text.ParserCombinators.Parsec as P
 import Text.ParserCombinators.Parsec hiding ( Parser, token )
+import Control.Monad
+import Data.Maybe
+
+addSemi :: Int -> String -> String
+addSemi _ "" = ""
+addSemi n ( c1 : 'i' : 'n' : c2 : rest )
+	| isSpace c1 && isSpace c2 = ' ' : ';' : 'i' : 'n' : ' ' : addSemi n rest
+addSemi n0 ( '\n' : rest ) = let n1 = length $ takeWhile ( == '\t' ) rest in
+	if n0 >= n1
+		then ' ' : ';' : addSemi n1 rest
+		else ' ' : addSemi n1 rest
+addSemi n ( c : cs ) = c : addSemi n cs
 
 data Token =
 	Variable String | Operator String | OpenParen | CloseParen |
@@ -70,7 +82,7 @@ type Parser = GenParser Token ()
 toyParse :: String -> Value
 toyParse input =
 	case parse ( do { ret <- parserInfix; eof; return ret } ) "" $
-		lex input of
+		lex $ addSemi 0 input of
 		Right v	-> v
 		Left v	-> Error $ show v
 
@@ -126,19 +138,21 @@ parserLetin = do
 parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
 	token $ testToken $ Reserved "let"
-	pairs <- many $ parserDef
+	pairs <- liftM catMaybes $ many $ parserDef
 	return pairs
 
-parserDef :: Parser ( String, Value )
+parserDef :: Parser ( Maybe ( String, Value ) )
 parserDef = do
-	var <- token variableToStr
-	args <- many $ token variableToStr
-	token $ testToken $ ReservedOp "="
-	val <- parserInfix
+	ret <- option Nothing $ do
+		var <- token variableToStr
+		args <- many $ token variableToStr
+		token $ testToken $ ReservedOp "="
+		val <- parserInfix
+		return $ if null args
+			then Just ( var, val )
+			else Just ( var, Lambda [ ] args val )
 	token $ testToken $ ReservedOp ";"
-	return $ if null args
-		then ( var, val )
-		else ( var, Lambda [ ] args val )
+	return ret
 
 parserIf :: Parser Value
 parserIf = do

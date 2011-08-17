@@ -1,4 +1,4 @@
 hello = "Hello, world";
-bye = "Good-bye, world";
+bye = "Good-bye, world"
 
-fac n = if n == 0 then 1 else n * fac ( n - 1 );
+fac n = if n == 0 then 1 else n * fac ( n - 1 )
