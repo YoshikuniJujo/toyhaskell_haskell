@@ -13,6 +13,7 @@ initEnv :: Env
 initEnv = [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
+	( "*", mkBinIntFunction (*) ),
 	( "putStrLn", Function putStrLnFun ),
 	( "==", mkIntCompFunction (==) )
  ]

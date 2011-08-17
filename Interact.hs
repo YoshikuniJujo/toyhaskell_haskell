@@ -4,14 +4,14 @@ module Interact (
 
 import System.IO ( hFlush, stdout )
 import Control.Monad ( when )
-import Control.Monad.Tools ( doWhile_ )
+import Control.Monad.Tools ( doWhile )
 
-runLoop :: String -> ( String -> IO a ) -> IO ()
-runLoop name act = do
-	doWhile_ $ do
+runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
+runLoop name stat0 act = do
+	doWhile stat0 $ \stat -> do
 		input <- prompt $ name ++ "> "
-		when ( head input /= ':' ) $ act input >> return ()
-		return $ input `notElem` [ ":quit", ":q" ]
+		stat' <- act stat input
+		return ( stat', input `notElem` [ ":quit", ":q" ] )
 	putStrLn $ "Leaving " ++ name ++ "."
 	
 prompt :: String -> IO String

@@ -35,7 +35,7 @@ operatorToValue _		= Nothing
 
 reserved, reservedOp :: [ String ]
 reserved = [ "let", "in", "if", "then", "else" ]
-reservedOp = [ "=" ]
+reservedOp = [ "=", ";" ]
 
 lex :: String -> [ Token ]
 lex "" = [ ]
@@ -62,7 +62,7 @@ lex s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		TokInteger ( read ret ) : lex rest
 	where
-	isSym c = isSymbol c || c `elem` "\\-*"
+	isSym c = isSymbol c || c `elem` "\\-*;"
 lex s			= error $ "lex failed: " ++ s
 
 type Parser = GenParser Token ()
@@ -104,7 +104,6 @@ parserAtom =
 	token tokenToValue <|>
 	parserLambda <|>
 	parserParens <|>
---	parserLet <|>
 	parserLetin <|>
 	parserIf
 
@@ -127,12 +126,19 @@ parserLetin = do
 parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
 	token $ testToken $ Reserved "let"
-	pairs <- many $ do
-		var <- token variableToStr
-		token $ testToken $ ReservedOp "="
-		val <- parserInfix
-		return ( var, val )
+	pairs <- many $ parserDef
 	return pairs
+
+parserDef :: Parser ( String, Value )
+parserDef = do
+	var <- token variableToStr
+	args <- many $ token variableToStr
+	token $ testToken $ ReservedOp "="
+	val <- parserInfix
+	token $ testToken $ ReservedOp ";"
+	return $ if null args
+		then ( var, val )
+		else ( var, Lambda [ ] args val )
 
 parserIf :: Parser Value
 parserIf = do
