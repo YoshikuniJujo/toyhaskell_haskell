@@ -15,6 +15,7 @@ initEnv = [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
 	( "*", mkBinIntFunction (*) ),
+	( "^", mkBinIntFunction (^) ),
 	( "putStrLn", Function putStrLnFun ),
 	( "==", mkIntCompFunction (==) )
  ]
