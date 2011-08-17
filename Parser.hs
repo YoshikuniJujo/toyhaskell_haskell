@@ -104,7 +104,8 @@ parserAtom =
 	token tokenToValue <|>
 	parserLambda <|>
 	parserParens <|>
-	parserLet <|>
+--	parserLet <|>
+	parserLetin <|>
 	parserIf
 
 parserLambda :: Parser Value
@@ -115,7 +116,15 @@ parserLambda = do
 	body <- parserInfix
 	return $ Lambda [ ] vars body
 
-parserLet :: Parser Value
+parserLetin :: Parser Value
+parserLetin = do
+	pairs <- parserLet
+	option ( Let pairs ) $ do
+		token $ testToken $ Reserved "in"
+		body <- parserInfix
+		return $ Letin pairs body
+
+parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
 	token $ testToken $ Reserved "let"
 	pairs <- many $ do
@@ -123,9 +132,7 @@ parserLet = do
 		token $ testToken $ ReservedOp "="
 		val <- parserInfix
 		return ( var, val )
-	token $ testToken $ Reserved "in"
-	body <- parserInfix
-	return $ Let pairs body
+	return pairs
 
 parserIf :: Parser Value
 parserIf = do

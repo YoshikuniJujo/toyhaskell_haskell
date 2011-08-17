@@ -16,7 +16,8 @@ data Value =
 	IOAction ( IO Value ) |
 	Apply Value Value |
 	Lambda Env [ String ] Value |
-	Let [ ( String, Value ) ] Value |
+	Letin [ ( String, Value ) ] Value |
+	Let [ ( String, Value ) ] |
 	If Value Value Value |
 	Error String
 
@@ -30,7 +31,8 @@ instance Show Value where
 	show ( IOAction _ )	= "<IO>"
 	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
 	show ( Lambda _ _ _ )	= "<closure>"
-	show ( Let _ _ )	= "<let>"
+	show ( Letin _ _ )	= "<let-in>"
+	show ( Let _ )		= "<let>"
 	show ( If _ _ _ )	= "<if>"
 	show ( Error msg )	= "Error: " ++ msg
 

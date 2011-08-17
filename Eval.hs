@@ -46,7 +46,7 @@ eval env ( Apply f a ) = let
 		_				->
 			Error $ "Not Function: " ++ show f in
 	ret
-eval env ( Let ps body ) = let
+eval env ( Letin ps body ) = let
 	nenv = ps ++ env in
 	eval nenv body
 eval env ( If test thn els ) = case eval env test of
