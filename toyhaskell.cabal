@@ -19,3 +19,9 @@ executable runtoy
   main-is:		runtoy.hs
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec
+
+executable toy
+  hs-source-dirs:	src
+  main-is:		toy.hs
+  ghc-options:		-Wall
+  build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec
