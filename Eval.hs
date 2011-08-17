@@ -25,28 +25,28 @@ instance Error MyError where
 	noMsg = MyError "error occur"
 	strMsg = MyError
 
-eval :: Env -> Value -> Either MyError Value
+eval :: Env -> Value -> Value
 eval env ( Identifier i ) =
-	maybe ( Left $ MyError $ "Not in scope: `" ++ i ++ "'" ) Right $
-	lookup i env
-eval env ( Apply f a ) = do
-	mfun <- eval env f
-	case mfun of
-		Function fun			-> do
-			arg <- eval env a
-			return $ fun arg
-		Lambda lenv [ var ] body	-> do
-			arg <- eval env a
-			let nenv = ( var, arg ) : lenv ++ env
-			eval nenv body
-		Lambda lenv ( var : vars ) body	-> do
-			arg <- eval env a
-			let nlenv = ( var, arg ) : lenv
-			return $ Lambda nlenv vars body
+	maybe ( Error $ "Not in scope: `" ++ i ++ "'" ) id $ lookup i env
+eval env ( Apply f a ) = let
+	mfun = eval env f
+	ret = case mfun of
+		Function fun			->
+			let	arg = eval env a in
+				fun arg
+		Lambda lenv [ var ] body	->
+			let	arg = eval env a
+				nenv = ( var, arg ) : lenv ++ env in
+				eval nenv body
+		Lambda lenv ( var : vars ) body	->
+			let	arg = eval env a
+				nlenv = ( var, arg ) : lenv in
+				Lambda nlenv vars body
 		_				->
-			throwError $ MyError $ "Not Function: " ++ show f
+			Error $ "Not Function: " ++ show f in
+	ret
 		
-eval env v = Right v
+eval env v = v
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
 mkBinIntFunction op = Function fun

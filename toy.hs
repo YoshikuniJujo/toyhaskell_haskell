@@ -1,12 +1,12 @@
 module Main where
 
-import Interact
+import Prelude hiding ( lex )
 import Parser
-import Value
 import Eval
-import Maybe
+import Value
+import Interact
 
 main :: IO ()
-main = runLoop "toyhaskell" $ \input -> do
-	either print ( either print showValue . eval initEnv ) $
-		toyParse input
+main = runLoop "testLexer" $ \input -> do
+	let ret = eval initEnv $ toyParse input
+	showValue ret

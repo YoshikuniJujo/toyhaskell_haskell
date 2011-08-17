@@ -14,17 +14,19 @@ data Value =
 	Function ( Value -> Value ) |
 	IOAction ( IO Value ) |
 	Apply Value Value |
-	Lambda Env [ String ] Value
+	Lambda Env [ String ] Value |
+	Error String
 
 instance Show Value where
 	show Nil = "()"
-	show ( Integer n ) = show n
-	show ( String s ) = show s
-	show ( Identifier i ) = i
-	show ( Function _ ) = "<function>"
-	show ( IOAction _ ) = "<IO>"
-	show ( Apply f a ) = "(" ++ show f ++ " " ++ show a ++ ")"
-	show ( Lambda _ _ _ ) = "<closure>"
+	show ( Integer n )	= show n
+	show ( String s )	= show s
+	show ( Identifier i )	= i
+	show ( Function _ )	= "<function>"
+	show ( IOAction _ )	= "<IO>"
+	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
+	show ( Lambda _ _ _ )	= "<closure>"
+	show ( Error msg )	= "Error: " ++ msg
 
 showValue :: Value -> IO ()
 showValue ( IOAction act ) = do
