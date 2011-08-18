@@ -27,6 +27,7 @@ eraseImport :: String -> String
 eraseImport = unlines . filter ( not . ( "import " `isPrefixOf` ) ) . lines
 
 data Token =
+	OpenBrace | CloseBrace |
 	Variable String | TokConst String | Operator String | OpenParen |
 	CloseParen | Backslash | Reserved String | ReservedOp String |
 	TokInteger Integer | TokChar Char | TokString String | TokBool Bool | Yet
@@ -86,6 +87,8 @@ reservedOp = [ "=", ";", "->", "[]", "[", "]", "," ]
 lex :: String -> [ Token ]
 lex "" = [ ]
 lex ( '-' : '-' : cs )		= lex $ dropWhile ( /= '\n' ) cs
+lex ( '{' : cs )		= OpenBrace : lex cs
+lex ( '}' : cs )		= CloseBrace : lex cs
 lex ( '[' : cs )		= ReservedOp "[" : lex cs
 lex ( ']' : cs )		= ReservedOp "]" : lex cs
 lex ( '(' : cs )		= OpenParen : lex cs
@@ -231,6 +234,7 @@ parserCase = do
 	_ <- token $ testToken $ Reserved "case"
 	val <- parserInfix
 	_ <- token $ testToken $ Reserved "of"
+	_ <- token $ testToken OpenBrace
 	test <- option Nothing $ do
 		pattern <- parserPatternOp
 		_ <- token $ testToken $ ReservedOp "->"
@@ -243,6 +247,7 @@ parserCase = do
 			_ <- token $ testToken $ ReservedOp "->"
 			ret <- parserInfix
 			return $ Just ( pattern, ret )
+	_ <- token $ testToken CloseBrace
 	return $ Case val $ catMaybes $ test : tests
 
 parserComplex :: Parser Value
@@ -266,7 +271,7 @@ parserList = do
 parserParens :: Parser Value
 parserParens = do
 	_ <- token $ testToken OpenParen
-	ret <- option Nil $ parserInfix
+	ret <- option Nil parserInfix
 	_ <- token $ testToken CloseParen
 	return ret
 

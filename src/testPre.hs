@@ -5,5 +5,5 @@ import System.Environment
 
 main :: IO ()
 main = do
-	cnt <- fmap head getArgs >>= readFile
-	putStr $ eraseImport $ addSemi 0 cnt
+--	cnt <- fmap head getArgs >>= readFile
+	interact $ eraseImport . addSemi 0
