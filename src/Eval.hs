@@ -70,6 +70,8 @@ patMatch env val ( ( pat, body ) : rest ) =
 	maybe ( patMatch env val rest )
 		( \lenv -> eval ( lenv ++ env ) body ) $ patMatch1 val pat
 
+-- patMatchEnv :: [ ( Value, Pattern ) ] -> Env
+
 patMatch1 :: Value -> Pattern -> Maybe Env
 patMatch1 ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]

@@ -2,15 +2,14 @@ module MainTools (
 	mainGen
 ) where
 
-import Prelude hiding ( lex )
-import Parser
-import Eval
-import Value
-import Interact
-import Data.List
-import Data.Char
-import Control.Monad
-import Control.Arrow
+import Parser ( toyParse )
+import Eval ( eval, initEnv )
+import Value ( Value( .. ), Pattern( .. ), Env, showValue )
+import Interact ( runLoop )
+import Data.List ( isPrefixOf )
+import Data.Char ( isSpace )
+import Control.Monad ( foldM )
+import Control.Arrow ( first )
 
 mainGen :: [ String ] -> IO ()
 mainGen args = do
