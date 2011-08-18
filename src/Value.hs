@@ -1,10 +1,15 @@
 module Value (
 	Env,
 	Value( .. ),
+	Pattern( .. ),
 	showValue
 ) where
 
 type Env = [ ( String, Value ) ]
+
+data Pattern =
+	PatConst String [ Pattern ] |
+	PatVar { patVar :: String }
 
 data Value =
 	Nil |
@@ -15,9 +20,9 @@ data Value =
 	Function ( Value -> Value ) |
 	IOAction ( IO Value ) |
 	Apply Value Value |
-	Lambda Env [ String ] Value |
-	Letin [ ( String, Value ) ] Value |
-	Let [ ( String, Value ) ] |
+	Lambda Env [ Pattern ] Value |
+	Letin [ ( Pattern, Value ) ] Value |
+	Let [ ( Pattern, Value ) ] |
 	If Value Value Value |
 	Case Value [ ( Value, Value ) ] |
 	Error String

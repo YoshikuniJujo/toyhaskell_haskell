@@ -9,6 +9,7 @@ import Value
 import "monads-tf" Control.Monad.Error
 import "monads-tf" Control.Monad.Error.Class
 import Data.Maybe
+import Control.Arrow
 
 initEnv :: Env
 initEnv = [
@@ -38,18 +39,19 @@ eval env ( Apply f a ) = let
 		Function fun			->
 			let	arg = eval env a in
 				fun arg
-		Lambda lenv [ var ] body	->
+		Lambda lenv [ PatVar var ] body	->
 			let	arg = eval env a
 				nenv = ( var, arg ) : lenv ++ env in
 				eval nenv body
-		Lambda lenv ( var : vars ) body	->
+		Lambda lenv ( PatVar var : vars ) body	->
 			let	arg = eval env a
 				nlenv = ( var, arg ) : lenv in
 				Lambda nlenv vars body
 		_				->
 			Error $ "Not Function: " ++ show f in
 	ret
-eval env ( Letin ps body ) = let
+eval env ( Letin pats body ) = let
+	ps = map ( first patVar ) pats
 	nenv = ps ++ env in
 	eval nenv body
 eval env ( If test thn els ) = case eval env test of

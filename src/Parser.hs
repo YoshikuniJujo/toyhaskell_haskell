@@ -8,8 +8,8 @@ import Data.Char
 import Text.ParserCombinators.Parsec.Pos
 import qualified Text.ParserCombinators.Parsec as P
 import Text.ParserCombinators.Parsec hiding ( Parser, token )
-import Control.Monad
 import Data.Maybe
+import Control.Arrow
 
 addSemi :: Int -> String -> String
 addSemi _ "" = ""
@@ -129,15 +129,15 @@ parserLambda = do
 	vars <- many1 $ token variableToStr
 	_ <- token $ testToken $ ReservedOp "->" -- Rightarrow
 	body <- parserInfix
-	return $ Lambda [ ] vars body
+	return $ Lambda [ ] ( map PatVar vars ) body
 
 parserLetin :: Parser Value
 parserLetin = do
 	pairs <- parserLet
-	option ( Let pairs ) $ do
+	option ( Let $ map ( first PatVar ) pairs ) $ do
 		_ <- token $ testToken $ Reserved "in"
 		body <- parserInfix
-		return $ Letin pairs body
+		return $ Letin ( map ( first PatVar ) pairs ) body
 
 parserLet :: Parser [ ( String, Value ) ]
 parserLet = do
@@ -158,7 +158,8 @@ parserDef = do
 		val <- parserInfix
 		return $ if null args
 			then Just ( var, val )
-			else Just ( var, Lambda [ ] args val )
+			else Just ( var,
+				Lambda [ ] ( map PatVar args ) val )
 	return ret
 
 parserIf :: Parser Value
