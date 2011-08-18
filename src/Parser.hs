@@ -22,7 +22,7 @@ addSemi n ( c : cs ) = c : addSemi n cs
 
 data Token =
 	Variable String | TokConst String | Operator String | OpenParen | CloseParen |
-	Backslash | Rightarrow | Reserved String | ReservedOp String |
+	Backslash | Reserved String | ReservedOp String |
 	TokInteger Integer | TokString String | TokBool Bool | Yet
 	deriving ( Show, Eq )
 
@@ -62,15 +62,16 @@ getTokConst _			= Nothing
 
 reserved, reservedOp :: [ String ]
 reserved = [ "let", "in", "if", "then", "else", "case", "of" ]
-reservedOp = [ "=", ";", "->", "[]" ]
+reservedOp = [ "=", ";", "->", "[]", "[", "]", "," ]
 
 lex :: String -> [ Token ]
 lex "" = [ ]
 lex ( '-' : '-' : cs )	= lex $ dropWhile ( /= '\n' ) cs
+lex ( '[' : cs )	= ReservedOp "[" : lex cs
+lex ( ']' : cs )	= ReservedOp "]" : lex cs
 lex ( '(' : cs )	= OpenParen : lex cs
 lex ( ')' : cs )	= CloseParen : lex cs
 lex ( '\\' : cs )	= Backslash : lex cs
--- lex ( '-' : '>' : cs )	= Rightarrow : lex cs
 lex ( '"' : cs )	= let ( ret, '"' : rest ) = span (/= '"') cs in
 		TokString ret : lex rest
 lex s@( c : cs )
@@ -91,7 +92,7 @@ lex s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		TokInteger ( read ret ) : lex rest
 	where
-	isSym cc = isSymbol cc || cc `elem` "\\-*;:[]"
+	isSym cc = isSymbol cc || cc `elem` "\\-*;:[],"
 	isLow cc = isLower cc || cc `elem` "_"
 	isAlNum cc = isAlphaNum cc || cc `elem` "_"
 lex s			= error $ "lex failed: " ++ s
@@ -146,13 +147,14 @@ parserAtom =
 	parserLetin <|>
 	parserIf <|>
 	parserCase <|>
-	parserComplex
+	parserComplex <|>
+	parserList
 
 parserLambda :: Parser Value
 parserLambda = do
 	_ <- token $ testToken Backslash
 	vars <- many1 parserPattern
-	_ <- token $ testToken $ ReservedOp "->" -- Rightarrow
+	_ <- token $ testToken $ ReservedOp "->"
 	body <- parserInfix
 	return $ Lambda [ ] vars body
 
@@ -219,6 +221,18 @@ parserComplex = do
 	name <- token getTokConst
 	bodys <- many parserAtom
 	return $ Complex name bodys
+
+parserList :: Parser Value
+parserList = do
+	_ <- token $ testToken $ ReservedOp "["
+	ret <- option Empty $ do
+		v <- parserInfix
+		vs <- many $ do
+			_ <- token $ testToken $ ReservedOp ","
+			parserInfix
+		return $ foldr ( \x xs -> Complex ":" [ x, xs ] ) Empty $ v : vs
+	_ <- token $ testToken $ ReservedOp "]"
+	return ret
 
 parserParens :: Parser Value
 parserParens = do
