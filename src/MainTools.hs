@@ -29,7 +29,7 @@ runCmd cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
 		cnt <- readFile fn
-		case eval env $ toyParse ( "let " ++ cnt ) of
+		case eval env $ toyParse ( "let\n" ++ cnt ) of
 			Let ps	-> return $ map ( first patVar ) ps ++ env
 			bad	-> error $ show bad
 	| otherwise			= return env

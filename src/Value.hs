@@ -52,6 +52,7 @@ instance Show Value where
 	show ( Let _ )		= "<let>"
 	show ( If _ _ _ )	= "<if>"
 	show ( Case _ _ )	= "<case>"
+	show v@( Complex ":" [ Char _, _ ] )	= "\"" ++ showStr v ++ "\""
 	show v@( Complex ":" _ ) = "[" ++ showL v ++ "]"
 	show ( Complex n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++ ")"
 	show ( Error msg )	= "Error: " ++ msg
@@ -59,6 +60,10 @@ instance Show Value where
 showL :: Value -> String
 showL ( Complex ":" [ v, Empty ] )	= show v
 showL ( Complex ":" [ v, c ] )	= show v ++ "," ++ showL c
+
+showStr :: Value -> String
+showStr Empty = ""
+showStr ( Complex ":" [ Char c, s ] ) = c : showStr s
 
 showValue :: Value -> IO ()
 showValue ( IOAction act ) = do

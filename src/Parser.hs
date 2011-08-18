@@ -1,5 +1,7 @@
 module Parser (
-	toyParse
+	toyParse,
+	addSemi,
+	eraseImport
 ) where
 
 import Value
@@ -9,6 +11,7 @@ import Text.ParserCombinators.Parsec.Pos
 import qualified Text.ParserCombinators.Parsec as P
 import Text.ParserCombinators.Parsec hiding ( Parser, token )
 import Data.Maybe
+import Data.List
 
 addSemi :: Int -> String -> String
 addSemi _ "" = ""
@@ -19,6 +22,9 @@ addSemi n0 ( '\n' : rest ) = let n1 = length $ takeWhile ( == '\t' ) rest in
 		then ' ' : ';' : '\n' : addSemi n1 rest
 		else '\n' : addSemi n1 rest
 addSemi n ( c : cs ) = c : addSemi n cs
+
+eraseImport :: String -> String
+eraseImport = unlines . filter ( not . ( "import " `isPrefixOf` ) ) . lines
 
 data Token =
 	Variable String | TokConst String | Operator String | OpenParen |
@@ -85,6 +91,7 @@ lex ( ']' : cs )		= ReservedOp "]" : lex cs
 lex ( '(' : cs )		= OpenParen : lex cs
 lex ( ')' : cs )		= CloseParen : lex cs
 lex ( '\\' : cs )		= Backslash : lex cs
+lex ( '\'' : '\\' : 'n' : '\'' : cs ) = TokChar '\n' : lex cs
 lex ( '\'' : c : '\'' : cs )	= TokChar c : lex cs
 lex ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
 		TokString ret : lex rest
@@ -116,7 +123,7 @@ type Parser = GenParser Token ()
 toyParse :: String -> Value
 toyParse input =
 	case parse ( do { ret <- parserInfix; eof; return ret } ) "" $
-		lex $ addSemi 0 input of
+		lex $ eraseImport $ addSemi 0 input of
 		Right v	-> v
 		Left v	-> Error $ show v
 
@@ -190,6 +197,7 @@ parserLetin = do
 parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
 	_ <- token $ testToken $ Reserved "let"
+	optional $ token ( testToken $ ReservedOp ";" ) >> return ()
 	p <- parserDef
 	ps <- many $ do
 		_ <- token $ testToken $ ReservedOp ";"
