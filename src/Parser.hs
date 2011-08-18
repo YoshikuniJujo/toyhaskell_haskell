@@ -21,18 +21,26 @@ addSemi n0 ( '\n' : rest ) = let n1 = length $ takeWhile ( == '\t' ) rest in
 addSemi n ( c : cs ) = c : addSemi n cs
 
 data Token =
-	Variable String | TokConst String | Operator String | OpenParen | CloseParen |
-	Backslash | Reserved String | ReservedOp String |
-	TokInteger Integer | TokString String | TokBool Bool | Yet
+	Variable String | TokConst String | Operator String | OpenParen |
+	CloseParen | Backslash | Reserved String | ReservedOp String |
+	TokInteger Integer | TokChar Char | TokString String | TokBool Bool | Yet
 	deriving ( Show, Eq )
 
 tokenToValue :: Token -> Maybe Value
-tokenToValue ( TokString str )		= Just $ String str
+tokenToValue ( TokChar c )		= Just $ Char c
+tokenToValue ( TokString str )		= Nothing -- Just $ String str
 tokenToValue ( TokInteger i )		= Just $ Integer i
 tokenToValue ( Variable var )		= Just $ Identifier var
 tokenToValue ( TokBool b )		= Just $ Bool b
 tokenToValue ( ReservedOp "[]" )	= Just Empty
 tokenToValue _				= Nothing
+
+tokenToString :: Token -> Maybe Value
+tokenToString ( TokString str )	= Just $ mkStr str
+	where
+	mkStr ""		= Empty
+	mkStr ( c : cs )	= Complex ":" [ Char c ,mkStr cs ]
+tokenToString _			= Nothing
 
 tokenToPattern :: Token -> Maybe Pattern
 tokenToPattern ( Variable var )	= Just $ PatVar var
@@ -66,20 +74,21 @@ reservedOp = [ "=", ";", "->", "[]", "[", "]", "," ]
 
 lex :: String -> [ Token ]
 lex "" = [ ]
-lex ( '-' : '-' : cs )	= lex $ dropWhile ( /= '\n' ) cs
-lex ( '[' : cs )	= ReservedOp "[" : lex cs
-lex ( ']' : cs )	= ReservedOp "]" : lex cs
-lex ( '(' : cs )	= OpenParen : lex cs
-lex ( ')' : cs )	= CloseParen : lex cs
-lex ( '\\' : cs )	= Backslash : lex cs
-lex ( '"' : cs )	= let ( ret, '"' : rest ) = span (/= '"') cs in
+lex ( '-' : '-' : cs )		= lex $ dropWhile ( /= '\n' ) cs
+lex ( '[' : cs )		= ReservedOp "[" : lex cs
+lex ( ']' : cs )		= ReservedOp "]" : lex cs
+lex ( '(' : cs )		= OpenParen : lex cs
+lex ( ')' : cs )		= CloseParen : lex cs
+lex ( '\\' : cs )		= Backslash : lex cs
+lex ( '\'' : c : '\'' : cs )	= TokChar c : lex cs
+lex ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
 		TokString ret : lex rest
 lex s@( c : cs )
-	| isSpace c	= lex cs
-	| isLow c	= let ( ret, rest ) = span isAlNum s in
+	| isSpace c		= lex cs
+	| isLow c		= let ( ret, rest ) = span isAlNum s in
 		( if ret `elem` reserved then Reserved else Variable ) ret :
 			lex rest
-	| isUpper c	= let
+	| isUpper c		= let
 		( ret, rest ) = span isAlphaNum s
 		tok = case ret of
 			"True"	-> TokBool True
@@ -141,6 +150,7 @@ parser' = do	a <- parserAtom
 
 parserAtom :: Parser Value
 parserAtom =
+	token tokenToString <|>
 	token tokenToValue <|>
 	parserLambda <|>
 	parserParens <|>

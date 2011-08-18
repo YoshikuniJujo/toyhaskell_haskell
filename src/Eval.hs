@@ -17,7 +17,7 @@ initEnv = [
 	( "-", mkBinIntFunction (-) ),
 	( "*", mkBinIntFunction (*) ),
 	( "^", mkBinIntFunction (^) ),
-	( "putStrLn", Function putStrLnFun ),
+	( "putChar", Function putCharFun ),
 	( "==", mkIntCompFunction (==) ),
 	( ":", makeListFun )
  ]
@@ -101,9 +101,14 @@ mkIntCompFunction p = Function fun
 		Function funN
 	fun _ = Error "bad type"
 
+putCharFun :: Value -> Value
+putCharFun ( Char c ) = IOAction $ putChar c >> return Nil
+putCharFun v = Error $ "putChar :: String -> IO (): " ++ show v
+{-
 putStrLnFun :: Value -> Value
 putStrLnFun ( String str ) = IOAction $ putStrLn str >> return Nil
 putStrLnFun v = Error $ "putStrLn :: String -> IO (): " ++ show v
+-}
 
 makeListFun :: Value
 makeListFun = Function fun

@@ -18,7 +18,7 @@ data Value =
 	Nil |
 	Empty |
 	Integer Integer |
-	String String |
+	Char Char |
 	Bool Bool |
 	Complex String [ Value ] |
 	Identifier String |
@@ -40,7 +40,7 @@ instance Show Value where
 	show Nil = "()"
 	show Empty = "[]"
 	show ( Integer n )	= show n
-	show ( String s )	= show s
+	show ( Char c )		= show c
 	show ( Bool b )		= show b
 	show ( Identifier i )	= i
 	show ( Function _ )	= "<function>"
@@ -55,6 +55,7 @@ instance Show Value where
 	show ( Complex n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++ ")"
 	show ( Error msg )	= "Error: " ++ msg
 
+showL :: Value -> String
 showL ( Complex ":" [ v, Empty ] )	= show v
 showL ( Complex ":" [ v, c ] )	= show v ++ "," ++ showL c
 
