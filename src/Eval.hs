@@ -25,19 +25,13 @@ eval env ( Letin pats body )	= eval ( setPatsToEnv pats env ) body
 eval env ( If test thn els )	= case eval env test of
 	Complex "True"	[ ]	-> eval env thn
 	Complex "False" [ ]	-> eval env els
-	_		-> Error $ "Not Bool: " ++ show test
+	nb			-> notBoolError nb
 eval env ( Case val bodys )	= patMatch env ( eval env val ) bodys
 eval _ v			= v
 
-noVarError :: String -> Value
-noVarError var = Error $ "Not in scope: `" ++ var ++ "'"
-
-notFunctionError :: Value -> Value
-notFunctionError nf = Error $ "Not Function " ++ show nf
-
 patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
-patMatch _ _ [ ]		= Error "Non-exhaustive patterns in case"
-patMatch env val ( ( pat, body ) : rest ) =
+patMatch _ _ [ ]				= nonExhaustiveError
+patMatch env val ( ( pat, body ) : rest )	=
 	maybe ( patMatch env val rest )
 		( \lenv -> eval ( lenv `addEnvs` env ) body ) $ patMatch1 val pat
 
@@ -53,6 +47,18 @@ patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
 	| otherwise		= Nothing
 patMatch1 Empty PatEmpty	= Just emptyEnv -- [ ]
 patMatch1 _ _			= Nothing
+
+noVarError :: String -> Value
+noVarError var = Error $ "Not in scope: `" ++ var ++ "'"
+
+notFunctionError :: Value -> Value
+notFunctionError nf = Error $ "Not Function: " ++ show nf
+
+notBoolError :: Value -> Value
+notBoolError nb = Error $ "Not Bool: " ++ show nb
+
+nonExhaustiveError :: Value
+nonExhaustiveError = Error "Non-exhaustive patterns in case"
 
 --------------------------------------------------------------------------------
 

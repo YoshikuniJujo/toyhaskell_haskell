@@ -33,3 +33,5 @@ type Env = [ ( [ String ], Pattern, Value ) ] とするべきかもしれない�
 
 eval の Apply まで refactoring した。
 次は eval の Letin から refactoring すること。
+
+Env の patMatch1 を Value の patMatch1 を使って定義するようにしよう。
