@@ -4,7 +4,7 @@ module Eval (
 ) where
 
 import Value ( Value( .. ), Pattern( .. ),
-	Env, emptyEnv, addEnvs, setPatToEnv, setToEnv, getFromEnv )
+	Env, emptyEnv, addEnvs, setPatToEnv, setPatsToEnv, setToEnv, getFromEnv )
 
 import Control.Monad ( liftM, zipWithM )
 import Data.Maybe ( fromMaybe )
@@ -12,24 +12,22 @@ import Data.Maybe ( fromMaybe )
 --------------------------------------------------------------------------------
 
 eval :: Env -> Value -> Value
-eval env ( Identifier i ) =
+eval env ( Identifier i )	=
 	eval env $ fromMaybe ( noVarError i ) $ getFromEnv i env
-eval env ( Apply f a ) = case eval env f of
+eval env ( Apply f a )		= case eval env f of
 	Function fun			-> fun $ eval env a
 	Lambda lenv [ pat ] body	->
 		eval ( setPatToEnv pat ( eval env a ) lenv `addEnvs` env ) body
 	Lambda lenv ( pat : pats ) body	->
 		Lambda ( setPatToEnv pat ( eval env a ) lenv ) pats body
 	_				-> notFunctionError f
-eval env ( Letin pats body ) = let
-	nenv = foldr ( uncurry setPatToEnv ) env pats in
-	eval nenv body
-eval env ( If test thn els ) = case eval env test of
+eval env ( Letin pats body )	= eval ( setPatsToEnv pats env ) body
+eval env ( If test thn els )	= case eval env test of
 	Bool True	-> eval env thn
 	Bool False	-> eval env els
 	_		-> Error $ "Not Bool: " ++ show test
-eval env ( Case val bodys ) = patMatch env ( eval env val ) bodys
-eval _ v = v
+eval env ( Case val bodys )	= patMatch env ( eval env val ) bodys
+eval _ v			= v
 
 noVarError :: String -> Value
 noVarError var = Error $ "Not in scope: `" ++ var ++ "'"

@@ -104,7 +104,8 @@ instance Show Value where
 	show ( If _ _ _ )	= "<if>"
 	show ( Case _ _ )	= "<case>"
 	show v@( Complex ":" [ Char _, _ ] )	= "\"" ++ showStr v ++ "\""
-	show v@( Complex ":" _ ) = "[" ++ showL v ++ "]"
+	show v@( Complex ":" _ )		= "[" ++ showL v ++ "]"
+	show ( Complex n [ ] )	= n
 	show ( Complex n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++ ")"
 	show ( Error msg )	= "Error: " ++ msg
 
