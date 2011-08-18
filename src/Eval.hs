@@ -19,7 +19,9 @@ initEnv = [
 	( "^", mkBinIntFunction (^) ),
 	( "putChar", Function putCharFun ),
 	( "==", mkIntCompFunction (==) ),
-	( ":", makeListFun )
+	( ":", makeListFun ),
+	( ">>", concatMonadFun ),
+	( "return", returnFun )
  ]
 
 data MyError = MyError String
@@ -105,14 +107,21 @@ mkIntCompFunction p = Function fun
 putCharFun :: Value -> Value
 putCharFun ( Char c ) = IOAction $ putChar c >> return Nil
 putCharFun v = Error $ "putChar :: String -> IO (): " ++ show v
-{-
-putStrLnFun :: Value -> Value
-putStrLnFun ( String str ) = IOAction $ putStrLn str >> return Nil
-putStrLnFun v = Error $ "putStrLn :: String -> IO (): " ++ show v
--}
 
 makeListFun :: Value
 makeListFun = Function fun
 	where
 	fun v = let funV lst = Complex ":" [ v, lst ] in
 		Function funV
+
+concatMonadFun :: Value
+concatMonadFun = Function fun
+	where
+	fun ( IOAction act1 ) =
+		let	funA ( IOAction act2 ) = IOAction $ act1 >> act2 in
+			Function funA
+
+returnFun :: Value
+returnFun = Function fun
+	where
+	fun v = IOAction $ return v

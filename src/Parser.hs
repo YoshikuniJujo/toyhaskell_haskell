@@ -28,7 +28,7 @@ data Token =
 
 tokenToValue :: Token -> Maybe Value
 tokenToValue ( TokChar c )		= Just $ Char c
-tokenToValue ( TokString str )		= Nothing -- Just $ String str
+tokenToValue ( TokString str )		= Nothing
 tokenToValue ( TokInteger i )		= Just $ Integer i
 tokenToValue ( Variable var )		= Just $ Identifier var
 tokenToValue ( TokBool b )		= Just $ Bool b
@@ -38,9 +38,10 @@ tokenToValue _				= Nothing
 tokenToString :: Token -> Maybe Value
 tokenToString ( TokString str )	= Just $ mkStr str
 	where
-	mkStr ""		= Empty
-	mkStr ( c : cs )	= Complex ":" [ Char c ,mkStr cs ]
-tokenToString _			= Nothing
+	mkStr ""			= Empty
+	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
+	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
+tokenToString _				= Nothing
 
 tokenToPattern :: Token -> Maybe Pattern
 tokenToPattern ( Variable var )		= Just $ PatVar var
@@ -66,7 +67,7 @@ operatorToString  _			= Nothing
 
 opLs, opRs :: [ String ]
 opLs = [ "+", "*", "-", "==" ]
-opRs = [ ":" ]
+opRs = [ ":", ">>" ]
 
 getTokConst :: Token -> Maybe String
 getTokConst ( TokConst name )	= Just name
@@ -164,6 +165,12 @@ parserAtom =
 	parserComplex <|>
 	parserList
 
+parserNil :: Parser Value
+parserNil = do
+	_ <- token $ testToken OpenParen
+	_ <- token $ testToken CloseParen
+	return Nil
+
 parserLambda :: Parser Value
 parserLambda = do
 	_ <- token $ testToken Backslash
@@ -251,7 +258,7 @@ parserList = do
 parserParens :: Parser Value
 parserParens = do
 	_ <- token $ testToken OpenParen
-	ret <- parserInfix
+	ret <- option Nil $ parserInfix
 	_ <- token $ testToken CloseParen
 	return ret
 
