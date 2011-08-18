@@ -2,7 +2,8 @@ module Value (
 	Env,
 	Value( .. ),
 	Pattern( .. ),
-	showValue
+	showValue,
+	isInteger
 ) where
 
 type Env = [ ( String, Value ) ]
@@ -11,6 +12,7 @@ data Pattern =
 	PatConst String [ Pattern ] |
 	PatVar { patVar :: String } |
 	PatInteger Integer
+	deriving Eq
 
 data Value =
 	Nil |
@@ -25,8 +27,12 @@ data Value =
 	Letin [ ( Pattern, Value ) ] Value |
 	Let [ ( Pattern, Value ) ] |
 	If Value Value Value |
-	Case Value [ ( Value, Value ) ] |
+	Case Value [ ( Pattern, Value ) ] |
 	Error String
+
+isInteger :: Value -> Bool
+isInteger ( Integer _ )	= True
+isInteger _		= False
 
 instance Show Value where
 	show Nil = "()"

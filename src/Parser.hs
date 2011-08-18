@@ -176,14 +176,14 @@ parserCase = do
 	val <- parserInfix
 	_ <- token $ testToken $ Reserved "of"
 	test <- option Nothing $ do
-		pattern <- parserInfix
+		pattern <- parserPattern
 		_ <- token $ testToken $ ReservedOp "->"
 		ret <- parserInfix
 		return $ Just ( pattern, ret )
 	tests <- many $ do
 		_ <- token $ testToken $ ReservedOp ";"
 		option Nothing $ do
-			pattern <- parserInfix
+			pattern <- parserPattern
 			_ <- token $ testToken $ ReservedOp "->"
 			ret <- parserInfix
 			return $ Just ( pattern, ret )

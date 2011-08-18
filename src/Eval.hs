@@ -58,8 +58,21 @@ eval env ( If test thn els ) = case eval env test of
 	Bool True	-> eval env thn
 	Bool False	-> eval env els
 	_		-> Error $ "Not Bool: " ++ show test
-		
+eval env ( Case val bodys ) = patMatch env ( eval env val ) bodys
 eval _ v = v
+
+patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
+patMatch _ _ [ ]		= Error "Non-exhaustive patterns in case"
+patMatch env val ( ( pat, body ) : rest ) =
+	maybe ( patMatch env val rest )
+		( \lenv -> eval ( lenv ++ env ) body ) $ patMatch1 val pat
+
+patMatch1 :: Value -> Pattern -> Maybe Env
+patMatch1 ( Integer i1 ) ( PatInteger i0 )
+	| i1 == i0	= Just [ ]
+	| otherwise	= Nothing
+patMatch1 val ( PatVar var )			= Just [ ( var, val ) ]
+-- patMatch1 
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
 mkBinIntFunction op = Function fun
