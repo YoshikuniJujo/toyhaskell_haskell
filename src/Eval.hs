@@ -9,7 +9,6 @@ import Value
 import "monads-tf" Control.Monad.Error
 import "monads-tf" Control.Monad.Error.Class
 import Data.Maybe
-import Control.Arrow
 
 initEnv :: Env
 initEnv = foldr ( uncurry setToEnv ) emptyEnv [
@@ -49,7 +48,7 @@ eval env ( Apply f a ) = let
 				eval nenv body
 		Lambda lenv ( PatVar var : vars ) body	->
 			let	arg = eval env a
-				nlenv = setToEnv var arg $ lenv in
+				nlenv = setToEnv var arg lenv in
 				Lambda nlenv vars body
 		_				->
 			Error $ "Not Function: " ++ show f in
@@ -123,8 +122,10 @@ concatMonadFun :: Value
 concatMonadFun = Function fun
 	where
 	fun ( IOAction act1 ) =
-		let	funA ( IOAction act2 ) = IOAction $ act1 >> act2 in
+		let	funA ( IOAction act2 ) = IOAction $ act1 >> act2
+			funA v = Error $ "not IOAction: " ++ show v in
 			Function funA
+	fun v = Error $ "not IOAction: " ++ show v
 
 returnFun :: Value
 returnFun = Function fun

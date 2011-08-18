@@ -15,6 +15,8 @@ import Data.Maybe
 import Control.Monad
 
 data Env = Env [ ( [ String ], Pattern, Value ) ]
+
+emptyEnv :: Env
 emptyEnv = Env [ ]
 
 setToEnv :: String -> Value -> Env -> Env
@@ -42,11 +44,10 @@ patMatch1 :: Value -> Pattern -> Maybe [ ( String, Value ) ]
 patMatch1 ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
 	| otherwise	= Nothing
-patMatch1 val ( PatVar var )	= Just $ [ ( var, val ) ]
+patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
 patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
 	| name1 == name0	=
-		liftM ( foldr (++) [ ] ) $
-			zipWithM patMatch1 bodys pats
+		liftM concat $ zipWithM patMatch1 bodys pats
 	| otherwise		= Nothing
 patMatch1 Empty PatEmpty	= Just [ ]
 patMatch1 _ _			= Nothing
@@ -106,10 +107,12 @@ instance Show Value where
 showL :: Value -> String
 showL ( Complex ":" [ v, Empty ] )	= show v
 showL ( Complex ":" [ v, c ] )	= show v ++ "," ++ showL c
+showL _ = "Error: bad List"
 
 showStr :: Value -> String
 showStr Empty = ""
 showStr ( Complex ":" [ Char c, s ] ) = c : showStr s
+showStr _ = "Error: bad String"
 
 showValue :: Value -> IO ()
 showValue ( IOAction act ) = do

@@ -35,7 +35,6 @@ data Token =
 
 tokenToValue :: Token -> Maybe Value
 tokenToValue ( TokChar c )		= Just $ Char c
-tokenToValue ( TokString str )		= Nothing
 tokenToValue ( TokInteger i )		= Just $ Integer i
 tokenToValue ( Variable var )		= Just $ Identifier var
 tokenToValue ( TokBool b )		= Just $ Bool b
@@ -58,9 +57,7 @@ tokenToPattern _			= Nothing
 testToken :: Token -> Token -> Maybe Token
 testToken tok0 tok1 = if tok0 == tok1 then Just tok0 else Nothing
 
-operatorToValue, operatorLToValue :: Token -> Maybe Value
-operatorToValue ( Operator op )	= Just $ Identifier op
-operatorToValue _		= Nothing
+operatorLToValue, operatorRToValue :: Token -> Maybe Value
 operatorLToValue ( Operator op )
 	| op `elem` opLs	= Just $ Identifier op
 operatorLToValue _		= Nothing
@@ -174,12 +171,6 @@ parserAtom =
 	parserCase <|>
 	parserComplex <|>
 	parserList
-
-parserNil :: Parser Value
-parserNil = do
-	_ <- token $ testToken OpenParen
-	_ <- token $ testToken CloseParen
-	return Nil
 
 parserLambda :: Parser Value
 parserLambda = do
