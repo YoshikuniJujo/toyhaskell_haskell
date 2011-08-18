@@ -2,40 +2,48 @@ module MainTools (
 	mainGen
 ) where
 
+import Interact ( runLoop )
+import Value ( Value( .. ), showValue, Env, setPatsToEnv )
 import Parser ( toyParse )
 import Eval ( eval, initEnv )
-import Value ( Value( .. ), Env, showValue, addEnvs, setPatToEnv,
-	emptyEnv )
-import Interact ( runLoop )
-import Data.List ( isPrefixOf )
-import Data.Char ( isSpace )
+
+import System.Console.GetOpt (
+	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
 import Control.Monad ( foldM )
+import Data.List ( isPrefixOf )
+import Data.Maybe ( listToMaybe )
+import Data.Char ( isSpace )
 
 mainGen :: [ String ] -> IO ()
 mainGen args = do
-	let ( expr, fns ) = getExpArgs args
-	env0 <-  foldM ( flip ( runCmd .  ( "load " ++ ) ) ) initEnv fns
-	case expr of
-		Nothing -> runLoop "testLexer" env0 $ \env input -> case input of
-			':' : cmd	-> runCmd cmd env
-			_		-> case eval env $ toyParse input of
-				Let ps	-> return $ foldr ( uncurry setPatToEnv )
-					emptyEnv ps `addEnvs` env
-				ret	-> showValue ret >> return env
-		Just e -> showValue $ eval env0 $ toyParse e
+	let ( expr, fns, _ ) = getOpt RequireOrder options args
+	e0 <- foldM loadFile initEnv fns
+	flip ( flip . flip maybe ) ( listToMaybe expr )
+		( showValue . eval e0 . toyParse ) $
+		runLoop "toyhaskell" e0 $ \e inp -> case inp of
+			':' : cmd	-> runCmd cmd e
+			_		-> case eval e $ toyParse inp of
+				Let ps	-> return $ setPatsToEnv ps e
+				ret	-> showValue ret >> return e
+
+options :: [ OptDescr String ]
+options = [
+	Option [ 'e' ] [ ] ( ReqArg id "haskell expression" ) "run expression"
+ ]
 
 runCmd :: String -> Env -> IO Env
+runCmd "quit" env			= return env
 runCmd cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
-		cnt <- readFile fn
-		case eval env $ toyParse ( "let\n" ++ cnt ) of
-			Let ps	-> return $
-				foldr ( uncurry setPatToEnv ) emptyEnv ps
-					`addEnvs` env
-			bad	-> error $ show bad
-	| otherwise			= return env
+		loadFile env fn
+	| otherwise			= do
+		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
+		return env
 
-getExpArgs :: [ String ] -> ( Maybe String, [ String ] )
-getExpArgs ( "-e" : expr : rest ) = ( Just expr, rest )
-getExpArgs rest = ( Nothing, rest )
+loadFile :: Env -> FilePath -> IO Env
+loadFile env fn = do
+	cnt <- readFile fn
+	case eval env $ toyParse ( "let\n" ++ cnt ) of
+		Let ps	-> return $ setPatsToEnv ps env
+		bad	-> error $ show bad

@@ -3,6 +3,7 @@ module Value (
 	emptyEnv,
 	setToEnv,
 	setPatToEnv,
+	setPatsToEnv,
 	addEnvs,
 	getFromEnv,
 	Value( .. ),
@@ -26,6 +27,9 @@ setToEnv var val ( Env ps ) =
 setPatToEnv :: Pattern -> Value -> Env -> Env
 setPatToEnv pat val ( Env env ) = Env $ ( vars, pat, val ) : env
 	where vars = getPatVars pat
+
+setPatsToEnv :: [ ( Pattern, Value ) ] -> Env -> Env
+setPatsToEnv pvs env = foldr ( uncurry setPatToEnv ) env pvs
 
 getPatVars :: Pattern -> [ String ]
 getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
