@@ -33,6 +33,7 @@ options = [
 
 runCmd :: String -> Env -> IO Env
 runCmd "quit" env			= return env
+runCmd "q" env				= return env
 runCmd cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd

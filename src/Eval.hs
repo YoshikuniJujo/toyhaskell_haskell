@@ -1,61 +1,28 @@
-{-# Language PackageImports #-}
-
 module Eval (
 	eval,
 	initEnv
 ) where
 
-import Value
-import "monads-tf" Control.Monad.Error
-import "monads-tf" Control.Monad.Error.Class
-import Data.Maybe
+import Value ( Value( .. ), Pattern( .. ),
+	Env, emptyEnv, addEnvs, setPatToEnv, setToEnv, getFromEnv )
 
-initEnv :: Env
-initEnv = foldr ( uncurry setToEnv ) emptyEnv [
-	( "+", mkBinIntFunction (+) ),
-	( "-", mkBinIntFunction (-) ),
-	( "*", mkBinIntFunction (*) ),
-	( "^", mkBinIntFunction (^) ),
-	( "putChar", Function putCharFun ),
-	( "==", mkIntCompFunction (==) ),
-	( ":", makeListFun ),
-	( ">>", concatMonadFun ),
-	( "return", returnFun )
- ]
+import Control.Monad ( liftM, zipWithM )
+import Data.Maybe ( fromMaybe )
 
-data MyError = MyError String
-
-instance Show MyError where
-	show ( MyError errMsg ) = "Error: " ++ errMsg
-
-instance Error MyError where
-	noMsg = MyError "error occur"
-	strMsg = MyError
+--------------------------------------------------------------------------------
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i ) =
-	eval env $ fromMaybe ( Error $ "Not in scope: `" ++ i ++ "'" ) $
-		getFromEnv i env
-eval env ( Apply f a ) = let
-	mfun = eval env f
-	ret = case mfun of
-		Function fun			->
-			let	arg = eval env a in
-				fun arg
-		Lambda lenv [ PatVar var ] body	->
-			let	arg = eval env a
-				nenv = setToEnv var arg $ lenv `addEnvs` env in
-				eval nenv body
-		Lambda lenv ( PatVar var : vars ) body	->
-			let	arg = eval env a
-				nlenv = setToEnv var arg lenv in
-				Lambda nlenv vars body
-		_				->
-			Error $ "Not Function: " ++ show f in
-	ret
+	eval env $ fromMaybe ( noVarError i ) $ getFromEnv i env
+eval env ( Apply f a ) = case eval env f of
+	Function fun			-> fun $ eval env a
+	Lambda lenv [ pat ] body	->
+		eval ( setPatToEnv pat ( eval env a ) lenv `addEnvs` env ) body
+	Lambda lenv ( pat : pats ) body	->
+		Lambda ( setPatToEnv pat ( eval env a ) lenv ) pats body
+	_				-> notFunctionError f
 eval env ( Letin pats body ) = let
---	ps = foldr ( uncurry setToEnv ) emptyEnv $ map ( first patVar ) pats
-	nenv = foldr ( uncurry setPatToEnv ) env pats in -- ps `addEnvs` env in
+	nenv = foldr ( uncurry setPatToEnv ) env pats in
 	eval nenv body
 eval env ( If test thn els ) = case eval env test of
 	Bool True	-> eval env thn
@@ -64,14 +31,17 @@ eval env ( If test thn els ) = case eval env test of
 eval env ( Case val bodys ) = patMatch env ( eval env val ) bodys
 eval _ v = v
 
+noVarError :: String -> Value
+noVarError var = Error $ "Not in scope: `" ++ var ++ "'"
+
+notFunctionError :: Value -> Value
+notFunctionError nf = Error $ "Not Function " ++ show nf
+
 patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
 patMatch _ _ [ ]		= Error "Non-exhaustive patterns in case"
 patMatch env val ( ( pat, body ) : rest ) =
 	maybe ( patMatch env val rest )
 		( \lenv -> eval ( lenv `addEnvs` env ) body ) $ patMatch1 val pat
-
--- patMatchEnv :: [ ( Pattern, Value ) ] -> [ ( [ String ], Maybe Env ) ]
--- patMatchEnv = sequence . map ( uncurry $ flip patMatch1 )
 
 patMatch1 :: Value -> Pattern -> Maybe Env
 patMatch1 ( Integer i1 ) ( PatInteger i0 )
@@ -85,6 +55,21 @@ patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
 	| otherwise		= Nothing
 patMatch1 Empty PatEmpty	= Just emptyEnv -- [ ]
 patMatch1 _ _			= Nothing
+
+--------------------------------------------------------------------------------
+
+initEnv :: Env
+initEnv = foldr ( uncurry setToEnv ) emptyEnv [
+	( "+", mkBinIntFunction (+) ),
+	( "-", mkBinIntFunction (-) ),
+	( "*", mkBinIntFunction (*) ),
+	( "^", mkBinIntFunction (^) ),
+	( "putChar", Function putCharFun ),
+	( "==", mkIntCompFunction (==) ),
+	( ":", makeListFun ),
+	( ">>", concatMonadFun ),
+	( "return", returnFun )
+ ]
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
 mkBinIntFunction op = Function fun
