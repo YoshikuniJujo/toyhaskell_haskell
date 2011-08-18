@@ -60,6 +60,10 @@ operatorRToValue ( Operator op )
 	| op `elem` opRs	= Just $ Identifier op
 operatorRToValue _		= Nothing
 
+operatorToString :: Token -> Maybe String
+operatorToString ( Operator op )	= Just op
+operatorToString  _			= Nothing
+
 opLs, opRs :: [ String ]
 opLs = [ "+", "*", "-", "==" ]
 opRs = [ ":" ]
@@ -163,7 +167,7 @@ parserAtom =
 parserLambda :: Parser Value
 parserLambda = do
 	_ <- token $ testToken Backslash
-	vars <- many1 parserPattern
+	vars <- many1 parserPatternOp
 	_ <- token $ testToken $ ReservedOp "->"
 	body <- parserInfix
 	return $ Lambda [ ] vars body
@@ -188,8 +192,8 @@ parserLet = do
 parserDef :: Parser ( Maybe ( Pattern, Value ) )
 parserDef =
 	option Nothing $ do
-		var <- parserPattern
-		args <- many parserPattern
+		var <- parserPatternOp
+		args <- many parserPatternOp
 		_ <- token $ testToken $ ReservedOp "="
 		val <- parserInfix
 		return $ if null args
@@ -213,14 +217,14 @@ parserCase = do
 	val <- parserInfix
 	_ <- token $ testToken $ Reserved "of"
 	test <- option Nothing $ do
-		pattern <- parserPattern
+		pattern <- parserPatternOp
 		_ <- token $ testToken $ ReservedOp "->"
 		ret <- parserInfix
 		return $ Just ( pattern, ret )
 	tests <- many $ do
 		_ <- token $ testToken $ ReservedOp ";"
 		option Nothing $ do
-			pattern <- parserPattern
+			pattern <- parserPatternOp
 			_ <- token $ testToken $ ReservedOp "->"
 			ret <- parserInfix
 			return $ Just ( pattern, ret )
@@ -256,6 +260,20 @@ parserPattern = parserPatternVar <|> parserPatternComplex
 
 parserPatternVar :: Parser Pattern
 parserPatternVar = token tokenToPattern
+
+parserPatternOp :: Parser Pattern
+parserPatternOp = do
+	p1 <- parserPattern
+	f <- parserPatternOp'
+	return $ f p1
+
+parserPatternOp' :: Parser ( Pattern -> Pattern )
+parserPatternOp' = do
+		op <- token operatorToString
+		p1 <- parserPattern
+		f <- parserPatternOp'
+		return $ \p -> PatConst op [ p, f p1 ]
+	<|> return id
 
 parserPatternComplex :: Parser Pattern
 parserPatternComplex = do
