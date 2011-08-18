@@ -4,12 +4,12 @@ module MainTools (
 
 import Parser ( toyParse )
 import Eval ( eval, initEnv )
-import Value ( Value( .. ), Pattern( .. ), Env, showValue )
+import Value ( Value( .. ), Env, showValue, addEnvs, setPatToEnv,
+	emptyEnv )
 import Interact ( runLoop )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 import Control.Monad ( foldM )
-import Control.Arrow ( first )
 
 mainGen :: [ String ] -> IO ()
 mainGen args = do
@@ -19,7 +19,8 @@ mainGen args = do
 		Nothing -> runLoop "testLexer" env0 $ \env input -> case input of
 			':' : cmd	-> runCmd cmd env
 			_		-> case eval env $ toyParse input of
-				Let ps	-> return $ map ( first patVar ) ps ++ env
+				Let ps	-> return $ ( foldr ( uncurry setPatToEnv )
+					emptyEnv ps ) `addEnvs` env
 				ret	-> showValue ret >> return env
 		Just e -> showValue $ eval env0 $ toyParse e
 
@@ -29,7 +30,8 @@ runCmd cmd env
 		let fn = dropWhile isSpace $ drop 4 cmd
 		cnt <- readFile fn
 		case eval env $ toyParse ( "let\n" ++ cnt ) of
-			Let ps	-> return $ map ( first patVar ) ps ++ env
+			Let ps	-> return $ ( foldr ( uncurry setPatToEnv ) emptyEnv $
+					ps ) `addEnvs` env
 			bad	-> error $ show bad
 	| otherwise			= return env
 

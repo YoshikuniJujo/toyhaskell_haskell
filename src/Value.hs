@@ -1,12 +1,58 @@
 module Value (
 	Env,
+	emptyEnv,
+	setToEnv,
+	setPatToEnv,
+	addEnvs,
+	getFromEnv,
 	Value( .. ),
 	Pattern( .. ),
 	showValue,
 	isInteger
 ) where
 
-type Env = [ ( String, Value ) ]
+import Data.Maybe
+import Control.Monad
+
+data Env = Env [ ( [ String ], Pattern, Value ) ]
+emptyEnv = Env [ ]
+
+setToEnv :: String -> Value -> Env -> Env
+setToEnv var val ( Env ps ) =
+	Env $ ( [ var ], PatVar var, val ) : ps
+
+setPatToEnv :: Pattern -> Value -> Env -> Env
+setPatToEnv pat val ( Env env ) = Env $ ( vars, pat, val ) : env
+	where vars = getPatVars pat
+
+getPatVars :: Pattern -> [ String ]
+getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
+getPatVars ( PatVar var ) = [ var ]
+getPatVars _ = [ ]
+
+getFromEnv :: String -> Env -> Maybe Value
+getFromEnv var ( Env ps ) = do
+	( _, pat, val ) <- usePat
+	patMatch1 val pat >>= lookup var
+	where
+	one ( x, _, _ ) = x
+	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
+
+patMatch1 :: Value -> Pattern -> Maybe [ ( String, Value ) ]
+patMatch1 ( Integer i1 ) ( PatInteger i0 )
+	| i1 == i0	= Just [ ]
+	| otherwise	= Nothing
+patMatch1 val ( PatVar var )	= Just $ [ ( var, val ) ]
+patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
+	| name1 == name0	=
+		liftM ( foldr (++) [ ] ) $
+			zipWithM patMatch1 bodys pats
+	| otherwise		= Nothing
+patMatch1 Empty PatEmpty	= Just [ ]
+patMatch1 _ _			= Nothing
+
+addEnvs :: Env -> Env -> Env
+addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2
 
 data Pattern =
 	PatConst String [ Pattern ] |

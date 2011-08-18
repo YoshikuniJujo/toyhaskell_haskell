@@ -24,3 +24,9 @@ evaluate によってコードから値を導いてみるか。
 だいぶコードがぐちゃぐちゃになってきたのでコード整理をする。
 しかし、そのなかで、Env を [ ( String, Value ) ] ではなく、
 [ ( Pattern, Value ) ] として持つべきかもしれないという問題が出てくる。
+
+type Env = [ ( [ String ], Pattern, Value ) ] とするべきかもしれない。
+これだけ複雑だと、data Env = Env [ ( [ String ], Pattern, Value ) ]
+としたほうが良いだろう。
+その前段階として、data Env = Env [ ( String, Value ) ] として、
+明示的な interface を定義するべきだろう。

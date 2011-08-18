@@ -187,7 +187,7 @@ parserLambda = do
 	vars <- many1 parserPatternOp
 	_ <- token $ testToken $ ReservedOp "->"
 	body <- parserInfix
-	return $ Lambda [ ] vars body
+	return $ Lambda emptyEnv vars body
 
 parserLetin :: Parser Value
 parserLetin = do
@@ -217,7 +217,7 @@ parserDef =
 		return $ if null args
 			then Just ( var, val )
 			else Just ( var,
-				Lambda [ ] args val )
+				Lambda emptyEnv args val )
 
 parserIf :: Parser Value
 parserIf = do

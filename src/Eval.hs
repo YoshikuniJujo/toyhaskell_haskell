@@ -12,7 +12,7 @@ import Data.Maybe
 import Control.Arrow
 
 initEnv :: Env
-initEnv = [
+initEnv = foldr ( uncurry setToEnv ) emptyEnv [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
 	( "*", mkBinIntFunction (*) ),
@@ -35,7 +35,8 @@ instance Error MyError where
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i ) =
-	eval env $ fromMaybe ( Error $ "Not in scope: `" ++ i ++ "'" ) $ lookup i env
+	eval env $ fromMaybe ( Error $ "Not in scope: `" ++ i ++ "'" ) $
+		getFromEnv i env
 eval env ( Apply f a ) = let
 	mfun = eval env f
 	ret = case mfun of
@@ -44,18 +45,18 @@ eval env ( Apply f a ) = let
 				fun arg
 		Lambda lenv [ PatVar var ] body	->
 			let	arg = eval env a
-				nenv = ( var, arg ) : lenv ++ env in
+				nenv = setToEnv var arg $ lenv `addEnvs` env in
 				eval nenv body
 		Lambda lenv ( PatVar var : vars ) body	->
 			let	arg = eval env a
-				nlenv = ( var, arg ) : lenv in
+				nlenv = setToEnv var arg $ lenv in
 				Lambda nlenv vars body
 		_				->
 			Error $ "Not Function: " ++ show f in
 	ret
 eval env ( Letin pats body ) = let
-	ps = map ( first patVar ) pats
-	nenv = ps ++ env in
+--	ps = foldr ( uncurry setToEnv ) emptyEnv $ map ( first patVar ) pats
+	nenv = foldr ( uncurry setPatToEnv ) env pats in -- ps `addEnvs` env in
 	eval nenv body
 eval env ( If test thn els ) = case eval env test of
 	Bool True	-> eval env thn
@@ -68,20 +69,22 @@ patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
 patMatch _ _ [ ]		= Error "Non-exhaustive patterns in case"
 patMatch env val ( ( pat, body ) : rest ) =
 	maybe ( patMatch env val rest )
-		( \lenv -> eval ( lenv ++ env ) body ) $ patMatch1 val pat
+		( \lenv -> eval ( lenv `addEnvs` env ) body ) $ patMatch1 val pat
 
--- patMatchEnv :: [ ( Value, Pattern ) ] -> Env
+-- patMatchEnv :: [ ( Pattern, Value ) ] -> [ ( [ String ], Maybe Env ) ]
+-- patMatchEnv = sequence . map ( uncurry $ flip patMatch1 )
 
 patMatch1 :: Value -> Pattern -> Maybe Env
 patMatch1 ( Integer i1 ) ( PatInteger i0 )
-	| i1 == i0	= Just [ ]
+	| i1 == i0	= Just emptyEnv
 	| otherwise	= Nothing
-patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
+patMatch1 val ( PatVar var )	= Just $ setToEnv var val emptyEnv -- Just [ ( var, val ) ]
 patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
 	| name1 == name0	=
-		liftM concat $ zipWithM patMatch1 bodys pats
+		liftM ( foldr addEnvs emptyEnv ) $
+			zipWithM patMatch1 bodys pats
 	| otherwise		= Nothing
-patMatch1 Empty PatEmpty	= Just [ ]
+patMatch1 Empty PatEmpty	= Just emptyEnv -- [ ]
 patMatch1 _ _			= Nothing
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
