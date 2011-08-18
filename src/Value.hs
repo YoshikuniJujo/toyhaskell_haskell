@@ -9,7 +9,8 @@ type Env = [ ( String, Value ) ]
 
 data Pattern =
 	PatConst String [ Pattern ] |
-	PatVar { patVar :: String }
+	PatVar { patVar :: String } |
+	PatInteger Integer
 
 data Value =
 	Nil |

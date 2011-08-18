@@ -9,7 +9,6 @@ import Text.ParserCombinators.Parsec.Pos
 import qualified Text.ParserCombinators.Parsec as P
 import Text.ParserCombinators.Parsec hiding ( Parser, token )
 import Data.Maybe
-import Control.Arrow
 
 addSemi :: Int -> String -> String
 addSemi _ "" = ""
@@ -34,12 +33,13 @@ tokenToValue ( Variable var )	= Just $ Identifier var
 tokenToValue ( TokBool b )	= Just $ Bool b
 tokenToValue _			= Nothing
 
+tokenToPattern :: Token -> Maybe Pattern
+tokenToPattern ( Variable var )	= Just $ PatVar var
+tokenToPattern ( TokInteger i ) = Just $ PatInteger i
+tokenToPattern _		= Nothing
+
 testToken :: Token -> Token -> Maybe Token
 testToken tok0 tok1 = if tok0 == tok1 then Just tok0 else Nothing
-
-variableToStr :: Token -> Maybe String
-variableToStr ( Variable name )	= Just name
-variableToStr _			= Nothing
 
 operatorToValue :: Token -> Maybe Value
 operatorToValue ( Operator op )	= Just $ Identifier op
@@ -126,41 +126,39 @@ parserAtom =
 parserLambda :: Parser Value
 parserLambda = do
 	_ <- token $ testToken Backslash
-	vars <- many1 $ token variableToStr
+	vars <- many1 parserPattern
 	_ <- token $ testToken $ ReservedOp "->" -- Rightarrow
 	body <- parserInfix
-	return $ Lambda [ ] ( map PatVar vars ) body
+	return $ Lambda [ ] vars body
 
 parserLetin :: Parser Value
 parserLetin = do
 	pairs <- parserLet
-	option ( Let $ map ( first PatVar ) pairs ) $ do
+	option ( Let pairs ) $ do
 		_ <- token $ testToken $ Reserved "in"
 		body <- parserInfix
-		return $ Letin ( map ( first PatVar ) pairs ) body
+		return $ Letin pairs body
 
-parserLet :: Parser [ ( String, Value ) ]
+parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
 	_ <- token $ testToken $ Reserved "let"
 	p <- parserDef
 	ps <- many $ do
 		_ <- token $ testToken $ ReservedOp ";"
-		ret <- parserDef
-		return ret
+		parserDef
 	return $ catMaybes $ p : ps
 
-parserDef :: Parser ( Maybe ( String, Value ) )
-parserDef = do
-	ret <- option Nothing $ do
-		var <- token variableToStr
-		args <- many $ token variableToStr
+parserDef :: Parser ( Maybe ( Pattern, Value ) )
+parserDef =
+	option Nothing $ do
+		var <- parserPattern
+		args <- many parserPattern
 		_ <- token $ testToken $ ReservedOp "="
 		val <- parserInfix
 		return $ if null args
 			then Just ( var, val )
 			else Just ( var,
-				Lambda [ ] ( map PatVar args ) val )
-	return ret
+				Lambda [ ] args val )
 
 parserIf :: Parser Value
 parserIf = do
@@ -177,13 +175,19 @@ parserCase = do
 	_ <- token $ testToken $ Reserved "case"
 	val <- parserInfix
 	_ <- token $ testToken $ Reserved "of"
-	tests <- many1 $ do
+	test <- option Nothing $ do
 		pattern <- parserInfix
 		_ <- token $ testToken $ ReservedOp "->"
 		ret <- parserInfix
+		return $ Just ( pattern, ret )
+	tests <- many $ do
 		_ <- token $ testToken $ ReservedOp ";"
-		return ( pattern, ret )
-	return $ Case val tests
+		option Nothing $ do
+			pattern <- parserInfix
+			_ <- token $ testToken $ ReservedOp "->"
+			ret <- parserInfix
+			return $ Just ( pattern, ret )
+	return $ Case val $ catMaybes $ test : tests
 
 parserParens :: Parser Value
 parserParens = do
@@ -191,6 +195,13 @@ parserParens = do
 	ret <- parserInfix
 	_ <- token $ testToken CloseParen
 	return ret
+
+parserPattern :: Parser Pattern
+parserPattern = parserPatternVar
+
+parserPatternVar :: Parser Pattern
+parserPatternVar = token tokenToPattern
+	
 
 token :: ( Token -> Maybe a ) -> Parser a
 token test = P.token showToken posToken testTok
