@@ -16,9 +16,11 @@ data Pattern =
 
 data Value =
 	Nil |
+	Empty |
 	Integer Integer |
 	String String |
 	Bool Bool |
+	Complex String [ Value ] |
 	Identifier String |
 	Function ( Value -> Value ) |
 	IOAction ( IO Value ) |
@@ -36,6 +38,7 @@ isInteger _		= False
 
 instance Show Value where
 	show Nil = "()"
+	show Empty = "[]"
 	show ( Integer n )	= show n
 	show ( String s )	= show s
 	show ( Bool b )		= show b
@@ -48,6 +51,7 @@ instance Show Value where
 	show ( Let _ )		= "<let>"
 	show ( If _ _ _ )	= "<if>"
 	show ( Case _ _ )	= "<case>"
+	show ( Complex n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++ ")"
 	show ( Error msg )	= "Error: " ++ msg
 
 showValue :: Value -> IO ()

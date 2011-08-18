@@ -18,7 +18,8 @@ initEnv = [
 	( "*", mkBinIntFunction (*) ),
 	( "^", mkBinIntFunction (^) ),
 	( "putStrLn", Function putStrLnFun ),
-	( "==", mkIntCompFunction (==) )
+	( "==", mkIntCompFunction (==) ),
+	( ":", makeListFun )
  ]
 
 data MyError = MyError String
@@ -71,8 +72,12 @@ patMatch1 :: Value -> Pattern -> Maybe Env
 patMatch1 ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
 	| otherwise	= Nothing
-patMatch1 val ( PatVar var )			= Just [ ( var, val ) ]
--- patMatch1 
+patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
+patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
+	| name1 == name0	=
+		liftM concat $ sequence $ zipWith patMatch1 bodys pats
+	| otherwise		= Nothing
+patMatch1 _ _			= Nothing
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
 mkBinIntFunction op = Function fun
@@ -99,3 +104,9 @@ mkIntCompFunction p = Function fun
 putStrLnFun :: Value -> Value
 putStrLnFun ( String str ) = IOAction $ putStrLn str >> return Nil
 putStrLnFun v = Error $ "putStrLn :: String -> IO (): " ++ show v
+
+makeListFun :: Value
+makeListFun = Function fun
+	where
+	fun v = let funV lst = Complex ":" [ v, lst ] in
+		Function funV

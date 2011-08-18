@@ -16,8 +16,8 @@ addSemi n ( c1 : 'i' : 'n' : c2 : rest )
 	| isSpace c1 && isSpace c2 = ' ' : ';' : 'i' : 'n' : ' ' : addSemi n rest
 addSemi n0 ( '\n' : rest ) = let n1 = length $ takeWhile ( == '\t' ) rest in
 	if n0 >= n1
-		then ' ' : ';' : addSemi n1 rest
-		else ' ' : addSemi n1 rest
+		then ' ' : ';' : '\n' : addSemi n1 rest
+		else '\n' : addSemi n1 rest
 addSemi n ( c : cs ) = c : addSemi n cs
 
 data Token =
@@ -27,11 +27,12 @@ data Token =
 	deriving ( Show, Eq )
 
 tokenToValue :: Token -> Maybe Value
-tokenToValue ( TokString str )	= Just $ String str
-tokenToValue ( TokInteger i )	= Just $ Integer i
-tokenToValue ( Variable var )	= Just $ Identifier var
-tokenToValue ( TokBool b )	= Just $ Bool b
-tokenToValue _			= Nothing
+tokenToValue ( TokString str )		= Just $ String str
+tokenToValue ( TokInteger i )		= Just $ Integer i
+tokenToValue ( Variable var )		= Just $ Identifier var
+tokenToValue ( TokBool b )		= Just $ Bool b
+tokenToValue ( ReservedOp "[]" )	= Just Empty
+tokenToValue _				= Nothing
 
 tokenToPattern :: Token -> Maybe Pattern
 tokenToPattern ( Variable var )	= Just $ PatVar var
@@ -41,16 +42,31 @@ tokenToPattern _		= Nothing
 testToken :: Token -> Token -> Maybe Token
 testToken tok0 tok1 = if tok0 == tok1 then Just tok0 else Nothing
 
-operatorToValue :: Token -> Maybe Value
+operatorToValue, operatorLToValue :: Token -> Maybe Value
 operatorToValue ( Operator op )	= Just $ Identifier op
 operatorToValue _		= Nothing
+operatorLToValue ( Operator op )
+	| op `elem` opLs	= Just $ Identifier op
+operatorLToValue _		= Nothing
+operatorRToValue ( Operator op )
+	| op `elem` opRs	= Just $ Identifier op
+operatorRToValue _		= Nothing
+
+opLs, opRs :: [ String ]
+opLs = [ "+", "*", "-", "==" ]
+opRs = [ ":" ]
+
+getTokConst :: Token -> Maybe String
+getTokConst ( TokConst name )	= Just name
+getTokConst _			= Nothing
 
 reserved, reservedOp :: [ String ]
 reserved = [ "let", "in", "if", "then", "else", "case", "of" ]
-reservedOp = [ "=", ";", "->" ]
+reservedOp = [ "=", ";", "->", "[]" ]
 
 lex :: String -> [ Token ]
 lex "" = [ ]
+lex ( '-' : '-' : cs )	= lex $ dropWhile ( /= '\n' ) cs
 lex ( '(' : cs )	= OpenParen : lex cs
 lex ( ')' : cs )	= CloseParen : lex cs
 lex ( '\\' : cs )	= Backslash : lex cs
@@ -75,7 +91,7 @@ lex s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		TokInteger ( read ret ) : lex rest
 	where
-	isSym cc = isSymbol cc || cc `elem` "\\-*;"
+	isSym cc = isSymbol cc || cc `elem` "\\-*;:[]"
 	isLow cc = isLower cc || cc `elem` "_"
 	isAlNum cc = isAlphaNum cc || cc `elem` "_"
 lex s			= error $ "lex failed: " ++ s
@@ -91,12 +107,20 @@ toyParse input =
 
 parserInfix :: Parser Value
 parserInfix = do
+	v1 <- parserInfixL
+	option v1 $ do
+		op <- token operatorRToValue
+		v2 <- parserInfix
+		return $ Apply ( Apply op v1 ) v2
+
+parserInfixL :: Parser Value
+parserInfixL = do
 	p <- parser
 	f <- parserInfix'
 	return $ f p
 
 parserInfix' :: Parser ( Value -> Value )
-parserInfix' = do	op <- token operatorToValue
+parserInfix' = do	op <- token operatorLToValue
 			p <- parser
 			f <- parserInfix'
 			return $ \v -> f $ Apply ( Apply op v ) p
@@ -121,7 +145,8 @@ parserAtom =
 	parserParens <|>
 	parserLetin <|>
 	parserIf <|>
-	parserCase
+	parserCase <|>
+	parserComplex
 
 parserLambda :: Parser Value
 parserLambda = do
@@ -189,6 +214,12 @@ parserCase = do
 			return $ Just ( pattern, ret )
 	return $ Case val $ catMaybes $ test : tests
 
+parserComplex :: Parser Value
+parserComplex = do
+	name <- token getTokConst
+	bodys <- many parserAtom
+	return $ Complex name bodys
+
 parserParens :: Parser Value
 parserParens = do
 	_ <- token $ testToken OpenParen
@@ -197,12 +228,17 @@ parserParens = do
 	return ret
 
 parserPattern :: Parser Pattern
-parserPattern = parserPatternVar
+parserPattern = parserPatternVar <|> parserPatternComplex
 
 parserPatternVar :: Parser Pattern
 parserPatternVar = token tokenToPattern
-	
 
+parserPatternComplex :: Parser Pattern
+parserPatternComplex = do
+	name <- token getTokConst
+	bodys <- many parserPattern
+	return $ PatConst name bodys
+	
 token :: ( Token -> Maybe a ) -> Parser a
 token test = P.token showToken posToken testTok
 	where
