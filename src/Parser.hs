@@ -30,14 +30,13 @@ data Token =
 	OpenBrace | CloseBrace |
 	Variable String | TokConst String | Operator String | OpenParen |
 	CloseParen | Backslash | Reserved String | ReservedOp String |
-	TokInteger Integer | TokChar Char | TokString String | TokBool Bool | Yet
+	TokInteger Integer | TokChar Char | TokString String
 	deriving ( Show, Eq )
 
 tokenToValue :: Token -> Maybe Value
 tokenToValue ( TokChar c )		= Just $ Char c
 tokenToValue ( TokInteger i )		= Just $ Integer i
 tokenToValue ( Variable var )		= Just $ Identifier var
-tokenToValue ( TokBool b )		= Just $ Bool b
 tokenToValue ( ReservedOp "[]" )	= Just Empty
 tokenToValue _				= Nothing
 
@@ -103,8 +102,6 @@ lex s@( c : cs )
 	| isUpper c		= let
 		( ret, rest ) = span isAlphaNum s
 		tok = case ret of
-			"True"	-> TokBool True
-			"False"	-> TokBool False
 			_	-> TokConst ret in
 		tok : lex rest
 	| isSym c	= let ( ret, rest ) = span isSym s in

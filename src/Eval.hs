@@ -23,8 +23,8 @@ eval env ( Apply f a )		= case eval env f of
 	_				-> notFunctionError f
 eval env ( Letin pats body )	= eval ( setPatsToEnv pats env ) body
 eval env ( If test thn els )	= case eval env test of
-	Bool True	-> eval env thn
-	Bool False	-> eval env els
+	Complex "True"	[ ]	-> eval env thn
+	Complex "False" [ ]	-> eval env els
 	_		-> Error $ "Not Bool: " ++ show test
 eval env ( Case val bodys )	= patMatch env ( eval env val ) bodys
 eval _ v			= v
@@ -86,7 +86,9 @@ mkIntCompFunction p = Function fun
 	fun ( Integer x ) = let
 		funN vy =
 			case vy of
-				Integer y -> Bool $ x `p` y
+				Integer y -> if x `p` y
+					then Complex "True" [ ]
+					else Complex "False" [ ]
 				_ -> Error "bad type" in
 		Function funN
 	fun _ = Error "bad type"

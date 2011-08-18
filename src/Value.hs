@@ -71,7 +71,6 @@ data Value =
 	Empty |
 	Integer Integer |
 	Char Char |
-	Bool Bool |
 	Complex String [ Value ] |
 	Identifier String |
 	Function ( Value -> Value ) |
@@ -93,7 +92,6 @@ instance Show Value where
 	show Empty = "[]"
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
-	show ( Bool b )		= show b
 	show ( Identifier i )	= i
 	show ( Function _ )	= "<function>"
 	show ( IOAction _ )	= "<IO>"
