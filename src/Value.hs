@@ -11,7 +11,8 @@ type Env = [ ( String, Value ) ]
 data Pattern =
 	PatConst String [ Pattern ] |
 	PatVar { patVar :: String } |
-	PatInteger Integer
+	PatInteger Integer |
+	PatEmpty
 	deriving Eq
 
 data Value =

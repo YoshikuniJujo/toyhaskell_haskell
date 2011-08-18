@@ -43,9 +43,9 @@ tokenToString ( TokString str )	= Just $ mkStr str
 tokenToString _			= Nothing
 
 tokenToPattern :: Token -> Maybe Pattern
-tokenToPattern ( Variable var )	= Just $ PatVar var
-tokenToPattern ( TokInteger i ) = Just $ PatInteger i
-tokenToPattern _		= Nothing
+tokenToPattern ( Variable var )		= Just $ PatVar var
+tokenToPattern ( TokInteger i )		= Just $ PatInteger i
+tokenToPattern _			= Nothing
 
 testToken :: Token -> Token -> Maybe Token
 testToken tok0 tok1 = if tok0 == tok1 then Just tok0 else Nothing
@@ -105,7 +105,7 @@ lex s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		TokInteger ( read ret ) : lex rest
 	where
-	isSym cc = isSymbol cc || cc `elem` "\\-*;:[],"
+	isSym cc = isSymbol cc || cc `elem` "\\-*;:,"
 	isLow cc = isLower cc || cc `elem` "_"
 	isAlNum cc = isAlphaNum cc || cc `elem` "_"
 lex s			= error $ "lex failed: " ++ s
@@ -256,10 +256,16 @@ parserParens = do
 	return ret
 
 parserPattern :: Parser Pattern
-parserPattern = parserPatternVar <|> parserPatternComplex
+parserPattern = parserPatternVar <|> parserPatternComplex <|> parserPatternEmpty
 
 parserPatternVar :: Parser Pattern
 parserPatternVar = token tokenToPattern
+
+parserPatternEmpty :: Parser Pattern
+parserPatternEmpty = do
+	_ <- token $ testToken $ ReservedOp "["
+	_ <- token $ testToken $ ReservedOp "]"
+	return PatEmpty
 
 parserPatternOp :: Parser Pattern
 parserPatternOp = do

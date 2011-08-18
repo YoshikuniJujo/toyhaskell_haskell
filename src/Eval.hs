@@ -77,6 +77,7 @@ patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
 	| name1 == name0	=
 		liftM concat $ sequence $ zipWith patMatch1 bodys pats
 	| otherwise		= Nothing
+patMatch1 Empty PatEmpty	= Just [ ]
 patMatch1 _ _			= Nothing
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
