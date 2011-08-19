@@ -9,8 +9,9 @@ runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
 runLoop name stat0 act = do
 	_ <- doWhile stat0 $ \stat -> do
 		input <- prompt $ name ++ "> "
-		stat' <- act stat input
-		return ( stat', input `notElem` [ ":quit", ":q" ] )
+		if input `notElem` [ ":quit", ":q" ]
+			then fmap ( flip (,) True ) $ act stat input
+			else return ( stat, False )
 	putStrLn $ "Leaving " ++ name ++ "."
 	
 prompt :: String -> IO String
