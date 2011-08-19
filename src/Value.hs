@@ -2,10 +2,12 @@ module Value (
 	Env,
 	emptyEnv,
 	setToEnv,
+	setsToEnv,
 	setPatToEnv,
 	setPatsToEnv,
 	addEnvs,
 	getFromEnv,
+	match,
 	Value( .. ),
 	Pattern( .. ),
 	showValue,
@@ -24,12 +26,15 @@ setToEnv :: String -> Value -> Env -> Env
 setToEnv var val ( Env ps ) =
 	Env $ ( [ var ], PatVar var, val ) : ps
 
+setsToEnv :: [ ( String, Value ) ] -> Env -> Env
+setsToEnv = flip $ foldr $ uncurry setToEnv
+
 setPatToEnv :: Pattern -> Value -> Env -> Env
 setPatToEnv pat val ( Env env ) = Env $ ( vars, pat, val ) : env
 	where vars = getPatVars pat
 
 setPatsToEnv :: [ ( Pattern, Value ) ] -> Env -> Env
-setPatsToEnv pvs env = foldr ( uncurry setPatToEnv ) env pvs
+setPatsToEnv = flip $ foldr $ uncurry setPatToEnv
 
 getPatVars :: Pattern -> [ String ]
 getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
@@ -43,6 +48,9 @@ getFromEnv var ( Env ps ) = do
 	where
 	one ( x, _, _ ) = x
 	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
+
+match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
+match = patMatch1
 
 patMatch1 :: Value -> Pattern -> Maybe [ ( String, Value ) ]
 patMatch1 ( Integer i1 ) ( PatInteger i0 )

@@ -3,10 +3,8 @@ module Eval (
 	initEnv
 ) where
 
-import Value ( Value( .. ), Pattern( .. ),
-	Env, emptyEnv, addEnvs, setPatToEnv, setPatsToEnv, setToEnv, getFromEnv )
-
-import Control.Monad ( liftM, zipWithM )
+import Value ( Value( .. ), Pattern( .. ), match,
+	Env, emptyEnv, addEnvs, setPatToEnv, setPatsToEnv, setsToEnv, getFromEnv )
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
@@ -33,20 +31,7 @@ patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
 patMatch _ _ [ ]				= nonExhaustiveError
 patMatch env val ( ( pat, body ) : rest )	=
 	maybe ( patMatch env val rest )
-		( \lenv -> eval ( lenv `addEnvs` env ) body ) $ patMatch1 val pat
-
-patMatch1 :: Value -> Pattern -> Maybe Env
-patMatch1 ( Integer i1 ) ( PatInteger i0 )
-	| i1 == i0	= Just emptyEnv
-	| otherwise	= Nothing
-patMatch1 val ( PatVar var )	= Just $ setToEnv var val emptyEnv -- Just [ ( var, val ) ]
-patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
-	| name1 == name0	=
-		liftM ( foldr addEnvs emptyEnv ) $
-			zipWithM patMatch1 bodys pats
-	| otherwise		= Nothing
-patMatch1 Empty PatEmpty	= Just emptyEnv -- [ ]
-patMatch1 _ _			= Nothing
+		( flip eval body . flip setsToEnv env ) $ match val pat
 
 noVarError :: String -> Value
 noVarError var = Error $ "Not in scope: `" ++ var ++ "'"
@@ -63,7 +48,7 @@ nonExhaustiveError = Error "Non-exhaustive patterns in case"
 --------------------------------------------------------------------------------
 
 initEnv :: Env
-initEnv = foldr ( uncurry setToEnv ) emptyEnv [
+initEnv = flip setsToEnv emptyEnv [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
 	( "*", mkBinIntFunction (*) ),
