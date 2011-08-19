@@ -53,6 +53,7 @@ initEnv = setsToEnv [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
 	( "*", mkBinIntFunction (*) ),
+	( "div", mkBinIntFunction div ),
 	( "^", mkBinIntFunction (^) ),
 	( "==", mkIntCompFunction (==) ),
 	( ":", makeListFun ),

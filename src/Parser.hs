@@ -6,11 +6,13 @@ import Prelude hiding ( lex )
 
 import Value ( Value( .. ), Pattern( .. ), emptyEnv )
 import Lexer ( Token( .. ), lex )
+import BuildExpression
 
 import Text.ParserCombinators.Parsec (
 	GenParser, parse, (<|>), eof, option, optional, many, many1 )
 import qualified Text.ParserCombinators.Parsec as P ( token )
-import Text.ParserCombinators.Parsec.Pos ( SourcePos, newPos )
+import Text.ParserCombinators.Parsec.Pos ( SourcePos, newPos, initialPos )
+import Text.ParserCombinators.Parsec.Expr
 import Data.Maybe ( catMaybes )
 
 --------------------------------------------------------------------------------
@@ -23,34 +25,10 @@ toyParse input = case parse parser "" $ lex ( newPos "" 0 0 ) input of
 type Parser = GenParser ( Token, SourcePos ) ()
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
-token test = P.token ( show . fst ) snd test
+token = P.token ( show . fst ) snd
 
 parser :: Parser Value
-parser = parserExpr >>= \ret -> eof >> return ret
-
-parserExpr :: Parser Value
-parserExpr = parserInfixR
-
-parserInfixR :: Parser Value
-parserInfixR = do
-	v1 <- parserInfixL
-	option v1 $ do
-		op <- token operatorRToValue
-		v2 <- parserExpr
-		return $ Apply ( Apply op v1 ) v2
-
-parserInfixL :: Parser Value
-parserInfixL = do
-	p <- parserApply
-	f <- parserInfixL'
-	return $ f p
-
-parserInfixL' :: Parser ( Value -> Value )
-parserInfixL' = option id $ do
-	op <- token operatorLToValue
-	p <- parserApply
-	f <- parserInfixL'
-	return $ \v -> f $ Apply ( Apply op v ) p
+parser = parserNew >>= \ret -> eof >> return ret
 
 parserApply :: Parser Value
 parserApply = do
@@ -81,7 +59,7 @@ parserLambda = do
 	_ <- token $ testToken Backslash
 	vars <- many1 parserPatternOp
 	_ <- token $ testToken $ ReservedOp "->"
-	body <- parserExpr
+	body <- parserNew
 	return $ Lambda emptyEnv vars body
 
 parserLetin :: Parser Value
@@ -89,7 +67,7 @@ parserLetin = do
 	pairs <- parserLet
 	option ( Let pairs ) $ do
 		_ <- token $ testToken $ Reserved "in"
-		body <- parserExpr
+		body <- parserNew
 		return $ Letin pairs body
 
 parserLet :: Parser [ ( Pattern, Value ) ]
@@ -108,7 +86,7 @@ parserDef =
 		var <- parserPatternOp
 		args <- many parserPatternOp
 		_ <- token $ testToken $ ReservedOp "="
-		val <- parserExpr
+		val <- parserNew
 		return $ if null args
 			then Just ( var, val )
 			else Just ( var,
@@ -117,33 +95,31 @@ parserDef =
 parserIf :: Parser Value
 parserIf = do
 	_ <- token $ testToken $ Reserved "if"
-	test <- parserExpr
+	test <- parserNew
 	_ <- token $ testToken $ Reserved "then"
-	thn <- parserExpr
+	thn <- parserNew
 	_ <- token $ testToken $ Reserved "else"
-	els <- parserExpr
+	els <- parserNew
 	return $ If test thn els
 
 parserCase :: Parser Value
 parserCase = do
 	_ <- token $ testToken $ Reserved "case"
-	val <- parserExpr
+	val <- parserNew
 	_ <- token $ testToken $ Reserved "of"
 	_ <- token $ testToken OpenBrace
-	test <- option Nothing $ do
-		pattern <- parserPatternOp
-		_ <- token $ testToken $ ReservedOp "->"
-		ret <- parserExpr
-		return $ Just ( pattern, ret )
+	test <- dup
 	tests <- many $ do
 		_ <- token $ testToken $ ReservedOp ";"
-		option Nothing $ do
-			pattern <- parserPatternOp
-			_ <- token $ testToken $ ReservedOp "->"
-			ret <- parserExpr
-			return $ Just ( pattern, ret )
+		dup
 	_ <- token $ testToken CloseBrace
 	return $ Case val $ catMaybes $ test : tests
+	where
+	dup = option Nothing $ do
+		pattern <- parserPatternOp
+		_ <- token $ testToken $ ReservedOp "->"
+		ret <- parserNew
+		return $ Just ( pattern, ret )
 
 parserComplex :: Parser Value
 parserComplex = do
@@ -155,10 +131,10 @@ parserList :: Parser Value
 parserList = do
 	_ <- token $ testToken $ ReservedOp "["
 	ret <- option Empty $ do
-		v <- parserExpr
+		v <- parserNew
 		vs <- many $ do
 			_ <- token $ testToken $ ReservedOp ","
-			parserExpr
+			parserNew
 		return $ foldr ( \x xs -> Complex ":" [ x, xs ] ) Empty $ v : vs
 	_ <- token $ testToken $ ReservedOp "]"
 	return ret
@@ -166,7 +142,7 @@ parserList = do
 parserParens :: Parser Value
 parserParens = do
 	_ <- token $ testToken OpenParen
-	ret <- option Nil parserExpr
+	ret <- option Nil parserNew
 	_ <- token $ testToken CloseParen
 	return ret
 
@@ -225,21 +201,31 @@ tokenToPattern _			= Nothing
 testToken :: Token -> ( Token, SourcePos ) -> Maybe Token
 testToken tok0 ( tok1, _ ) = if tok0 == tok1 then Just tok0 else Nothing
 
-operatorLToValue, operatorRToValue :: ( Token, SourcePos ) -> Maybe Value
-operatorLToValue ( Operator op, _ )
-	| op `elem` opLs	= Just $ Identifier op
-operatorLToValue _		= Nothing
-operatorRToValue ( Operator op, _ )
-	| op `elem` opRs	= Just $ Identifier op
-operatorRToValue _		= Nothing
-
 operatorToString :: ( Token, SourcePos ) -> Maybe String
 operatorToString ( Operator op, _ )	= Just op
 operatorToString  _			= Nothing
 
-opLs, opRs :: [ String ]
-opLs = [ "+", "*", "-", "==" ]
-opRs = [ ":", ">>" ]
+parserNew :: Parser Value
+parserNew = buildExprParser ( show . fst ) snd fst table parserApply
+
+table :: OpTable ( Token, SourcePos ) () Value
+table = map ( uncurry3 mkAssoc ) [
+	( ">>", 1, AssocLeft ),
+	( "==", 4, AssocNone ),
+	( ":", 5, AssocRight ),
+	( "+", 6, AssocLeft ),
+	( "-", 6, AssocLeft ),
+	( "*", 7, AssocLeft ),
+	( "div", 7, AssocLeft )
+ ]
+
+uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
+uncurry3 f ( x, y, z ) = f x y z
+
+mkAssoc ::
+	String -> Int -> Assoc -> ( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
+mkAssoc op power assoc =
+	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ), power, assoc )
 
 getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name

@@ -29,6 +29,7 @@ lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
 lex _ ""			= [ ]
 lex sp ( '-' : '-' : cs )	= lex sp $ dropWhile ( /= '\n' ) cs
 lex sp ( '\n' : cs )		= lex ( nextLine sp ) cs
+lex sp ( ';' : cs )		= ( ReservedOp ";", sp ) : lex ( next sp ) cs
 lex sp ( '{' : cs )		= ( OpenBrace, sp ) : lex ( next sp ) cs
 lex sp ( '}' : cs )		= ( CloseBrace, sp ) : lex ( next sp ) cs
 lex sp ( '[' : cs )		= ( ReservedOp "[", sp ) : lex ( next sp ) cs
@@ -40,6 +41,8 @@ lex sp ( '\'' : '\\' : 'n' : '\'' : cs ) = ( TokChar '\n', sp ) : lex ( isc sp 2
 lex sp ( '\'' : c : '\'' : cs )	= ( TokChar c, sp ) : lex ( isc sp 3 ) cs
 lex sp ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
 		( TokString ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
+lex sp ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
+		( Operator ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
 lex sp s@( c : cs )
 	| isSpace c		= lex ( next sp ) cs
 	| isLow c		= let ( ret, rest ) = span isAlNum s in
@@ -56,7 +59,7 @@ lex sp s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		( TokInteger ( read ret ), isc sp $ length ret ) : lex sp rest
 	where
-	isSym cc = isSymbol cc || cc `elem` "\\-*;:,"
+	isSym cc = isSymbol cc || cc `elem` "\\-*;:,/"
 	isLow cc = isLower cc || cc `elem` "_"
 	isAlNum cc = isAlphaNum cc || cc `elem` "_"
 lex sp s			= error $ "lex failed: " ++ show sp ++ s
