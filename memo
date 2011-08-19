@@ -35,3 +35,12 @@ eval の Apply まで refactoring した。
 次は eval の Letin から refactoring すること。
 
 Eval の patMatch1 を Value の patMatch1 を使って定義するようにしよう。
+
+とりあえず今回の refactoring では、あと Parser と Value を残すのみだ。
+しかし、Parser はけっこう手強そうだ。
+
+Parser を parse 部分と preprocess 部分とで分けようかな。
+
+すると refactoring の残りは Parser, Preprocessor, Value となる。
+
+さらに、Parser と Lexer を分けようかな。

@@ -122,6 +122,8 @@ showL _ = "Error: bad List"
 
 showStr :: Value -> String
 showStr Empty = ""
+showStr ( Complex ":" [ Char '\\', s ] ) = '\\' : '\\' : showStr s
+showStr ( Complex ":" [ Char '\n', s ] ) = '\\' : 'n' : showStr s
 showStr ( Complex ":" [ Char c, s ] ) = c : showStr s
 showStr _ = "Error: bad String"
 

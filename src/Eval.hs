@@ -49,7 +49,7 @@ nonExhaustiveError = Error "Non-exhaustive patterns in case"
 --------------------------------------------------------------------------------
 
 initEnv :: Env
-initEnv = flip setsToEnv emptyEnv [
+initEnv = setsToEnv [
 	( "+", mkBinIntFunction (+) ),
 	( "-", mkBinIntFunction (-) ),
 	( "*", mkBinIntFunction (*) ),
@@ -59,7 +59,7 @@ initEnv = flip setsToEnv emptyEnv [
 	( ">>", concatMonadFun ),
 	( "return", returnFun ),
 	( "putChar", Function putCharFun )
- ]
+ ] emptyEnv
 
 mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
 mkBinIntFunction op = Function fun

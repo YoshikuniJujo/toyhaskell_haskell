@@ -3,9 +3,10 @@ module MainTools (
 ) where
 
 import Interact ( runLoop )
-import Value ( Value( .. ), showValue, Env, setPatsToEnv )
-import Parser ( toyParse )
 import Eval ( eval, initEnv )
+import Parser ( toyParse )
+import Preprocessor ( prep )
+import Value ( Value( .. ), showValue, Env, setPatsToEnv )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -13,20 +14,23 @@ import Control.Monad ( foldM )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
+parse :: String -> Value
+parse = toyParse . prep
+
 mainGen :: [ String ] -> IO ()
 mainGen args = do
 	let ( expr, fns, _ ) = getOpt RequireOrder options args
 	e0 <- foldM loadFile initEnv fns
-	withSingle expr ( showValue . eval e0 . toyParse ) $
+	withSingle expr ( showValue . eval e0 . parse ) $
 		runLoop "toyhaskell" e0 $ \e inp -> case inp of
 			':' : cmd	-> runCmd cmd e
-			_		-> case eval e $ toyParse inp of
+			_		-> case eval e $ parse inp of
 				Let ps	-> return $ setPatsToEnv ps e
 				ret	-> showValue ret >> return e
 
 options :: [ OptDescr String ]
 options = [
-	Option [ 'e' ] [ ] ( ReqArg id "haskell expression" ) "run expression"
+	Option "e" [ ] ( ReqArg id "haskell expression" ) "run expression"
  ]
 
 runCmd :: String -> Env -> IO Env
@@ -43,7 +47,7 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ toyParse ( "let\n" ++ cnt ) of
+	case eval env $ parse ( "let\n" ++ cnt ) of
 		Let ps	-> return $ setPatsToEnv ps env
 		bad	-> error $ show bad
 
