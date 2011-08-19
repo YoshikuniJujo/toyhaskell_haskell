@@ -8,11 +8,11 @@ import System.Environment
 
 main :: IO ()
 main = do
-	[ n, dir ] <- getArgs
+	[ dir ] <- getArgs
 	files <- fmap filterSource $ getDirectoryContents dir
 	dependList <- mapM ( depend dir files ) files
 	mapM_ ( putStr . showTree [ ] . nubTree ) $
-		let xs = mergeTree ( read n ) $ map makeTree dependList in xs
+		let xs = mergeTree $ map makeTree dependList in xs
 
 showTree :: [ Bool ] -> Tree String -> String
 showTree n ( Node x ns ) =
@@ -37,12 +37,10 @@ nubTree ( Node x ns ) = Node x $ nub $ map nubTree ns
 makeTree :: Eq a => ( a, [ a ] ) -> Tree a
 makeTree ( x, xs ) = Node x $ map ( flip Node [ ] ) xs
 
-mergeTree :: Eq a => Int -> [ Tree a ] -> [ Tree a ]
--- mergeTree [ t ] = [ t ]
-mergeTree n ts
-	| n == length ts = ts
-	| otherwise = mergeTree n $
-		map fst $ filter snd $ map ( `addTree_` ts ) ts
+mergeTree :: Eq a => [ Tree a ] -> [ Tree a ]
+mergeTree ts = case map fst $ filter snd $ map ( `addTree_` ts ) ts of
+	[ ]	-> ts
+	new	-> mergeTree new
 
 addTree_ :: Eq a => Tree a -> [ Tree a ] -> ( Tree a, Bool )
 addTree_ t@( Node x _ ) ts = addTree t $ filter ( ( /= x ) . rootLabel ) ts

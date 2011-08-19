@@ -44,3 +44,14 @@ Parser を parse 部分と preprocess 部分とで分けようかな。
 すると refactoring の残りは Parser, Preprocessor, Value となる。
 
 さらに、Parser と Lexer を分けようかな。
+
+演算子についても問題なく扱えるようになった。
+この時点で refactoring するのに残っているのが、Parser, BuildExpression, Lexer, Preprocessor,
+Value となる。
+とりあえず Parser の refactoring から始めよう。
+
+Parser
+BuildExpression
+Lexer
+Preprocessor
+Value
