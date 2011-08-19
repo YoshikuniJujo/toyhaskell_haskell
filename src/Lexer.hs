@@ -20,7 +20,7 @@ reservedOp = [ "=", ";", "->", "[]", "[", "]", "," ]
 
 next, nextLine :: SourcePos -> SourcePos
 next = flip incSourceColumn 1
-nextLine = flip incSourceLine 1 . flip setSourceColumn 1
+nextLine = flip incSourceLine 1 . flip setSourceColumn 0
 
 isc :: SourcePos -> Int -> SourcePos
 isc = incSourceColumn
