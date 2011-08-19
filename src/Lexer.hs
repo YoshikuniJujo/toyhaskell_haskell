@@ -18,9 +18,11 @@ reserved, reservedOp :: [ String ]
 reserved = [ "let", "in", "if", "then", "else", "case", "of" ]
 reservedOp = [ "=", ";", "->", "[]", "[", "]", "," ]
 
-next :: SourcePos -> SourcePos
+next, nextLine :: SourcePos -> SourcePos
 next = flip incSourceColumn 1
 nextLine = flip incSourceLine 1 . flip setSourceColumn 1
+
+isc :: SourcePos -> Int -> SourcePos
 isc = incSourceColumn
 
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
