@@ -2,66 +2,33 @@ module Parser (
 	toyParse
 ) where
 
-import Value
-import Lexer
-
 import Prelude hiding ( lex )
-import Text.ParserCombinators.Parsec.Pos
-import qualified Text.ParserCombinators.Parsec as P
-import Text.ParserCombinators.Parsec hiding ( Parser, token )
-import Data.Maybe
 
-tokenToValue :: Token -> Maybe Value
-tokenToValue ( TokChar c )		= Just $ Char c
-tokenToValue ( TokInteger i )		= Just $ Integer i
-tokenToValue ( Variable var )		= Just $ Identifier var
-tokenToValue ( ReservedOp "[]" )	= Just Empty
-tokenToValue _				= Nothing
+import Value ( Value( .. ), Pattern( .. ), emptyEnv )
+import Lexer ( Token( .. ), lex )
 
-tokenToString :: Token -> Maybe Value
-tokenToString ( TokString str )	= Just $ mkStr str
-	where
-	mkStr ""			= Empty
-	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
-	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
-tokenToString _				= Nothing
+import Text.ParserCombinators.Parsec (
+	GenParser, parse, (<|>), eof, option, optional, many, many1 )
+import qualified Text.ParserCombinators.Parsec as P ( token )
+import Text.ParserCombinators.Parsec.Pos ( initialPos )
+import Data.Maybe ( catMaybes )
 
-tokenToPattern :: Token -> Maybe Pattern
-tokenToPattern ( Variable var )		= Just $ PatVar var
-tokenToPattern ( TokInteger i )		= Just $ PatInteger i
-tokenToPattern _			= Nothing
-
-testToken :: Token -> Token -> Maybe Token
-testToken tok0 tok1 = if tok0 == tok1 then Just tok0 else Nothing
-
-operatorLToValue, operatorRToValue :: Token -> Maybe Value
-operatorLToValue ( Operator op )
-	| op `elem` opLs	= Just $ Identifier op
-operatorLToValue _		= Nothing
-operatorRToValue ( Operator op )
-	| op `elem` opRs	= Just $ Identifier op
-operatorRToValue _		= Nothing
-
-operatorToString :: Token -> Maybe String
-operatorToString ( Operator op )	= Just op
-operatorToString  _			= Nothing
-
-opLs, opRs :: [ String ]
-opLs = [ "+", "*", "-", "==" ]
-opRs = [ ":", ">>" ]
-
-getTokConst :: Token -> Maybe String
-getTokConst ( TokConst name )	= Just name
-getTokConst _			= Nothing
-
-type Parser = GenParser Token ()
+--------------------------------------------------------------------------------
 
 toyParse :: String -> Value
 toyParse input =
-	case parse ( do { ret <- parserInfix; eof; return ret } ) "" $
-		lex input of
+	case parse ( parserInfix >>= \r -> eof >> return r ) "" $ lex input of
 		Right v	-> v
 		Left v	-> Error $ show v
+
+type Parser = GenParser Token ()
+	
+token :: ( Token -> Maybe a ) -> Parser a
+token test = P.token showToken posToken testTok
+	where
+	showToken	= show
+	posToken	= const $ initialPos ""
+	testTok		= test
 
 parserInfix :: Parser Value
 parserInfix = do
@@ -233,10 +200,46 @@ parserPatternComplex = do
 	name <- token getTokConst
 	bodys <- many parserPattern
 	return $ PatConst name bodys
-	
-token :: ( Token -> Maybe a ) -> Parser a
-token test = P.token showToken posToken testTok
+
+tokenToValue :: Token -> Maybe Value
+tokenToValue ( TokChar c )		= Just $ Char c
+tokenToValue ( TokInteger i )		= Just $ Integer i
+tokenToValue ( Variable var )		= Just $ Identifier var
+tokenToValue ( ReservedOp "[]" )	= Just Empty
+tokenToValue _				= Nothing
+
+tokenToString :: Token -> Maybe Value
+tokenToString ( TokString str )	= Just $ mkStr str
 	where
-	showToken = show
-	posToken _tok = initialPos ""
-	testTok = test
+	mkStr ""			= Empty
+	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
+	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
+tokenToString _				= Nothing
+
+tokenToPattern :: Token -> Maybe Pattern
+tokenToPattern ( Variable var )		= Just $ PatVar var
+tokenToPattern ( TokInteger i )		= Just $ PatInteger i
+tokenToPattern _			= Nothing
+
+testToken :: Token -> Token -> Maybe Token
+testToken tok0 tok1 = if tok0 == tok1 then Just tok0 else Nothing
+
+operatorLToValue, operatorRToValue :: Token -> Maybe Value
+operatorLToValue ( Operator op )
+	| op `elem` opLs	= Just $ Identifier op
+operatorLToValue _		= Nothing
+operatorRToValue ( Operator op )
+	| op `elem` opRs	= Just $ Identifier op
+operatorRToValue _		= Nothing
+
+operatorToString :: Token -> Maybe String
+operatorToString ( Operator op )	= Just op
+operatorToString  _			= Nothing
+
+opLs, opRs :: [ String ]
+opLs = [ "+", "*", "-", "==" ]
+opRs = [ ":", ">>" ]
+
+getTokConst :: Token -> Maybe String
+getTokConst ( TokConst name )	= Just name
+getTokConst _			= Nothing
