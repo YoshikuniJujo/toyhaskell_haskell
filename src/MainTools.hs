@@ -14,17 +14,18 @@ import Control.Monad ( foldM )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
-parse :: String -> Value
-parse = toyParse . prep
+parse :: String -> String -> Value
+parse fn = toyParse fn . prep
 
 mainGen :: [ String ] -> IO ()
 mainGen args = do
 	let ( expr, fns, _ ) = getOpt RequireOrder options args
 	e0 <- foldM loadFile initEnv fns
-	withSingle expr ( showValue . eval e0 . parse ) $
+	withSingle expr ( showValue . eval e0 . parse "" ) $
 		runLoop "toyhaskell" e0 $ \e inp -> case inp of
 			':' : cmd	-> runCmd cmd e
-			_		-> case eval e $ parse inp of
+			_		-> case eval e $
+						parse "<interactive>" inp of
 				Let ps	-> return $ setPatsToEnv ps e
 				ret	-> showValue ret >> return e
 
@@ -47,7 +48,7 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ parse ( "let\n" ++ cnt ) of
+	case eval env $ parse fn ( "let\n" ++ cnt ) of
 		Let ps	-> return $ setPatsToEnv ps env
 		bad	-> error $ show bad
 

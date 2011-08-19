@@ -12,13 +12,13 @@ import Text.ParserCombinators.Parsec (
 	GenParser, parse, (<|>), eof, option, optional, many, many1 )
 import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, newPos, initialPos )
-import Text.ParserCombinators.Parsec.Expr
+import Text.ParserCombinators.Parsec.Expr ( Assoc( .. ) )
 import Data.Maybe ( catMaybes )
 
 --------------------------------------------------------------------------------
 
-toyParse :: String -> Value
-toyParse input = case parse parser "" $ lex ( newPos "" 0 0 ) input of
+toyParse :: String -> String -> Value
+toyParse fn input = case parse parser "" $ lex ( newPos fn 0 0 ) input of
 	Right v	-> v
 	Left v	-> Error $ show v
 
@@ -28,26 +28,48 @@ token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
 parser :: Parser Value
-parser = parserNew >>= \ret -> eof >> return ret
+parser = parserExpr >>= \ret -> eof >> return ret
+
+parserExpr :: Parser Value
+parserExpr = buildExprParser ( show . fst ) snd fst table parserApply
+
+table :: OpTable ( Token, SourcePos ) () Value
+table = map ( uncurry3 mkAssoc ) [
+	( ">>", 1, AssocLeft ),
+	( "==", 4, AssocNone ),
+	( ":", 5, AssocRight ),
+	( "+", 6, AssocLeft ),
+	( "-", 6, AssocLeft ),
+	( "*", 7, AssocLeft ),
+	( "div", 7, AssocLeft )
+ ]
+
+uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
+uncurry3 f ( x, y, z ) = f x y z
+
+mkAssoc :: String -> Int -> Assoc ->
+	( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
+mkAssoc op power assoc =
+	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ),
+		power, assoc )
 
 parserApply :: Parser Value
 parserApply = do
 	a <- parserAtom
-	f <- parser'
+	f <- parserApply'
 	return $ f a
 
-parser' :: Parser ( Value -> Value )
-parser' = do	a <- parserAtom
-		f <- parser'
-		return $ \v -> f $ Apply v a
-	<|> return id
+parserApply' :: Parser ( Value -> Value )
+parserApply' = option id $ do
+	a <- parserAtom
+	f <- parserApply'
+	return $ \v -> f $ Apply v a
 
 parserAtom :: Parser Value
 parserAtom =
-	token tokenToString <|>
 	token tokenToValue <|>
-	parserLambda <|>
 	parserParens <|>
+	parserLambda <|>
 	parserLetin <|>
 	parserIf <|>
 	parserCase <|>
@@ -59,7 +81,7 @@ parserLambda = do
 	_ <- token $ testToken Backslash
 	vars <- many1 parserPatternOp
 	_ <- token $ testToken $ ReservedOp "->"
-	body <- parserNew
+	body <- parserExpr
 	return $ Lambda emptyEnv vars body
 
 parserLetin :: Parser Value
@@ -67,7 +89,7 @@ parserLetin = do
 	pairs <- parserLet
 	option ( Let pairs ) $ do
 		_ <- token $ testToken $ Reserved "in"
-		body <- parserNew
+		body <- parserExpr
 		return $ Letin pairs body
 
 parserLet :: Parser [ ( Pattern, Value ) ]
@@ -86,7 +108,7 @@ parserDef =
 		var <- parserPatternOp
 		args <- many parserPatternOp
 		_ <- token $ testToken $ ReservedOp "="
-		val <- parserNew
+		val <- parserExpr
 		return $ if null args
 			then Just ( var, val )
 			else Just ( var,
@@ -95,17 +117,17 @@ parserDef =
 parserIf :: Parser Value
 parserIf = do
 	_ <- token $ testToken $ Reserved "if"
-	test <- parserNew
+	test <- parserExpr
 	_ <- token $ testToken $ Reserved "then"
-	thn <- parserNew
+	thn <- parserExpr
 	_ <- token $ testToken $ Reserved "else"
-	els <- parserNew
+	els <- parserExpr
 	return $ If test thn els
 
 parserCase :: Parser Value
 parserCase = do
 	_ <- token $ testToken $ Reserved "case"
-	val <- parserNew
+	val <- parserExpr
 	_ <- token $ testToken $ Reserved "of"
 	_ <- token $ testToken OpenBrace
 	test <- dup
@@ -118,7 +140,7 @@ parserCase = do
 	dup = option Nothing $ do
 		pattern <- parserPatternOp
 		_ <- token $ testToken $ ReservedOp "->"
-		ret <- parserNew
+		ret <- parserExpr
 		return $ Just ( pattern, ret )
 
 parserComplex :: Parser Value
@@ -131,10 +153,10 @@ parserList :: Parser Value
 parserList = do
 	_ <- token $ testToken $ ReservedOp "["
 	ret <- option Empty $ do
-		v <- parserNew
+		v <- parserExpr
 		vs <- many $ do
 			_ <- token $ testToken $ ReservedOp ","
-			parserNew
+			parserExpr
 		return $ foldr ( \x xs -> Complex ":" [ x, xs ] ) Empty $ v : vs
 	_ <- token $ testToken $ ReservedOp "]"
 	return ret
@@ -142,7 +164,7 @@ parserList = do
 parserParens :: Parser Value
 parserParens = do
 	_ <- token $ testToken OpenParen
-	ret <- option Nil parserNew
+	ret <- option Nil parserExpr
 	_ <- token $ testToken CloseParen
 	return ret
 
@@ -183,15 +205,12 @@ tokenToValue ( TokChar c, _ )		= Just $ Char c
 tokenToValue ( TokInteger i, _ )	= Just $ Integer i
 tokenToValue ( Variable var, _ )		= Just $ Identifier var
 tokenToValue ( ReservedOp "[]", _ )	= Just Empty
-tokenToValue _				= Nothing
-
-tokenToString :: ( Token, SourcePos ) -> Maybe Value
-tokenToString ( TokString str, _ )	= Just $ mkStr str
+tokenToValue ( TokString str, _ )	= Just $ mkStr str
 	where
 	mkStr ""			= Empty
 	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
 	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
-tokenToString _				= Nothing
+tokenToValue _				= Nothing
 
 tokenToPattern :: ( Token, SourcePos ) -> Maybe Pattern
 tokenToPattern ( Variable var, _ )	= Just $ PatVar var
@@ -204,28 +223,6 @@ testToken tok0 ( tok1, _ ) = if tok0 == tok1 then Just tok0 else Nothing
 operatorToString :: ( Token, SourcePos ) -> Maybe String
 operatorToString ( Operator op, _ )	= Just op
 operatorToString  _			= Nothing
-
-parserNew :: Parser Value
-parserNew = buildExprParser ( show . fst ) snd fst table parserApply
-
-table :: OpTable ( Token, SourcePos ) () Value
-table = map ( uncurry3 mkAssoc ) [
-	( ">>", 1, AssocLeft ),
-	( "==", 4, AssocNone ),
-	( ":", 5, AssocRight ),
-	( "+", 6, AssocLeft ),
-	( "-", 6, AssocLeft ),
-	( "*", 7, AssocLeft ),
-	( "div", 7, AssocLeft )
- ]
-
-uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
-uncurry3 f ( x, y, z ) = f x y z
-
-mkAssoc ::
-	String -> Int -> Assoc -> ( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
-mkAssoc op power assoc =
-	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ), power, assoc )
 
 getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name
