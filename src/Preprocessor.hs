@@ -4,9 +4,11 @@ module Preprocessor (
 
 import Data.Char
 import Data.List
+import Lexer
+import Text.ParserCombinators.Parsec.Pos
 
-prep :: String -> String
-prep = eraseImport . addSemi 0
+prep :: [ ( Token, SourcePos ) ] -> [ ( Token, SourcePos ) ]
+prep = id
 
 addSemi :: Int -> String -> String
 addSemi _ "" = ""

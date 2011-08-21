@@ -1,6 +1,6 @@
 
 main = putStrLn "hello"
 
-hoge =   {}))
+	hoge =   {}))
 
 parseError {}

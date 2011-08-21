@@ -5,20 +5,22 @@ module Parser (
 import Prelude hiding ( lex )
 
 import Value ( Value( .. ), Pattern( .. ), emptyEnv )
-import Lexer ( Token( .. ), lex )
+import Lexer ( Token( .. ), lex, initPos )
 import BuildExpression
 
 import Text.ParserCombinators.Parsec (
 	GenParser, parse, (<|>), eof, option, optional, many, many1 )
 import qualified Text.ParserCombinators.Parsec as P ( token )
-import Text.ParserCombinators.Parsec.Pos ( SourcePos, newPos, initialPos )
+import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
 import Text.ParserCombinators.Parsec.Expr ( Assoc( .. ) )
 import Data.Maybe ( catMaybes )
+
+import Preprocessor
 
 --------------------------------------------------------------------------------
 
 toyParse :: String -> String -> Value
-toyParse fn input = case parse parser "" $ lex ( newPos fn 0 0 ) input of
+toyParse fn input = case parse parser "" $ prep $ lex ( initPos fn ) input of
 	Right v	-> v
 	Left v	-> Error $ show v
 

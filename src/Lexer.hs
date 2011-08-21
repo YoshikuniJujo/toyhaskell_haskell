@@ -1,11 +1,14 @@
 module Lexer (
 	Token( .. ),
-	lex
+	lex,
+	initPos
 ) where
 
 import Prelude hiding ( lex )
 import Text.ParserCombinators.Parsec.Pos
 import Data.Char
+
+initPos fs = newPos fs 0 0
 
 data Token =
 	OpenBrace | CloseBrace |

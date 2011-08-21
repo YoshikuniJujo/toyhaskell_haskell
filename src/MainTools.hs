@@ -5,7 +5,6 @@ module MainTools (
 import Interact ( runLoop )
 import Eval ( eval, initEnv )
 import Parser ( toyParse )
-import Preprocessor ( prep )
 import Value ( Value( .. ), showValue, Env, setPatsToEnv )
 
 import System.Console.GetOpt (
@@ -15,7 +14,7 @@ import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
 parse :: String -> String -> Value
-parse fn = toyParse fn . prep
+parse fn = toyParse fn -- . prep
 
 mainGen :: [ String ] -> IO ()
 mainGen args = do
