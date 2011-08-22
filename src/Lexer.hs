@@ -1,15 +1,11 @@
 module Lexer (
 	Token( .. ),
-	lex,
-	initPos
+	lex
 ) where
 
 import Prelude hiding ( lex )
 import Text.ParserCombinators.Parsec.Pos
 import Data.Char
-
-initPos :: SourceName -> SourcePos
-initPos fs = newPos fs 1 1
 
 data Token =
 	OpenBrace | CloseBrace |
@@ -47,7 +43,7 @@ lex sp ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
 		( TokString ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
 lex sp ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
 		( Operator ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
-lex sp s@( '\t' : cs )		= let c = sourceColumn sp in
+lex sp ( '\t' : cs )		= let c = sourceColumn sp in
 					lex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
 lex sp s@( c : cs )
 	| isSpace c		= lex ( next sp ) cs

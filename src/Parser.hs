@@ -5,37 +5,37 @@ module Parser (
 import Prelude hiding ( lex )
 
 import Value ( Value( .. ), Pattern( .. ), emptyEnv )
-import BuildExpression
+import Preprocessor ( Token( .. ), lex, prep )
+import BuildExpression ( buildExprParser, OpTable, Assoc( .. ) )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, parse, (<|>), eof, option, optional, many, many1 )
 import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
-import Text.ParserCombinators.Parsec.Expr ( Assoc( .. ) )
 import Data.Maybe ( catMaybes )
-
-import Preprocessor
+import Data.Function ( on )
 
 --------------------------------------------------------------------------------
-
-toyParse :: String -> String -> Value
-toyParse fn input = case parse parser "" $ prep 0 [ ] $ lex ( initPos fn ) input of
-	Right v	-> v
-	Left v	-> Error $ show v
 
 type Parser = GenParser ( Token, SourcePos ) ()
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
+toyParse :: String -> String -> Value
+toyParse fn input =
+	case parse parser fn $ prep 0 [ ] $ lex ( initialPos fn ) input of
+		Right v	-> v
+		Left v	-> Error $ show v
+
 parser :: Parser Value
 parser = parserExpr >>= \ret -> eof >> return ret
 
 parserExpr :: Parser Value
-parserExpr = buildExprParser ( show . fst ) snd fst table parserApply
+parserExpr = buildExprParser token ( on (==) fst ) opTable parserApply
 
-table :: OpTable ( Token, SourcePos ) () Value
-table = map ( uncurry3 mkAssoc ) [
+opTable :: OpTable ( Token, SourcePos ) () Value
+opTable = map ( uncurry3 mkAssoc ) [
 	( ">>", 1, AssocLeft ),
 	( "==", 4, AssocNone ),
 	( ":", 5, AssocRight ),

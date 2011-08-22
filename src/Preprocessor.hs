@@ -1,8 +1,7 @@
 module Preprocessor (
 	Token( .. ),
 	lex,
-	prep,
-	initPos
+	prep
 ) where
 
 import Data.List
@@ -12,12 +11,12 @@ import Prelude hiding ( lex )
 
 prep :: Int -> [ Int ] -> [ ( Token, SourcePos ) ] -> [ ( Token, SourcePos ) ]
 prep _ idnts [ ]							=
-	replicate ( length idnts ) ( CloseBrace, initPos "" )
+	replicate ( length idnts ) ( CloseBrace, initialPos "" )
 prep _ [ ] ( ( NewLine, sp ) : ts )					=
 	prep ( sourceColumn sp ) [ ] ts
 prep idnt idnts@( i : is ) ( ( NewLine, _ ) : ts@( ( _, sp ) : _ ) )
-	| idnt < i	= ( CloseBrace, initPos "" ) : prep ( sourceColumn sp ) is ts
-	| idnt == i	= ( ReservedOp ";", initPos "" ) : prep ( sourceColumn sp ) idnts ts
+	| idnt < i	= ( CloseBrace, initialPos "" ) : prep ( sourceColumn sp ) is ts
+	| idnt == i	= ( ReservedOp ";", initialPos "" ) : prep ( sourceColumn sp ) idnts ts
 	| otherwise	= prep idnt idnts ts
 prep idnt ( _ : idnts ) ( ( CloseBrace, ps1 ) : ts )			=
 	( CloseBrace, ps1 ) : prep idnt idnts ts
