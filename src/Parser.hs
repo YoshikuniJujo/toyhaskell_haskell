@@ -3,16 +3,15 @@ module Parser (
 ) where
 
 import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, Table,  )
-import BuildExpression ( buildExprParser, Assoc( .. ) )
+import BuildExpression ( buildExprParser )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, runParser, (<|>), eof, option, optional, many, many1,
 	getState )
 import qualified Text.ParserCombinators.Parsec as P ( token )
-import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
+import Text.ParserCombinators.Parsec.Pos ( SourcePos )
 import Data.Maybe ( catMaybes )
 import Data.Function ( on )
-import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
@@ -21,19 +20,23 @@ type Parser = GenParser ( Token, SourcePos ) Table
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
+tok :: Token -> Parser ()
+tok = ( >> return () ) . token . eqM
+	where
+	eqM x y = if x == fst y then Just () else Nothing
+
 toyParse :: Table -> String -> [ ( Token, SourcePos ) ] -> Value
-toyParse opLst fn input =
-	case runParser parser opLst fn input of
-		Right v	-> v
-		Left v	-> Error $ show v
+toyParse opTbl fn input = case runParser parser opTbl fn input of
+	Right v	-> v
+	Left v	-> Error $ show v
 
 parser :: Parser Value
 parser = parserExpr >>= \ret -> eof >> return ret
 
 parserExpr :: Parser Value
 parserExpr = do
-	opLst <- getState
-	buildExprParser token ( on (==) fst ) opLst parserApply
+	opTbl <- getState
+	buildExprParser token ( on (==) fst ) opTbl parserApply
 
 parserApply :: Parser Value
 parserApply = do
@@ -58,11 +61,18 @@ parserAtom =
 	parserComplex <|>
 	parserList
 
+parserParens :: Parser Value
+parserParens = do
+	tok OpenParen
+	ret <- option Nil parserExpr
+	tok CloseParen
+	return ret
+
 parserLambda :: Parser Value
 parserLambda = do
-	_ <- token $ testToken Backslash
+	tok Backslash
 	vars <- many1 parserPatternOp
-	_ <- token $ testToken $ ReservedOp "->"
+	tok $ ReservedOp "->"
 	body <- parserExpr
 	return $ Lambda emptyEnv vars body
 
@@ -144,25 +154,6 @@ parserList = do
 	_ <- token $ testToken $ ReservedOp "]"
 	return ret
 
-parserParens :: Parser Value
-parserParens = do
-	_ <- token $ testToken OpenParen
-	ret <- option Nil parserExpr
-	_ <- token $ testToken CloseParen
-	return ret
-
-parserPattern :: Parser Pattern
-parserPattern = parserPatternVar <|> parserPatternComplex <|> parserPatternEmpty
-
-parserPatternVar :: Parser Pattern
-parserPatternVar = token tokenToPattern
-
-parserPatternEmpty :: Parser Pattern
-parserPatternEmpty = do
-	_ <- token $ testToken $ ReservedOp "["
-	_ <- token $ testToken $ ReservedOp "]"
-	return PatEmpty
-
 parserPatternOp :: Parser Pattern
 parserPatternOp = do
 	p1 <- parserPattern
@@ -176,6 +167,16 @@ parserPatternOp' = do
 		f <- parserPatternOp'
 		return $ \p -> PatConst op [ p, f p1 ]
 	<|> return id
+
+parserPattern :: Parser Pattern
+parserPattern = parserPatternVar <|> parserPatternComplex <|> parserPatternEmpty
+
+parserPatternVar :: Parser Pattern
+parserPatternVar = token tokenToPattern
+
+parserPatternEmpty :: Parser Pattern
+parserPatternEmpty =
+	tok ( ReservedOp "[" ) >> tok ( ReservedOp "]" ) >> return PatEmpty
 
 parserPatternComplex :: Parser Pattern
 parserPatternComplex = do
@@ -210,5 +211,3 @@ operatorToString  _			= Nothing
 getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name
 getTokConst _				= Nothing
-
---------------------------------------------------------------------------------

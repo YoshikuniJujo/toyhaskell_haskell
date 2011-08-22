@@ -5,12 +5,12 @@ module MainTools (
 import Prelude hiding ( lex )
 
 import Interact ( runLoop )
-import Primitives ( initEnv, Table, getOpTable )
+import Primitives ( initEnv )
 import Eval ( eval )
 import Parser ( toyParse )
 import Preprocessor
 import Lexer
-import Types ( Value( .. ), showValue, Env, setPatsToEnv )
+import Types ( Value( .. ), showValue, Env, setPatsToEnv, Table )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -19,6 +19,9 @@ import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
 import Paths_toyhaskell ( getDataFileName )
+
+import Text.ParserCombinators.Parsec.Expr
+import Text.ParserCombinators.Parsec.Pos
 
 --------------------------------------------------------------------------------
 
@@ -82,3 +85,43 @@ loadFile opLst env fn = do
 	case eval env $ parse opLst fn ( "let\n" ++ cnt ) of
 		Let ps	-> return $ setPatsToEnv ps env
 		bad	-> error $ show bad
+
+getOpTable :: String -> Table
+getOpTable opLst =
+	map ( uncurry3 mkAssoc . readOpTable ) $
+		concatMap prepOpTable $ lines opLst
+
+prepOpTable :: String -> [ String ]
+prepOpTable  str = map ( \op -> fix ++ " " ++ power ++ " " ++ op ) ops
+	where
+	fix : power : ops = sep str
+	sep "" = [ ]
+	sep [ x ] = [ [ x ] ]
+	sep ( ',' : cs ) = "" : sep ( dropWhile isSpace cs )
+	sep ( c : cs )
+		| isSpace c	= "" : sep ( dropWhile ( `elem` " ,\t" ) cs )
+		| otherwise	= ( c : r ) : rs
+		where
+		r : rs = sep cs
+
+readOpTable :: String -> ( String, Int, Assoc )
+readOpTable str = ( op, read power, assoc )
+	where
+	[ fix, power, op_ ] = words str
+	assoc = case fix of
+		"infix"		-> AssocNone
+		"infixr"	-> AssocRight
+		"infixl"	-> AssocLeft
+		_		-> error "bad"
+	op = case op_ of
+		'`' : o	-> init o
+		_	-> op_
+
+uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
+uncurry3 f ( x, y, z ) = f x y z
+
+mkAssoc :: String -> Int -> Assoc ->
+	( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
+mkAssoc op power assoc =
+	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ),
+		power, assoc )
