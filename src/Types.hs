@@ -12,11 +12,14 @@ module Types (
 	Pattern( .. ),
 	showValue,
 	isInteger,
-	Token( .. )
+	Token( .. ),
+	Table
 ) where
 
 import Data.Maybe
 import Control.Monad
+import Text.ParserCombinators.Parsec.Pos
+import Text.ParserCombinators.Parsec.Expr
 
 data Env = Env [ ( [ String ], Pattern, Value ) ]
 
@@ -140,3 +143,5 @@ data Token =
 	CloseParen | Backslash | Reserved String | ReservedOp String |
 	TokInteger Integer | TokChar Char | TokString String | NewLine
 	deriving ( Show, Eq )
+
+type Table = [ (( Token, SourcePos ), Value -> Value -> Value, Int, Assoc ) ]

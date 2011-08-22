@@ -1,6 +1,7 @@
 module Lexer (
-	Token( .. ),
-	lex
+	lex,
+	SourceName,
+	initialPos
 ) where
 
 import Prelude hiding ( lex )

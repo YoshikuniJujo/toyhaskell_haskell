@@ -5,9 +5,9 @@ module MainTools (
 import Prelude hiding ( lex )
 
 import Interact ( runLoop )
-import Primitives ( initEnv )
+import Primitives ( initEnv, Table, getOpTable )
 import Eval ( eval )
-import Parser ( toyParse, initialPos )
+import Parser ( toyParse )
 import Preprocessor
 import Lexer
 import Types ( Value( .. ), showValue, Env, setPatsToEnv )
@@ -25,14 +25,15 @@ import Paths_toyhaskell ( getDataFileName )
 getDefaultOpTable :: IO String
 getDefaultOpTable = getDataFileName "operator-table.lst"
 
-parse :: FilePath -> {- SourceName -> -} String -> String -> Value
+parse :: Table -> SourceName -> String -> Value
 parse opLst fn = toyParse opLst fn . prep 0 [ ] . lex ( initialPos fn )
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
 	let	( tbl, expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	opLst	<- maybe ( getDefaultOpTable >>= readFile ) readFile tbl
+	opLst_	<- maybe ( getDefaultOpTable >>= readFile ) readFile tbl
+	let opLst = getOpTable opLst_
 	env0	<- foldM ( loadFile opLst ) initEnv fns
 	flip ( flip . flip maybe ) expr
 		( showValue . eval env0 . parse opLst "" ) $
@@ -66,7 +67,7 @@ readOption args = let
 		where
 		( path, expr ) = fromOps ops
 
-runCmd :: String -> String -> Env -> IO Env
+runCmd :: Table -> String -> Env -> IO Env
 runCmd opLst cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
@@ -75,7 +76,7 @@ runCmd opLst cmd env
 		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
 		return env
 
-loadFile :: String -> Env -> FilePath -> IO Env
+loadFile :: Table -> Env -> FilePath -> IO Env
 loadFile opLst env fn = do
 	cnt <- readFile fn
 	case eval env $ parse opLst fn ( "let\n" ++ cnt ) of

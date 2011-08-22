@@ -1,11 +1,8 @@
 module Parser (
-	toyParse, initialPos
+	toyParse
 ) where
 
-import Prelude hiding ( lex )
-
-import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv )
--- import Preprocessor ( lex, prep )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, Table,  )
 import BuildExpression ( buildExprParser, Assoc( .. ) )
 
 import Text.ParserCombinators.Parsec (
@@ -19,14 +16,14 @@ import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-type Parser = GenParser ( Token, SourcePos ) String
+type Parser = GenParser ( Token, SourcePos ) Table
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
-toyParse :: FilePath -> String -> [ ( Token, SourcePos ) ] -> Value
+toyParse :: Table -> String -> [ ( Token, SourcePos ) ] -> Value
 toyParse opLst fn input =
-	case runParser parser opLst fn input of -- $ prep 0 [ ] $ lex ( initialPos fn ) input of
+	case runParser parser opLst fn input of
 		Right v	-> v
 		Left v	-> Error $ show v
 
@@ -36,18 +33,7 @@ parser = parserExpr >>= \ret -> eof >> return ret
 parserExpr :: Parser Value
 parserExpr = do
 	opLst <- getState
-	let opTable = map ( uncurry3 mkAssoc . readOpTable ) $
-		concatMap prepOpTable $ lines opLst
-	buildExprParser token ( on (==) fst ) opTable parserApply
-
-uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
-uncurry3 f ( x, y, z ) = f x y z
-
-mkAssoc :: String -> Int -> Assoc ->
-	( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
-mkAssoc op power assoc =
-	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ),
-		power, assoc )
+	buildExprParser token ( on (==) fst ) opLst parserApply
 
 parserApply :: Parser Value
 parserApply = do
@@ -226,29 +212,3 @@ getTokConst ( TokConst name, _ )	= Just name
 getTokConst _				= Nothing
 
 --------------------------------------------------------------------------------
-
-prepOpTable :: String -> [ String ]
-prepOpTable  str = map ( \op -> fix ++ " " ++ power ++ " " ++ op ) ops
-	where
-	fix : power : ops = sep str
-	sep "" = [ ]
-	sep [ x ] = [ [ x ] ]
-	sep ( ',' : cs ) = "" : sep ( dropWhile isSpace cs )
-	sep ( c : cs )
-		| isSpace c	= "" : sep ( dropWhile ( `elem` " ,\t" ) cs )
-		| otherwise	= ( c : r ) : rs
-		where
-		r : rs = sep cs
-
-readOpTable :: String -> ( String, Int, Assoc )
-readOpTable str = ( op, read power, assoc )
-	where
-	[ fix, power, op_ ] = words str
-	assoc = case fix of
-		"infix"		-> AssocNone
-		"infixr"	-> AssocRight
-		"infixl"	-> AssocLeft
-		_		-> error "bad"
-	op = case op_ of
-		'`' : o	-> init o
-		_	-> op_
