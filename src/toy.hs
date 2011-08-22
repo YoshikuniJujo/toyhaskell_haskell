@@ -4,4 +4,4 @@ import System.Environment ( getArgs )
 import MainTools ( mainGen )
 
 main :: IO ()
-main = getArgs >>= mainGen
+main = getArgs >>= flip mainGen [ ]

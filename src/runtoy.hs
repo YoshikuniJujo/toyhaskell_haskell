@@ -4,4 +4,6 @@ import System.Environment ( getArgs )
 import MainTools ( mainGen )
 
 main :: IO ()
-main = getArgs >>= mainGen . ( "-e" : ) . ( "main" : ) . ( : [] ) . head
+main = do
+	src : args <- getArgs
+	mainGen [ "-e", "main", src ] args

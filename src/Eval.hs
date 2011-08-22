@@ -20,7 +20,7 @@ eval env ( Apply f a )		= case eval env f of
 		Lambda ( setPatToEnv pat ( eval env a ) lenv ) pats body
 	e@( Error _ )			-> e
 	_				-> notFunctionError f
-eval env ( Letin pats body )	= eval ( setPatsToEnv pats env ) body
+eval env ( Letin pvs body )	= eval ( setPatsToEnv pvs env ) body
 eval env ( If test thn els )	= case eval env test of
 	Complex "True"	[ ]	-> eval env thn
 	Complex "False" [ ]	-> eval env els
@@ -50,57 +50,51 @@ nonExhaustiveError = Error "Non-exhaustive patterns in case"
 
 initEnv :: Env
 initEnv = setsToEnv [
-	( "+", mkBinIntFunction (+) ),
-	( "-", mkBinIntFunction (-) ),
-	( "*", mkBinIntFunction (*) ),
-	( "div", mkBinIntFunction div ),
-	( "^", mkBinIntFunction (^) ),
-	( "==", mkIntCompFunction (==) ),
-	( ":", makeListFun ),
-	( ">>", concatMonadFun ),
-	( "return", returnFun ),
-	( "putChar", Function putCharFun )
+	( "+",		Function $ mkBinIntFunction (+) ),
+	( "-",		Function $ mkBinIntFunction (-) ),
+	( "*",		Function $ mkBinIntFunction (*) ),
+	( "div",	Function $ mkBinIntFunction div ),
+	( "^",		Function $ mkBinIntFunction (^) ),
+	( "==",		Function $ mkIntCompFunction (==) ),
+	( ":",		Function makeListFun ),
+	( ">>",		Function concatMonadFun ),
+	( "return",	Function $ IOAction . return ),
+	( "putChar", 	Function putCharFun )
  ] emptyEnv
 
-mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value
-mkBinIntFunction op = Function fun
+mkIntIntFunction :: ( Integer -> Integer ) -> Value -> Value
+mkIntIntFunction fun ( Integer x )	= Integer $ fun x
+mkIntIntFunction _ ni			= notMatchTypeError "Integer" ni
+
+mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value -> Value
+mkBinIntFunction op ( Integer x )	= Function $ mkIntIntFunction $ op x
+mkBinIntFunction _ ni			= notMatchTypeError "Integer" ni
+
+mkIntBoolFunction :: ( Integer -> Bool ) -> Value -> Value
+mkIntBoolFunction p ( Integer x )	= if p x
+	then Complex "True" [ ]
+	else Complex "False" [ ]
+mkIntBoolFunction _ ni			= notMatchTypeError "Integer" ni
+
+mkIntCompFunction :: ( Integer -> Integer -> Bool ) -> Value -> Value
+mkIntCompFunction p ( Integer x )	= Function $ mkIntBoolFunction $ p x
+mkIntCompFunction _ ni			= notMatchTypeError "Integer" ni
+
+makeListFun :: Value -> Value
+makeListFun v = Function pushV
 	where
-	fun ( Integer x ) = let
-		funN ( Integer y )	= Integer $ x `op` y
-		funN ni			= notMatchTypeError "Integer" ni in
-		Function funN
-	fun ni = notMatchTypeError "Integer" ni
+	pushV lst	= Complex ":" [ v, lst ]
 
-mkIntCompFunction :: ( Integer -> Integer -> Bool ) -> Value
-mkIntCompFunction p = Function fun
+concatMonadFun :: Value -> Value
+concatMonadFun ( IOAction act1 ) = Function fun
 	where
-	fun ( Integer x ) = let
-		funN ( Integer y )	= if x `p` y
-			then Complex "True" [ ]
-			else Complex "False" [ ]
-		funN ni			= notMatchTypeError "Integer" ni in
-		Function funN
-	fun ni = notMatchTypeError "Integer" ni
-
-makeListFun :: Value
-makeListFun = Function fun
-	where fun v = let funV lst = Complex ":" [ v, lst ] in Function funV
-
-concatMonadFun :: Value
-concatMonadFun = Function fun
-	where
-	fun ( IOAction act1 ) = let
-		funA ( IOAction act2 ) = IOAction $ act1 >> act2
-		funA v = notMatchTypeError "IO" v in
-		Function funA
-	fun v = notMatchTypeError "IO" v
-
-returnFun :: Value
-returnFun = Function $ IOAction . return
+	fun ( IOAction act2 )	= IOAction $ act1 >> act2
+	fun v			= notMatchTypeError "IO" v
+concatMonadFun v		= notMatchTypeError "IO" v
 
 putCharFun :: Value -> Value
-putCharFun ( Char c ) = IOAction $ putChar c >> return Nil
-putCharFun v = Error $ "putChar :: String -> IO (): " ++ show v
+putCharFun ( Char c )	= IOAction $ putChar c >> return Nil
+putCharFun v		= Error $ "putChar :: String -> IO (): " ++ show v
 
 notMatchTypeError :: String -> Value -> Value
 notMatchTypeError typ val = Error $

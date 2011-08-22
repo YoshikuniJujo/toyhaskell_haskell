@@ -13,29 +13,29 @@ import Control.Monad ( foldM )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
-parse :: String -> String -> Value
-parse = toyParse
+--------------------------------------------------------------------------------
 
-mainGen :: [ String ] -> IO ()
-mainGen args = do
-	let ( expr, fns, _ ) = getOpt RequireOrder options args
-	e0 <- foldM loadFile initEnv fns
-	withSingle expr ( showValue . eval e0 . parse "" ) $
-		runLoop "toyhaskell" e0 $ \e inp -> case inp of
-			':' : cmd	-> runCmd cmd e
-			_		-> case eval e $
-						parse "<interactive>" inp of
-				Let ps	-> return $ setPatsToEnv ps e
-				ret	-> showValue ret >> return e
+mainGen :: [ String ] -> [ String ] -> IO ()
+mainGen args _ = do
+	let ( opts, fns, errs ) = getOpt RequireOrder options args
+	mapM_ putStr errs
+	env0 <- foldM loadFile initEnv fns
+	withSingle opts ( showValue . eval env0 . toyParse "" . getExpr ) $
+		runLoop "toyhaskell" env0 $ \env inp -> case inp of
+			':' : cmd	-> runCmd cmd env
+			_		-> case eval env $
+						toyParse "<interactive>" inp of
+				Let ps	-> return $ setPatsToEnv ps env
+				ret	-> showValue ret >> return env
 
-options :: [ OptDescr String ]
+data Option = Expr { getExpr :: String }
+
+options :: [ OptDescr Option ]
 options = [
-	Option "e" [ ] ( ReqArg id "haskell expression" ) "run expression"
+	Option "e" [ ] ( ReqArg Expr "haskell expression" ) "run expression"
  ]
 
 runCmd :: String -> Env -> IO Env
-runCmd "quit" env			= return env
-runCmd "q" env				= return env
 runCmd cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
@@ -47,7 +47,7 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ parse fn ( "let\n" ++ cnt ) of
+	case eval env $ toyParse fn ( "let\n" ++ cnt ) of
 		Let ps	-> return $ setPatsToEnv ps env
 		bad	-> error $ show bad
 
