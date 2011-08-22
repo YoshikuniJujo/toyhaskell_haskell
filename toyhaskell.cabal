@@ -14,14 +14,21 @@ category:	Language
 synopsis:	small subset of haskell
 description:	small subset of haskell
 
+data-dir:	data
+data-files:	operator-table.lst
+
 executable runtoy
   hs-source-dirs:	src
   main-is:		runtoy.hs
+  other-modules:	MainTools, Interact, Eval, Parser, BuildExpression,
+    Preprocessor, Lexer, Value
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec
 
 executable toy
   hs-source-dirs:	src
   main-is:		toy.hs
+  other-modules:	MainTools, Interact, Eval, Parser, BuildExpression,
+    Preprocessor, Lexer, Value
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec

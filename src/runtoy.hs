@@ -5,5 +5,5 @@ import MainTools ( mainGen )
 
 main :: IO ()
 main = do
-	src : args <- getArgs
-	mainGen [ "-e", "main", src ] args
+	args <- getArgs
+	mainGen ( "-e" : "main" : args ) [ ]

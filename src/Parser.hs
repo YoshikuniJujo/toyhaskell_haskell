@@ -6,10 +6,11 @@ import Prelude hiding ( lex )
 
 import Value ( Value( .. ), Pattern( .. ), emptyEnv )
 import Preprocessor ( Token( .. ), lex, prep )
-import BuildExpression ( buildExprParser, OpTable, Assoc( .. ) )
+import BuildExpression ( buildExprParser, Assoc( .. ) )
 
 import Text.ParserCombinators.Parsec (
-	GenParser, parse, (<|>), eof, option, optional, many, many1 )
+	GenParser, runParser, (<|>), eof, option, optional, many, many1,
+	getState )
 import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
 import Data.Maybe ( catMaybes )
@@ -17,14 +18,14 @@ import Data.Function ( on )
 
 --------------------------------------------------------------------------------
 
-type Parser = GenParser ( Token, SourcePos ) ()
+type Parser = GenParser ( Token, SourcePos ) String
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
-toyParse :: String -> String -> Value
-toyParse fn input =
-	case parse parser fn $ prep 0 [ ] $ lex ( initialPos fn ) input of
+toyParse :: FilePath -> String -> String -> Value
+toyParse opLst fn input =
+	case runParser parser opLst fn $ prep 0 [ ] $ lex ( initialPos fn ) input of
 		Right v	-> v
 		Left v	-> Error $ show v
 
@@ -32,18 +33,10 @@ parser :: Parser Value
 parser = parserExpr >>= \ret -> eof >> return ret
 
 parserExpr :: Parser Value
-parserExpr = buildExprParser token ( on (==) fst ) opTable parserApply
-
-opTable :: OpTable ( Token, SourcePos ) () Value
-opTable = map ( uncurry3 mkAssoc ) [
-	( ">>", 1, AssocLeft ),
-	( "==", 4, AssocNone ),
-	( ":", 5, AssocRight ),
-	( "+", 6, AssocLeft ),
-	( "-", 6, AssocLeft ),
-	( "*", 7, AssocLeft ),
-	( "div", 7, AssocLeft )
- ]
+parserExpr = do
+	opLst <- getState
+	let opTable = map ( uncurry3 mkAssoc ) $ map readOpTable $ lines opLst
+	buildExprParser token ( on (==) fst ) opTable parserApply
 
 uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
 uncurry3 f ( x, y, z ) = f x y z
@@ -228,3 +221,18 @@ operatorToString  _			= Nothing
 getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name
 getTokConst _				= Nothing
+
+--------------------------------------------------------------------------------
+
+readOpTable :: String -> ( String, Int, Assoc )
+readOpTable str = ( op, read power, assoc )
+	where
+	[ fix, power, op_ ] = words str
+	assoc = case fix of
+		"infix"		-> AssocNone
+		"infixr"	-> AssocRight
+		"infixl"	-> AssocLeft
+		_		-> error "bad"
+	op = case op_ of
+		'`' : o	-> init o
+		_	-> op_
