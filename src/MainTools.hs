@@ -14,7 +14,7 @@ import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
 parse :: String -> String -> Value
-parse fn = toyParse fn -- . prep
+parse = toyParse
 
 mainGen :: [ String ] -> IO ()
 mainGen args = do

@@ -5,7 +5,6 @@ module Parser (
 import Prelude hiding ( lex )
 
 import Value ( Value( .. ), Pattern( .. ), emptyEnv )
-import Lexer ( Token( .. ), lex, initPos )
 import BuildExpression
 
 import Text.ParserCombinators.Parsec (

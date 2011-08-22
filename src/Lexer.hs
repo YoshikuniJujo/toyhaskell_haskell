@@ -8,6 +8,7 @@ import Prelude hiding ( lex )
 import Text.ParserCombinators.Parsec.Pos
 import Data.Char
 
+initPos :: SourceName -> SourcePos
 initPos fs = newPos fs 1 1
 
 data Token =
