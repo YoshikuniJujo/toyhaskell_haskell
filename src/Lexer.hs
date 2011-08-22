@@ -8,13 +8,13 @@ import Prelude hiding ( lex )
 import Text.ParserCombinators.Parsec.Pos
 import Data.Char
 
-initPos fs = newPos fs 0 0
+initPos fs = newPos fs 1 1
 
 data Token =
 	OpenBrace | CloseBrace |
 	Variable String | TokConst String | Operator String | OpenParen |
 	CloseParen | Backslash | Reserved String | ReservedOp String |
-	TokInteger Integer | TokChar Char | TokString String
+	TokInteger Integer | TokChar Char | TokString String | NewLine
 	deriving ( Show, Eq )
 
 reserved, reservedOp :: [ String ]
@@ -31,7 +31,7 @@ isc = incSourceColumn
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
 lex _ ""			= [ ]
 lex sp ( '-' : '-' : cs )	= lex sp $ dropWhile ( /= '\n' ) cs
-lex sp ( '\n' : cs )		= lex ( nextLine sp ) cs
+lex sp ( '\n' : cs )		= ( NewLine, sp ) : lex ( nextLine sp ) cs
 lex sp ( ';' : cs )		= ( ReservedOp ";", sp ) : lex ( next sp ) cs
 lex sp ( '{' : cs )		= ( OpenBrace, sp ) : lex ( next sp ) cs
 lex sp ( '}' : cs )		= ( CloseBrace, sp ) : lex ( next sp ) cs
@@ -46,6 +46,8 @@ lex sp ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
 		( TokString ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
 lex sp ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
 		( Operator ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
+lex sp s@( '\t' : cs )		= let c = sourceColumn sp in
+					lex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
 lex sp s@( c : cs )
 	| isSpace c		= lex ( next sp ) cs
 	| isLow c		= let ( ret, rest ) = span isAlNum s in

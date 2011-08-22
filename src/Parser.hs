@@ -20,7 +20,7 @@ import Preprocessor
 --------------------------------------------------------------------------------
 
 toyParse :: String -> String -> Value
-toyParse fn input = case parse parser "" $ prep $ lex ( initPos fn ) input of
+toyParse fn input = case parse parser "" $ prep 0 [ ] $ lex ( initPos fn ) input of
 	Right v	-> v
 	Left v	-> Error $ show v
 
