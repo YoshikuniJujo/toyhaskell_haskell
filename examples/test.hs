@@ -1,5 +1,7 @@
 -- import Prelude hiding ( putStr, putStrLn )
 
+some = let 1 : x : 3 : [] = 1 : 2 : 3 : [] in x;
+
 hello = "Hello, world!\n";
 bye = "Good-bye, world";
 
@@ -14,4 +16,4 @@ fac2 n = case n of
 putStr str = case str of { c : cs -> putChar c >> putStr cs; [] -> return () };
 putStrLn str = putStr str >> putChar '\n';
 
-main = putStrLn "Hello, World!" >> return "test" ;
+main = putStrLn "Hello, World!" >> return some ;

@@ -1,5 +1,6 @@
 module Parser (
-	toyParse
+	toyParse,
+	getOpTable
 ) where
 
 import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, Table, Table' )
@@ -13,6 +14,7 @@ import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
 import Text.ParserCombinators.Parsec.Expr
 import Data.Maybe ( catMaybes )
 import Data.Function ( on )
+import Data.Char
 
 --------------------------------------------------------------------------------
 
@@ -221,3 +223,32 @@ mkAssocPat :: String -> Int -> Assoc ->
 mkAssocPat op power assoc =
 	( ( Operator op, initialPos "" ), \x y -> PatConst op [ x, y ],
 		power, assoc )
+
+getOpTable :: String -> Table
+getOpTable opLst = map readOpTable $ concatMap prepOpTable $ lines opLst
+
+prepOpTable :: String -> [ String ]
+prepOpTable  str = map ( \op -> fix ++ " " ++ power ++ " " ++ op ) ops
+	where
+	fix : power : ops = sep str
+	sep "" = [ ]
+	sep [ x ] = [ [ x ] ]
+	sep ( ',' : cs ) = "" : sep ( dropWhile isSpace cs )
+	sep ( c : cs )
+		| isSpace c	= "" : sep ( dropWhile ( `elem` " ,\t" ) cs )
+		| otherwise	= ( c : r ) : rs
+		where
+		r : rs = sep cs
+
+readOpTable :: String -> ( String, Int, Assoc )
+readOpTable str = ( op, read power, assoc )
+	where
+	[ fix, power, op_ ] = words str
+	assoc = case fix of
+		"infix"		-> AssocNone
+		"infixr"	-> AssocRight
+		"infixl"	-> AssocLeft
+		_		-> error "bad"
+	op = case op_ of
+		'`' : o	-> init o
+		_	-> op_

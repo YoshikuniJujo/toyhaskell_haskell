@@ -2,11 +2,19 @@ module Eval (
 	eval
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Env, addEnvs, setPatToEnv,
-	setPatsToEnv, setsToEnv, getFromEnv, match )
-import Data.Maybe ( fromMaybe )
+import Types ( Value( .. ), Pattern( .. ), Env( .. ), addEnvs, setPatToEnv,
+	setPatsToEnv, setsToEnv, match )
+import Data.Maybe ( fromMaybe, listToMaybe )
 
 --------------------------------------------------------------------------------
+
+getFromEnv :: String -> Env -> Maybe Value
+getFromEnv var env@( Env ps ) = do
+	( _, pat, val ) <- usePat
+	match ( eval env val ) pat >>= lookup var
+	where
+	one ( x, _, _ ) = x
+	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i )	=

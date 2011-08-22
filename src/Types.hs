@@ -1,12 +1,11 @@
 module Types (
-	Env,
+	Env( .. ),
 	emptyEnv,
 	setToEnv,
 	setsToEnv,
 	setPatToEnv,
 	setPatsToEnv,
 	addEnvs,
-	getFromEnv,
 	match,
 	Value( .. ),
 	Pattern( .. ),
@@ -17,7 +16,6 @@ module Types (
 	Table'
 ) where
 
-import Data.Maybe
 import Control.Monad
 import Text.ParserCombinators.Parsec.Pos
 import Text.ParserCombinators.Parsec.Expr
@@ -46,14 +44,6 @@ getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
 getPatVars ( PatVar var ) = [ var ]
 getPatVars _ = [ ]
 
-getFromEnv :: String -> Env -> Maybe Value
-getFromEnv var ( Env ps ) = do
-	( _, pat, val ) <- usePat
-	patMatch1 val pat >>= lookup var
-	where
-	one ( x, _, _ ) = x
-	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
-
 match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
 match = patMatch1
 
@@ -77,7 +67,7 @@ data Pattern =
 	PatVar { patVar :: String } |
 	PatInteger Integer |
 	PatEmpty
-	deriving Eq
+	deriving ( Eq, Show )
 
 data Value =
 	Nil |
@@ -109,7 +99,7 @@ instance Show Value where
 	show ( IOAction _ )	= "<IO>"
 	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
 	show ( Lambda _ _ _ )	= "<closure>"
-	show ( Letin _ _ )	= "<let-in>"
+	show ( Letin a b )	= "let " ++ show a ++ " in " ++ show b
 	show ( Let _ )		= "<let>"
 	show ( Case _ _ )	= "<case>"
 	show v@( Complex ":" [ Char _, _ ] )	= "\"" ++ showStr v ++ "\""
