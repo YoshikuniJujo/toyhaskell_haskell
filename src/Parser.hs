@@ -15,6 +15,7 @@ import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
 import Data.Maybe ( catMaybes )
 import Data.Function ( on )
+import Data.Char
 
 --------------------------------------------------------------------------------
 
@@ -35,7 +36,8 @@ parser = parserExpr >>= \ret -> eof >> return ret
 parserExpr :: Parser Value
 parserExpr = do
 	opLst <- getState
-	let opTable = map ( uncurry3 mkAssoc ) $ map readOpTable $ lines opLst
+	let opTable = map ( uncurry3 mkAssoc ) $ map readOpTable $
+		concatMap prepOpTable $ lines opLst
 	buildExprParser token ( on (==) fst ) opTable parserApply
 
 uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
@@ -223,6 +225,19 @@ getTokConst ( TokConst name, _ )	= Just name
 getTokConst _				= Nothing
 
 --------------------------------------------------------------------------------
+
+prepOpTable :: String -> [ String ]
+prepOpTable  str = map ( \op -> fix ++ " " ++ power ++ " " ++ op ) ops
+	where
+	fix : power : ops = sep str
+	sep "" = [ ]
+	sep [ x ] = [ [ x ] ]
+	sep ( ',' : cs ) = "" : sep ( dropWhile isSpace cs )
+	sep ( c : cs )
+		| isSpace c	= "" : sep ( dropWhile ( `elem` " ,\t" ) cs )
+		| otherwise	= ( c : r ) : rs
+		where
+		r : rs = sep cs
 
 readOpTable :: String -> ( String, Int, Assoc )
 readOpTable str = ( op, read power, assoc )
