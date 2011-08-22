@@ -3,7 +3,8 @@ module MainTools (
 ) where
 
 import Interact ( runLoop )
-import Eval ( eval, initEnv )
+import Primitives ( initEnv )
+import Eval ( eval )
 import Parser ( toyParse )
 import Value ( Value( .. ), showValue, Env, setPatsToEnv )
 

@@ -118,7 +118,9 @@ parserIf = do
 	thn <- parserExpr
 	_ <- token $ testToken $ Reserved "else"
 	els <- parserExpr
-	return $ If test thn els
+--	return $ If test thn els
+	return $ Case test [ ( PatConst "True" [ ], thn ),
+		( PatConst "False" [ ], els ) ]
 
 parserCase :: Parser Value
 parserCase = do

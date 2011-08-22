@@ -87,7 +87,6 @@ data Value =
 	Lambda Env [ Pattern ] Value |
 	Letin [ ( Pattern, Value ) ] Value |
 	Let [ ( Pattern, Value ) ] |
-	If Value Value Value |
 	Case Value [ ( Pattern, Value ) ] |
 	Error String
 
@@ -107,7 +106,6 @@ instance Show Value where
 	show ( Lambda _ _ _ )	= "<closure>"
 	show ( Letin _ _ )	= "<let-in>"
 	show ( Let _ )		= "<let>"
-	show ( If _ _ _ )	= "<if>"
 	show ( Case _ _ )	= "<case>"
 	show v@( Complex ":" [ Char _, _ ] )	= "\"" ++ showStr v ++ "\""
 	show v@( Complex ":" _ )		= "[" ++ showL v ++ "]"
