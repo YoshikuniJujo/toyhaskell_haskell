@@ -2,14 +2,15 @@ module Parser (
 	toyParse
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, Table,  )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, Table, Table' )
 import BuildExpression ( buildExprParser )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, runParser, (<|>), eof, option, optional, many, many1,
 	getState )
 import qualified Text.ParserCombinators.Parsec as P ( token )
-import Text.ParserCombinators.Parsec.Pos ( SourcePos )
+import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
+import Text.ParserCombinators.Parsec.Expr
 import Data.Maybe ( catMaybes )
 import Data.Function ( on )
 
@@ -35,7 +36,7 @@ parser = parserExpr >>= \ret -> eof >> return ret
 
 parserExpr :: Parser Value
 parserExpr = do
-	opTbl <- getState
+	opTbl <- fmap getOpTable' getState
 	buildExprParser token ( on (==) fst ) opTbl parserApply
 
 parserApply :: Parser Value
@@ -156,17 +157,8 @@ parserList = do
 
 parserPatternOp :: Parser Pattern
 parserPatternOp = do
-	p1 <- parserPattern
-	f <- parserPatternOp'
-	return $ f p1
-
-parserPatternOp' :: Parser ( Pattern -> Pattern )
-parserPatternOp' = do
-		op <- token operatorToString
-		p1 <- parserPattern
-		f <- parserPatternOp'
-		return $ \p -> PatConst op [ p, f p1 ]
-	<|> return id
+	opLst <- fmap getOpTablePat getState
+	buildExprParser token ( on (==) fst ) opLst parserPattern
 
 parserPattern :: Parser Pattern
 parserPattern = parserPatternVar <|> parserPatternComplex <|> parserPatternEmpty
@@ -204,10 +196,28 @@ tokenToPattern _			= Nothing
 testToken :: Token -> ( Token, SourcePos ) -> Maybe Token
 testToken tok0 ( tok1, _ ) = if tok0 == tok1 then Just tok0 else Nothing
 
-operatorToString :: ( Token, SourcePos ) -> Maybe String
-operatorToString ( Operator op, _ )	= Just op
-operatorToString  _			= Nothing
-
 getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name
 getTokConst _				= Nothing
+
+getOpTable' :: Table -> Table'
+getOpTable' = map $ uncurry3 mkAssoc
+
+getOpTablePat :: Table ->
+	[ ( ( Token, SourcePos ), Pattern -> Pattern -> Pattern, Int, Assoc ) ]
+getOpTablePat = map $ uncurry3 mkAssocPat
+
+uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
+uncurry3 f ( x, y, z ) = f x y z
+
+mkAssoc :: String -> Int -> Assoc ->
+	( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
+mkAssoc op power assoc =
+	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ),
+		power, assoc )
+
+mkAssocPat :: String -> Int -> Assoc ->
+	( ( Token, SourcePos ), Pattern -> Pattern -> Pattern, Int, Assoc )
+mkAssocPat op power assoc =
+	( ( Operator op, initialPos "" ), \x y -> PatConst op [ x, y ],
+		power, assoc )

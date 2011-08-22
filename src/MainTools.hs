@@ -21,7 +21,6 @@ import Data.Char ( isSpace )
 import Paths_toyhaskell ( getDataFileName )
 
 import Text.ParserCombinators.Parsec.Expr
-import Text.ParserCombinators.Parsec.Pos
 
 --------------------------------------------------------------------------------
 
@@ -87,9 +86,7 @@ loadFile opLst env fn = do
 		bad	-> error $ show bad
 
 getOpTable :: String -> Table
-getOpTable opLst =
-	map ( uncurry3 mkAssoc . readOpTable ) $
-		concatMap prepOpTable $ lines opLst
+getOpTable opLst = map readOpTable $ concatMap prepOpTable $ lines opLst
 
 prepOpTable :: String -> [ String ]
 prepOpTable  str = map ( \op -> fix ++ " " ++ power ++ " " ++ op ) ops
@@ -116,12 +113,3 @@ readOpTable str = ( op, read power, assoc )
 	op = case op_ of
 		'`' : o	-> init o
 		_	-> op_
-
-uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
-uncurry3 f ( x, y, z ) = f x y z
-
-mkAssoc :: String -> Int -> Assoc ->
-	( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
-mkAssoc op power assoc =
-	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ),
-		power, assoc )

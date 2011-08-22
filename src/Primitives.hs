@@ -2,11 +2,7 @@ module Primitives (
 	initEnv
 ) where
 
-import Types ( Value(..), Env, setsToEnv, emptyEnv, Table, Token( .. ) )
-
-import Text.ParserCombinators.Parsec.Pos
-import Text.ParserCombinators.Parsec.Expr
-import Data.Char
+import Types ( Value(..), Env, setsToEnv, emptyEnv )
 
 initEnv :: Env
 initEnv = setsToEnv [

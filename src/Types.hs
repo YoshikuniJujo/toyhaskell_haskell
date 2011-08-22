@@ -13,7 +13,8 @@ module Types (
 	showValue,
 	isInteger,
 	Token( .. ),
-	Table
+	Table,
+	Table'
 ) where
 
 import Data.Maybe
@@ -144,4 +145,5 @@ data Token =
 	TokInteger Integer | TokChar Char | TokString String | NewLine
 	deriving ( Show, Eq )
 
-type Table = [ (( Token, SourcePos ), Value -> Value -> Value, Int, Assoc ) ]
+type Table' = [ (( Token, SourcePos ), Value -> Value -> Value, Int, Assoc ) ]
+type Table = [ ( String, Int, Assoc ) ]
