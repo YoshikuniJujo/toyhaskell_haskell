@@ -1,11 +1,12 @@
 module Preprocessor (
 	Token( .. ),
-	lex,
+--	lex,
 	prep
 ) where
 
 import Data.List
-import Lexer
+-- import Lexer
+import Types
 import Text.ParserCombinators.Parsec.Pos
 import Prelude hiding ( lex )
 

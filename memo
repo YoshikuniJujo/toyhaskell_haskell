@@ -55,3 +55,9 @@ BuildExpression
 Lexer
 Preprocessor
 Value
+
+2011.08.22 Mon.
+
+次は Parser の refactoring だ。
+現在残っているのが、 BuildExpression, Preprocessor, Lexer,
+Value の refactoring だ。

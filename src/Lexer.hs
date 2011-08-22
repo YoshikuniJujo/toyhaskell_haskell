@@ -4,15 +4,9 @@ module Lexer (
 ) where
 
 import Prelude hiding ( lex )
+import Types ( Token( .. ) )
 import Text.ParserCombinators.Parsec.Pos
 import Data.Char
-
-data Token =
-	OpenBrace | CloseBrace |
-	Variable String | TokConst String | Operator String | OpenParen |
-	CloseParen | Backslash | Reserved String | ReservedOp String |
-	TokInteger Integer | TokChar Char | TokString String | NewLine
-	deriving ( Show, Eq )
 
 reserved, reservedOp :: [ String ]
 reserved = [ "let", "in", "if", "then", "else", "case", "of" ]

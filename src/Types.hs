@@ -1,4 +1,4 @@
-module Value (
+module Types (
 	Env,
 	emptyEnv,
 	setToEnv,
@@ -11,7 +11,8 @@ module Value (
 	Value( .. ),
 	Pattern( .. ),
 	showValue,
-	isInteger
+	isInteger,
+	Token( .. )
 ) where
 
 import Data.Maybe
@@ -132,3 +133,10 @@ showValue ( IOAction act ) = do
 		Nil	-> return ()
 		_	-> print v
 showValue v = print v
+
+data Token =
+	OpenBrace | CloseBrace |
+	Variable String | TokConst String | Operator String | OpenParen |
+	CloseParen | Backslash | Reserved String | ReservedOp String |
+	TokInteger Integer | TokChar Char | TokString String | NewLine
+	deriving ( Show, Eq )

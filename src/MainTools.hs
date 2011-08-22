@@ -2,11 +2,15 @@ module MainTools (
 	mainGen
 ) where
 
+import Prelude hiding ( lex )
+
 import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
-import Parser ( toyParse )
-import Value ( Value( .. ), showValue, Env, setPatsToEnv )
+import Parser ( toyParse, initialPos )
+import Preprocessor
+import Lexer
+import Types ( Value( .. ), showValue, Env, setPatsToEnv )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -21,6 +25,9 @@ import Paths_toyhaskell ( getDataFileName )
 getDefaultOpTable :: IO String
 getDefaultOpTable = getDataFileName "operator-table.lst"
 
+parse :: FilePath -> {- SourceName -> -} String -> String -> Value
+parse opLst fn = toyParse opLst fn . prep 0 [ ] . lex ( initialPos fn )
+
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
 	let	( tbl, expr, fns, errs ) = readOption args
@@ -28,11 +35,11 @@ mainGen args _ = do
 	opLst	<- maybe ( getDefaultOpTable >>= readFile ) readFile tbl
 	env0	<- foldM ( loadFile opLst ) initEnv fns
 	flip ( flip . flip maybe ) expr
-		( showValue . eval env0 . toyParse opLst "" ) $
+		( showValue . eval env0 . parse opLst "" ) $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd opLst cmd env
 			_		-> case eval env $
-				toyParse opLst "<interactive>" inp of
+				parse opLst "<interactive>" inp of
 				Let ps	-> return $ setPatsToEnv ps env
 				ret	-> showValue ret >> return env
 
@@ -71,6 +78,6 @@ runCmd opLst cmd env
 loadFile :: String -> Env -> FilePath -> IO Env
 loadFile opLst env fn = do
 	cnt <- readFile fn
-	case eval env $ toyParse opLst fn ( "let\n" ++ cnt ) of
+	case eval env $ parse opLst fn ( "let\n" ++ cnt ) of
 		Let ps	-> return $ setPatsToEnv ps env
 		bad	-> error $ show bad

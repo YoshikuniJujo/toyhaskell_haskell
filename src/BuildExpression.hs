@@ -15,6 +15,9 @@ mkTableGen :: Eq b => ( t -> String ) -> ( t -> SourcePos ) -> ( t -> b ) ->
 	[ ( t, a -> a -> a, Int, Assoc ) ] -> OperatorTable t st a
 mkTableGen s p pre = foldr ( uncurry4 $ insertToTableGen s p pre ) $ replicate 10 [ ]
 
+mkTableGen' ::
+	( ( t -> Maybe () ) -> GenParser t st () ) -> ( t -> t -> Bool ) ->
+	[ ( t, a -> a -> a, Int, Assoc ) ] -> OperatorTable t st a
 mkTableGen' tk eq = foldr ( uncurry4 $ insertToTableGen' tk eq ) $ replicate 10 [ ]
 
 buildExprParser' :: Eq b => ( t -> String ) -> ( t -> SourcePos ) -> ( t -> b ) ->
@@ -22,6 +25,9 @@ buildExprParser' :: Eq b => ( t -> String ) -> ( t -> SourcePos ) -> ( t -> b ) 
 	GenParser t st a
 buildExprParser' s p pre tbl = buildExpressionParser ( mkTableGen s p pre tbl )
 
+buildExprParser ::
+	( ( t -> Maybe () ) -> GenParser t st () ) -> ( t -> t -> Bool ) ->
+	[ ( t, a -> a -> a, Int, Assoc ) ] -> GenParser t st a -> GenParser t st a
 buildExprParser tk eq tbl = buildExpressionParser ( mkTableGen' tk eq tbl )
 
 uncurry4 :: ( a -> b -> c -> d -> e ) -> ( a, b, c, d ) -> e

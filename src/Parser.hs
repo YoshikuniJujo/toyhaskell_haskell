@@ -1,11 +1,11 @@
 module Parser (
-	toyParse
+	toyParse, initialPos
 ) where
 
 import Prelude hiding ( lex )
 
-import Value ( Value( .. ), Pattern( .. ), emptyEnv )
-import Preprocessor ( Token( .. ), lex, prep )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv )
+-- import Preprocessor ( lex, prep )
 import BuildExpression ( buildExprParser, Assoc( .. ) )
 
 import Text.ParserCombinators.Parsec (
@@ -15,7 +15,7 @@ import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
 import Data.Maybe ( catMaybes )
 import Data.Function ( on )
-import Data.Char
+import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
@@ -24,9 +24,9 @@ type Parser = GenParser ( Token, SourcePos ) String
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
-toyParse :: FilePath -> String -> String -> Value
+toyParse :: FilePath -> String -> [ ( Token, SourcePos ) ] -> Value
 toyParse opLst fn input =
-	case runParser parser opLst fn $ prep 0 [ ] $ lex ( initialPos fn ) input of
+	case runParser parser opLst fn input of -- $ prep 0 [ ] $ lex ( initialPos fn ) input of
 		Right v	-> v
 		Left v	-> Error $ show v
 
@@ -118,7 +118,6 @@ parserIf = do
 	thn <- parserExpr
 	_ <- token $ testToken $ Reserved "else"
 	els <- parserExpr
---	return $ If test thn els
 	return $ Case test [ ( PatConst "True" [ ], thn ),
 		( PatConst "False" [ ], els ) ]
 
