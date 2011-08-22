@@ -13,35 +13,29 @@ import Control.Monad ( foldM )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
-import Paths_toyhaskell
+import Paths_toyhaskell ( getDataFileName )
 
 --------------------------------------------------------------------------------
 
+getDefaultOpTable :: IO String
+getDefaultOpTable = getDataFileName "operator-table.lst"
+
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
-	let ( opts, fns, errs ) = getOpt RequireOrder options args
+	let	( tbl, expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	opLstFile <- if null ( filter isOpTable opts )
-		then getDataFileName "operator-table.lst"
-		else return $ getOpTable $ head $ filter isOpTable opts
-	opLst <- readFile opLstFile -- getDataFileName "operator-table.lst" >>= readFile
-	env0 <- foldM ( loadFile opLst ) initEnv fns
-	withSingle ( filter isExpr opts )
-		( showValue . eval env0 . toyParse opLst "" . getExpr ) $
+	opLst	<- maybe ( getDefaultOpTable >>= readFile ) readFile tbl
+	env0	<- foldM ( loadFile opLst ) initEnv fns
+	flip ( flip . flip maybe ) expr
+		( showValue . eval env0 . toyParse opLst "" ) $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd opLst cmd env
 			_		-> case eval env $
-						toyParse opLst "<interactive>" inp of
+				toyParse opLst "<interactive>" inp of
 				Let ps	-> return $ setPatsToEnv ps env
 				ret	-> showValue ret >> return env
 
-data Option = Expr { getExpr :: String } | OpTable { getOpTable :: String }
-
-isExpr :: Option -> Bool
-isExpr ( Expr _ )	= True
-isExpr _		= False
-isOpTable ( OpTable _ )	= True
-isOpTable _		= False
+data Option = Expr String | OpTable String
 
 options :: [ OptDescr Option ]
 options = [
@@ -49,6 +43,20 @@ options = [
 	Option "" [ "op-table" ] ( ReqArg OpTable "operation table path" )
 	"set operation table"
  ]
+
+readOption ::
+	[ String ] -> ( Maybe FilePath, Maybe String, [ FilePath ], [ String ] )
+readOption args = let
+	( opts, fns, errs )	= getOpt RequireOrder options args
+	( tbl, expr )		= fromOps opts in
+	( tbl, expr, fns, errs )
+	where
+	fromOps [ ]		= ( Nothing, Nothing )
+	fromOps ( op : ops )	= case op of
+		Expr e		-> ( path, Just e )
+		OpTable p	-> ( Just p, expr )
+		where
+		( path, expr ) = fromOps ops
 
 runCmd :: String -> String -> Env -> IO Env
 runCmd opLst cmd env
@@ -65,8 +73,3 @@ loadFile opLst env fn = do
 	case eval env $ toyParse opLst fn ( "let\n" ++ cnt ) of
 		Let ps	-> return $ setPatsToEnv ps env
 		bad	-> error $ show bad
-
-withSingle :: [ a ] -> ( a -> b ) -> b -> b
-withSingle [ ] _ y	= y
-withSingle [ x ] f _	= f x
-withSingle _ _ _	= error "Not single list."
