@@ -36,7 +36,7 @@ parser = parserExpr >>= \ret -> eof >> return ret
 parserExpr :: Parser Value
 parserExpr = do
 	opLst <- getState
-	let opTable = map ( uncurry3 mkAssoc ) $ map readOpTable $
+	let opTable = map ( uncurry3 mkAssoc . readOpTable ) $
 		concatMap prepOpTable $ lines opLst
 	buildExprParser token ( on (==) fst ) opTable parserApply
 
