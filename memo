@@ -72,3 +72,5 @@ module Main where を parse するようにする。
 
 getOpTable は将来的には Parser の一部とするので、
 今のところ Parser に置くのが適切ではないが、そこに置いておくことにする。
+
+残りは、BuildExpression, Preprocessor, Lexer, Types の refactoring
