@@ -1,9 +1,15 @@
 module Main where
 
-import System.Environment ( getArgs )
 import MainTools ( mainGen )
+import System.Environment ( getArgs )
+import Control.Arrow ( first )
 
 main :: IO ()
 main = do
-	( args, pargs ) <- fmap ( span ( /= "--" ) ) getArgs
-	mainGen args $ if null pargs then [ ] else tail pargs
+	( args, pargs ) <- fmap separateArgs getArgs
+	mainGen args pargs
+
+separateArgs :: [ String ] -> ( [ String ], [ String ] )
+separateArgs [ ]		= ( [ ], [ ] )
+separateArgs ( "--" : rest )	= ( [ ], rest )
+separateArgs ( arg : args )	= first ( arg : ) $ separateArgs args

@@ -61,3 +61,11 @@ Value
 次は Parser の refactoring だ。
 現在残っているのが、 BuildExpression, Preprocessor, Lexer,
 Value の refactoring だ。
+
+2011.08.23 Tue.
+
+Env を capsule 化したいが、getValue には eval が必要だ。
+となると Env を含む module は Eval を import する必要があることとなる。
+むしろ、getValue に eval を引数として渡すような形がいいのかもしれない。
+
+module Main where を parse するようにする。

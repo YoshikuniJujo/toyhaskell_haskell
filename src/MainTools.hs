@@ -2,15 +2,13 @@ module MainTools (
 	mainGen
 ) where
 
-import Prelude hiding ( lex )
-
 import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
 import Parser ( toyParse, getOpTable )
-import Preprocessor
-import Lexer
-import Types ( Value( .. ), showValue, Env, setPatsToEnv, Table )
+import Preprocessor ( prep )
+import Lexer ( toyLex, SourceName )
+import Types ( Value( .. ), showValue, Env, setPatsToEnv, OpTable )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -20,22 +18,20 @@ import Data.Char ( isSpace )
 
 import Paths_toyhaskell ( getDataFileName )
 
-import Text.ParserCombinators.Parsec.Expr
-
 --------------------------------------------------------------------------------
 
 getDefaultOpTable :: IO String
 getDefaultOpTable = getDataFileName "operator-table.lst"
 
-parse :: Table -> SourceName -> String -> Value
-parse opLst fn = toyParse opLst fn . prep 0 [ ] . lex ( initialPos fn )
+parse :: OpTable -> SourceName -> String -> Value
+parse opLst fn = toyParse opLst fn . prep 0 [ ] . toyLex fn
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
 	let	( tbl, expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	opLst_	<- maybe ( getDefaultOpTable >>= readFile ) readFile tbl
-	let opLst = getOpTable opLst_
+	opLst	<- fmap getOpTable $ ( >>= readFile ) $
+			maybe getDefaultOpTable return tbl
 	env0	<- foldM ( loadFile opLst ) initEnv fns
 	flip ( flip . flip maybe ) expr
 		( showValue . eval env0 . parse opLst "" ) $
@@ -52,7 +48,7 @@ options :: [ OptDescr Option ]
 options = [
 	Option "e" [ ] ( ReqArg Expr "haskell expression" ) "run expression",
 	Option "" [ "op-table" ] ( ReqArg OpTable "operation table path" )
-	"set operation table"
+	"set operation table path"
  ]
 
 readOption ::
@@ -69,7 +65,7 @@ readOption args = let
 		where
 		( path, expr ) = fromOps ops
 
-runCmd :: Table -> String -> Env -> IO Env
+runCmd :: OpTable -> String -> Env -> IO Env
 runCmd opLst cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
@@ -78,7 +74,7 @@ runCmd opLst cmd env
 		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
 		return env
 
-loadFile :: Table -> Env -> FilePath -> IO Env
+loadFile :: OpTable -> Env -> FilePath -> IO Env
 loadFile opLst env fn = do
 	cnt <- readFile fn
 	case eval env $ parse opLst fn ( "let\n" ++ cnt ) of

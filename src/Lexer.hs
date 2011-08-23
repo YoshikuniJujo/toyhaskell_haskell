@@ -1,7 +1,6 @@
 module Lexer (
-	lex,
-	SourceName,
-	initialPos
+	toyLex,
+	SourceName
 ) where
 
 import Prelude hiding ( lex )
@@ -19,6 +18,9 @@ nextLine = flip incSourceLine 1 . flip setSourceColumn 0
 
 isc :: SourcePos -> Int -> SourcePos
 isc = incSourceColumn
+
+toyLex :: String -> String -> [ ( Token, SourcePos ) ]
+toyLex = lex . initialPos
 
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
 lex _ ""			= [ ]

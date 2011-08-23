@@ -1,10 +1,11 @@
 module Types (
-	Env( .. ),
+	Env,
 	emptyEnv,
 	setToEnv,
 	setsToEnv,
 	setPatToEnv,
 	setPatsToEnv,
+	getFromEnv,
 	addEnvs,
 	match,
 	Value( .. ),
@@ -12,13 +13,12 @@ module Types (
 	showValue,
 	isInteger,
 	Token( .. ),
-	Table,
-	Table'
+	OpTable
 ) where
 
 import Control.Monad
-import Text.ParserCombinators.Parsec.Pos
 import Text.ParserCombinators.Parsec.Expr
+import Data.Maybe
 
 data Env = Env [ ( [ String ], Pattern, Value ) ]
 
@@ -43,6 +43,14 @@ getPatVars :: Pattern -> [ String ]
 getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
 getPatVars ( PatVar var ) = [ var ]
 getPatVars _ = [ ]
+
+getFromEnv :: ( Value -> Value ) -> String -> Env -> Maybe Value
+getFromEnv f var ( Env ps ) = do
+	( _, pat, val ) <- usePat
+	match ( f val ) pat >>= lookup var
+	where
+	one ( x, _, _ ) = x
+	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
 
 match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
 match = patMatch1
@@ -135,5 +143,5 @@ data Token =
 	TokInteger Integer | TokChar Char | TokString String | NewLine
 	deriving ( Show, Eq )
 
-type Table' = [ (( Token, SourcePos ), Value -> Value -> Value, Int, Assoc ) ]
+type OpTable = Table
 type Table = [ ( String, Int, Assoc ) ]

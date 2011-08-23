@@ -3,32 +3,30 @@ module Parser (
 	getOpTable
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, Table, Table' )
-import BuildExpression ( buildExprParser )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, OpTable )
+import BuildExpression ( buildExprParser, Assoc( .. ) )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, runParser, (<|>), eof, option, optional, many, many1,
 	getState )
 import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
-import Text.ParserCombinators.Parsec.Expr
 import Data.Maybe ( catMaybes )
 import Data.Function ( on )
-import Data.Char
+import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-type Parser = GenParser ( Token, SourcePos ) Table
+type Parser = GenParser ( Token, SourcePos ) OpTable
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
 
 tok :: Token -> Parser ()
-tok = ( >> return () ) . token . eqM
-	where
-	eqM x y = if x == fst y then Just () else Nothing
+tok = ( >> return () ) . token . eq
+	where eq x y = if x == fst y then Just () else Nothing
 
-toyParse :: Table -> String -> [ ( Token, SourcePos ) ] -> Value
+toyParse :: OpTable -> String -> [ ( Token, SourcePos ) ] -> Value
 toyParse opTbl fn input = case runParser parser opTbl fn input of
 	Right v	-> v
 	Left v	-> Error $ show v
@@ -38,7 +36,7 @@ parser = parserExpr >>= \ret -> eof >> return ret
 
 parserExpr :: Parser Value
 parserExpr = do
-	opTbl <- fmap getOpTable' getState
+	opTbl <- fmap getOpTableVal getState
 	buildExprParser token ( on (==) fst ) opTbl parserApply
 
 parserApply :: Parser Value
@@ -83,7 +81,7 @@ parserLetin :: Parser Value
 parserLetin = do
 	pairs <- parserLet
 	option ( Let pairs ) $ do
-		_ <- token $ testToken $ Reserved "in"
+		tok $ Reserved "in"
 		body <- parserExpr
 		return $ Letin pairs body
 
@@ -202,10 +200,11 @@ getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name
 getTokConst _				= Nothing
 
-getOpTable' :: Table -> Table'
-getOpTable' = map $ uncurry3 mkAssoc
+getOpTableVal :: OpTable ->
+	[ (( Token, SourcePos ), Value -> Value -> Value, Int, Assoc ) ]
+getOpTableVal = map $ uncurry3 mkAssoc
 
-getOpTablePat :: Table ->
+getOpTablePat :: OpTable ->
 	[ ( ( Token, SourcePos ), Pattern -> Pattern -> Pattern, Int, Assoc ) ]
 getOpTablePat = map $ uncurry3 mkAssocPat
 
@@ -224,7 +223,7 @@ mkAssocPat op power assoc =
 	( ( Operator op, initialPos "" ), \x y -> PatConst op [ x, y ],
 		power, assoc )
 
-getOpTable :: String -> Table
+getOpTable :: String -> OpTable
 getOpTable opLst = map readOpTable $ concatMap prepOpTable $ lines opLst
 
 prepOpTable :: String -> [ String ]
