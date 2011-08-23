@@ -7,8 +7,8 @@ import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, OpTable )
 import BuildExpression ( buildExprParser, Assoc( .. ) )
 
 import Text.ParserCombinators.Parsec (
-	GenParser, runParser, (<|>), eof, option, optional, many, many1,
-	getState )
+	GenParser, runParser, (<|>), eof, option, optional, many, many1, sepBy1,
+	sepBy, getState )
 import qualified Text.ParserCombinators.Parsec as P ( token )
 import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos )
 import Data.Maybe ( catMaybes )
@@ -27,7 +27,7 @@ tok = ( >> return () ) . token . eq
 	where eq x y = if x == fst y then Just () else Nothing
 
 toyParse :: OpTable -> String -> [ ( Token, SourcePos ) ] -> Value
-toyParse opTbl fn input = case runParser parser opTbl fn input of
+toyParse opTable fn input = case runParser parser opTable fn input of
 	Right v	-> v
 	Left v	-> Error $ show v
 
@@ -72,7 +72,7 @@ parserParens = do
 parserLambda :: Parser Value
 parserLambda = do
 	tok Backslash
-	vars <- many1 parserPatternOp
+	vars <- many1 parserPattern
 	tok $ ReservedOp "->"
 	body <- parserExpr
 	return $ Lambda emptyEnv vars body
@@ -87,84 +87,72 @@ parserLetin = do
 
 parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
-	_ <- token $ testToken $ Reserved "let"
-	optional $ token ( testToken $ ReservedOp ";" ) >> return ()
+	tok $ Reserved "let"
+	optional $ tok $ ReservedOp ";"
 	p <- parserDef
 	ps <- many $ do
-		_ <- token $ testToken $ ReservedOp ";"
+		tok $ ReservedOp ";"
 		parserDef
 	return $ catMaybes $ p : ps
 
 parserDef :: Parser ( Maybe ( Pattern, Value ) )
-parserDef =
-	option Nothing $ do
-		var <- parserPatternOp
-		args <- many parserPatternOp
-		_ <- token $ testToken $ ReservedOp "="
-		val <- parserExpr
-		return $ if null args
-			then Just ( var, val )
-			else Just ( var,
-				Lambda emptyEnv args val )
+parserDef = option Nothing $ do
+	var <- parserPattern
+	args <- many parserPattern
+	tok $ ReservedOp "="
+	val <- parserExpr
+	return $ if null args
+		then Just ( var, val )
+		else Just ( var, Lambda emptyEnv args val )
 
 parserIf :: Parser Value
 parserIf = do
-	_ <- token $ testToken $ Reserved "if"
+	tok $ Reserved "if"
 	test <- parserExpr
-	_ <- token $ testToken $ Reserved "then"
+	tok $ Reserved "then"
 	thn <- parserExpr
-	_ <- token $ testToken $ Reserved "else"
+	tok $ Reserved "else"
 	els <- parserExpr
 	return $ Case test [ ( PatConst "True" [ ], thn ),
 		( PatConst "False" [ ], els ) ]
 
 parserCase :: Parser Value
 parserCase = do
-	_ <- token $ testToken $ Reserved "case"
-	val <- parserExpr
-	_ <- token $ testToken $ Reserved "of"
-	_ <- token $ testToken OpenBrace
-	test <- dup
-	tests <- many $ do
-		_ <- token $ testToken $ ReservedOp ";"
-		dup
-	_ <- token $ testToken CloseBrace
-	return $ Case val $ catMaybes $ test : tests
-	where
-	dup = option Nothing $ do
-		pattern <- parserPatternOp
-		_ <- token $ testToken $ ReservedOp "->"
-		ret <- parserExpr
+	tok $ Reserved "case"
+	val	<- parserExpr
+	tok $ Reserved "of"
+	tok OpenBrace
+	tests	<- flip sepBy1 ( tok $ ReservedOp ";" ) $ option Nothing $ do
+		pattern	<- parserPattern
+		tok $ ReservedOp "->"
+		ret	<- parserExpr
 		return $ Just ( pattern, ret )
+	tok CloseBrace
+	return $ Case val $ catMaybes tests
 
 parserComplex :: Parser Value
 parserComplex = do
-	name <- token getTokConst
-	bodys <- many parserAtom
+	name	<- token getTokConst
+	bodys	<- many parserAtom
 	return $ Complex name bodys
 
 parserList :: Parser Value
 parserList = do
-	_ <- token $ testToken $ ReservedOp "["
-	ret <- option Empty $ do
-		v <- parserExpr
-		vs <- many $ do
-			_ <- token $ testToken $ ReservedOp ","
-			parserExpr
-		return $ foldr ( \x xs -> Complex ":" [ x, xs ] ) Empty $ v : vs
-	_ <- token $ testToken $ ReservedOp "]"
+	tok $ ReservedOp "["
+	ret	<- do
+		vs	<- sepBy parserExpr $ tok $ ReservedOp ","
+		return $ foldr ( \x xs -> Complex ":" [ x, xs ] ) Empty vs
+	tok $ ReservedOp "]"
 	return ret
 
-parserPatternOp :: Parser Pattern
-parserPatternOp = do
-	opLst <- fmap getOpTablePat getState
-	buildExprParser token ( on (==) fst ) opLst parserPattern
-
 parserPattern :: Parser Pattern
-parserPattern = parserPatternVar <|> parserPatternComplex <|> parserPatternEmpty
+parserPattern = do
+	opTable <- fmap getOpTablePat getState
+	buildExprParser token ( on (==) fst ) opTable parserPatternAtom
 
-parserPatternVar :: Parser Pattern
-parserPatternVar = token tokenToPattern
+parserPatternAtom :: Parser Pattern
+parserPatternAtom =
+	token tokenToPattern <|> parserPatternComplex <|> parserPatternEmpty
 
 parserPatternEmpty :: Parser Pattern
 parserPatternEmpty =
@@ -173,7 +161,7 @@ parserPatternEmpty =
 parserPatternComplex :: Parser Pattern
 parserPatternComplex = do
 	name <- token getTokConst
-	bodys <- many parserPattern
+	bodys <- many parserPatternAtom
 	return $ PatConst name bodys
 
 tokenToValue :: ( Token, SourcePos ) -> Maybe Value
@@ -192,9 +180,6 @@ tokenToPattern :: ( Token, SourcePos ) -> Maybe Pattern
 tokenToPattern ( Variable var, _ )	= Just $ PatVar var
 tokenToPattern ( TokInteger i, _ )	= Just $ PatInteger i
 tokenToPattern _			= Nothing
-
-testToken :: Token -> ( Token, SourcePos ) -> Maybe Token
-testToken tok0 ( tok1, _ ) = if tok0 == tok1 then Just tok0 else Nothing
 
 getTokConst :: ( Token, SourcePos ) -> Maybe String
 getTokConst ( TokConst name, _ )	= Just name
@@ -224,7 +209,7 @@ mkAssocPat op power assoc =
 		power, assoc )
 
 getOpTable :: String -> OpTable
-getOpTable opLst = map readOpTable $ concatMap prepOpTable $ lines opLst
+getOpTable = map readOpTable . concatMap prepOpTable . lines
 
 prepOpTable :: String -> [ String ]
 prepOpTable  str = map ( \op -> fix ++ " " ++ power ++ " " ++ op ) ops
