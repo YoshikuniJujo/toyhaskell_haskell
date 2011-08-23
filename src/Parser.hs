@@ -155,8 +155,13 @@ parserPatternAtom =
 	token tokenToPattern <|> parserPatternComplex <|> parserPatternEmpty
 
 parserPatternEmpty :: Parser Pattern
-parserPatternEmpty =
-	tok ( ReservedOp "[" ) >> tok ( ReservedOp "]" ) >> return PatEmpty
+parserPatternEmpty = do
+	tok ( ReservedOp "[" )
+	ret <- do
+		vs	<- sepBy parserPattern $ tok $ ReservedOp ","
+		return $ foldr ( \x xs -> PatConst ":" [ x, xs ] ) PatEmpty vs
+	tok ( ReservedOp "]" )
+	return ret
 
 parserPatternComplex :: Parser Pattern
 parserPatternComplex = do
