@@ -62,6 +62,18 @@ parserAtom =
 	parserComplex <|>
 	parserList
 
+tokenToValue :: ( Token, SourcePos ) -> Maybe Value
+tokenToValue ( TokChar c, _ )		= Just $ Char c
+tokenToValue ( TokInteger i, _ )	= Just $ Integer i
+tokenToValue ( Variable var, _ )	= Just $ Identifier var
+tokenToValue ( ReservedOp "[]", _ )	= Just Empty
+tokenToValue ( TokString str, _ )	= Just $ mkStr str
+	where
+	mkStr ""			= Empty
+	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
+	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
+tokenToValue _				= Nothing
+
 parserParens :: Parser Value
 parserParens = do
 	tok OpenParen
@@ -152,34 +164,22 @@ parserPattern = do
 
 parserPatternAtom :: Parser Pattern
 parserPatternAtom =
-	token tokenToPattern <|> parserPatternComplex <|> parserPatternEmpty
+	token tokenToPattern <|> parserPatternComplex <|> parserPatternList
 
-parserPatternEmpty :: Parser Pattern
-parserPatternEmpty = do
+parserPatternComplex :: Parser Pattern
+parserPatternComplex = do
+	name	<- token getTokConst
+	bodys	<- many parserPatternAtom
+	return $ PatConst name bodys
+
+parserPatternList :: Parser Pattern
+parserPatternList = do
 	tok ( ReservedOp "[" )
 	ret <- do
 		vs	<- sepBy parserPattern $ tok $ ReservedOp ","
 		return $ foldr ( \x xs -> PatConst ":" [ x, xs ] ) PatEmpty vs
 	tok ( ReservedOp "]" )
 	return ret
-
-parserPatternComplex :: Parser Pattern
-parserPatternComplex = do
-	name <- token getTokConst
-	bodys <- many parserPatternAtom
-	return $ PatConst name bodys
-
-tokenToValue :: ( Token, SourcePos ) -> Maybe Value
-tokenToValue ( TokChar c, _ )		= Just $ Char c
-tokenToValue ( TokInteger i, _ )	= Just $ Integer i
-tokenToValue ( Variable var, _ )		= Just $ Identifier var
-tokenToValue ( ReservedOp "[]", _ )	= Just Empty
-tokenToValue ( TokString str, _ )	= Just $ mkStr str
-	where
-	mkStr ""			= Empty
-	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
-	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
-tokenToValue _				= Nothing
 
 tokenToPattern :: ( Token, SourcePos ) -> Maybe Pattern
 tokenToPattern ( Variable var, _ )	= Just $ PatVar var
