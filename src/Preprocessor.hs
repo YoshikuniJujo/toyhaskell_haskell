@@ -1,35 +1,35 @@
 module Preprocessor (
 	Token( .. ),
---	lex,
 	prep
 ) where
 
-import Data.List
--- import Lexer
-import Types
-import Text.ParserCombinators.Parsec.Pos
 import Prelude hiding ( lex )
+import Types ( Token( .. ) )
+import Text.ParserCombinators.Parsec.Pos ( SourcePos, initialPos, sourceColumn )
+
+sp0 :: SourcePos
+sp0 = initialPos ""
+
+ob, cb, semi :: ( Token, SourcePos )
+ob	= ( OpenBrace, sp0 )
+cb	= ( CloseBrace, sp0 )
+semi	= ( ReservedOp ";", sp0 )
+
+sc :: SourcePos -> Int
+sc = sourceColumn
 
 prep :: Int -> [ Int ] -> [ ( Token, SourcePos ) ] -> [ ( Token, SourcePos ) ]
-prep _ idnts [ ]							=
-	replicate ( length idnts ) ( CloseBrace, initialPos "" )
-prep _ [ ] ( ( NewLine, sp ) : ts )					=
-	prep ( sourceColumn sp ) [ ] ts
-prep idnt idnts@( i : is ) ( ( NewLine, _ ) : ts@( ( _, sp ) : _ ) )
-	| idnt < i	= ( CloseBrace, initialPos "" ) : prep ( sourceColumn sp ) is ts
-	| idnt == i	= ( ReservedOp ";", initialPos "" ) : prep ( sourceColumn sp ) idnts ts
-	| otherwise	= prep idnt idnts ts
-prep idnt ( _ : idnts ) ( ( CloseBrace, ps1 ) : ts )			=
-	( CloseBrace, ps1 ) : prep idnt idnts ts
-prep idnt idnts ( ( Reserved "of", ps1 ) : ( OpenBrace, ps2 ) : ts )	=
-	( Reserved "of", ps1 ) : ( OpenBrace, ps2 ) : prep idnt ( 0 : idnts ) ts
-prep _ idnts ( ( Reserved "of", sp1 ) : ( NewLine, _ ) : ( t, sp3 ) : ts )	=
-	( Reserved "of", sp1 ) : ( OpenBrace, sp1 ) :
-		prep ( sourceColumn sp3 ) ( sourceColumn sp3 : idnts )
-			( ( t, sp3 ) : ts )
-prep idnt idnts ( ( Reserved "of", ps1 ) : ( t, ps2 ) : ts )		=
-	( Reserved "of", ps1 ) : ( OpenBrace, ps1 ) :
-		prep idnt ( sourceColumn ps2 : idnts )
-		( ( t, ps2 ) : ts )
-prep idnt idnts ( t : ts )						=
-	t : prep idnt idnts ts
+prep _ ia [ ]					= replicate ( length ia ) cb
+prep _ [ ] ( ( NewLine, sp ) : ts )		= prep ( sc sp ) [ ] ts
+prep i1 ia@( i0 : is ) ( ( NewLine, _ ) : ts@( ( _, sp ) : _ ) )
+	| i1 < i0				= cb : prep ( sc sp ) is ts
+	| i1 == i0				= semi : prep ( sc sp ) ia ts
+	| otherwise				= prep ( sc sp ) ia ts
+prep i1 ( _ : is ) ( t@( CloseBrace, _ ) : ts )	= t : prep i1 is ts
+prep i1 ia ( t1@( Reserved "of", _ ) : t2@( OpenBrace, _ ) : ts )	=
+	t1 : t2 : prep i1 ( 0 : ia ) ts
+prep _ ia ( t@( Reserved "of", _ ) : ( NewLine, _ ) : ts@( ( _, sp ) : _ ) ) =
+	t : ob : prep ( sc sp ) ( sc sp : ia ) ts
+prep _ ia ( t@( Reserved "of", _ ) : ts@( ( _, sp ) : _ ) )		=
+	t : ob : prep ( sc sp ) ( sc sp : ia ) ts
+prep i1 ia ( t : ts )				= t : prep i1 ia ts

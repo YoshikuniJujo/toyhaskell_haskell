@@ -2,10 +2,9 @@ module Main where
 
 import Lexer
 import Preprocessor
-import Prelude hiding ( lex )
 
 main :: IO ()
-main = interact $ ( ++ "\n" ) . unwords . map ( showLex . fst ) . prep 0 [] . lex ( initPos "" )
+main = interact $ ( ++ "\n" ) . unwords . map ( showLex . fst ) . prep 0 [] . toyLex ""
 
 showLex :: Token -> String
 showLex ( Variable x ) = x
