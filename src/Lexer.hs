@@ -10,7 +10,7 @@ import Data.Char
 
 reserved, reservedOp :: [ String ]
 reserved = [ "let", "in", "if", "then", "else", "case", "of" ]
-reservedOp = [ "=", ";", "->", "[]", "[", "]", "," ]
+reservedOp = [ "=", ";", "->", "[", "]", "," ]
 
 next, nextLine :: SourcePos -> SourcePos
 next = flip incSourceColumn 1

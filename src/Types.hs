@@ -13,7 +13,7 @@ module Types (
 	showValue,
 	isInteger,
 	Token( .. ),
-	OpTable
+	OpTable'
 ) where
 
 import Control.Monad
@@ -98,8 +98,8 @@ isInteger ( Integer _ )	= True
 isInteger _		= False
 
 instance Show Value where
-	show Nil = "()"
-	show Empty = "[]"
+	show Nil		= "()"
+	show Empty		= "[]"
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
 	show ( Identifier i )	= i
@@ -143,5 +143,8 @@ data Token =
 	TokInteger Integer | TokChar Char | TokString String | NewLine
 	deriving ( Show, Eq )
 
-type OpTable = Table
+type OpTable' = Table
 type Table = [ ( String, Int, Assoc ) ]
+
+uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
+uncurry3 f ( x, y, z ) = f x y z

@@ -1,7 +1,7 @@
 module BuildExpression (
 	buildExprParser,
 	buildExprParser',
-	OpTable,
+	OpTable, Op,
 	Assoc( .. )
 ) where
 
@@ -9,7 +9,8 @@ import Text.ParserCombinators.Parsec hiding ( token )
 import qualified Text.ParserCombinators.Parsec as P
 import Text.ParserCombinators.Parsec.Expr
 
-type OpTable t st a = [ ( t, a -> a -> a, Int, Assoc ) ]
+type OpTable t a	= [ ( t, a -> a -> a, Int, Assoc ) ]
+type Op t a		= ( t, a -> a -> a, Int, Assoc )
 
 mkTableGen :: Eq b => ( t -> String ) -> ( t -> SourcePos ) -> ( t -> b ) ->
 	[ ( t, a -> a -> a, Int, Assoc ) ] -> OperatorTable t st a

@@ -3,8 +3,8 @@ module Parser (
 	getOpTable
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, OpTable )
-import BuildExpression ( buildExprParser, Assoc( .. ) )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, OpTable' )
+import BuildExpression ( buildExprParser, Assoc( .. ), Op )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, runParser, (<|>), eof, option, optional, many, many1, sepBy1,
@@ -17,7 +17,7 @@ import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-type Parser = GenParser ( Token, SourcePos ) OpTable
+type Parser = GenParser ( Token, SourcePos ) OpTable'
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
@@ -26,7 +26,7 @@ tok :: Token -> Parser ()
 tok = ( >> return () ) . token . eq
 	where eq x y = if x == fst y then Just () else Nothing
 
-toyParse :: OpTable -> String -> [ ( Token, SourcePos ) ] -> Value
+toyParse :: OpTable' -> String -> [ ( Token, SourcePos ) ] -> Value
 toyParse opTable fn input = case runParser parser opTable fn input of
 	Right v	-> v
 	Left v	-> Error $ show v
@@ -36,7 +36,7 @@ parser = parserExpr >>= \ret -> eof >> return ret
 
 parserExpr :: Parser Value
 parserExpr = do
-	opTbl <- fmap getOpTableVal getState
+	opTbl <- fmap ( map buildOpVal ) getState
 	buildExprParser token ( on (==) fst ) opTbl parserApply
 
 parserApply :: Parser Value
@@ -53,7 +53,7 @@ parserApply' = option id $ do
 
 parserAtom :: Parser Value
 parserAtom =
-	token tokenToValue <|>
+	token tokToVal <|>
 	parserParens <|>
 	parserLambda <|>
 	parserLetin <|>
@@ -61,18 +61,16 @@ parserAtom =
 	parserCase <|>
 	parserComplex <|>
 	parserList
-
-tokenToValue :: ( Token, SourcePos ) -> Maybe Value
-tokenToValue ( TokChar c, _ )		= Just $ Char c
-tokenToValue ( TokInteger i, _ )	= Just $ Integer i
-tokenToValue ( Variable var, _ )	= Just $ Identifier var
-tokenToValue ( ReservedOp "[]", _ )	= Just Empty
-tokenToValue ( TokString str, _ )	= Just $ mkStr str
 	where
+	tokToVal ( TokChar c, _ )	= Just $ Char c
+	tokToVal ( TokInteger i, _ )	= Just $ Integer i
+	tokToVal ( Variable var, _ )	= Just $ Identifier var
+	tokToVal ( TokString str, _ )	= Just $ mkStr str
+	tokToVal _			= Nothing
 	mkStr ""			= Empty
 	mkStr ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', mkStr cs ]
+	mkStr ( '\\' : '\\' : cs )	= Complex ":" [ Char '\\', mkStr cs ]
 	mkStr ( c : cs )		= Complex ":" [ Char c ,mkStr cs ]
-tokenToValue _				= Nothing
 
 parserParens :: Parser Value
 parserParens = do
@@ -148,6 +146,10 @@ parserComplex = do
 	bodys	<- many parserAtom
 	return $ Complex name bodys
 
+getTokConst :: ( Token, SourcePos ) -> Maybe String
+getTokConst ( TokConst name, _ )	= Just name
+getTokConst _				= Nothing
+
 parserList :: Parser Value
 parserList = do
 	tok $ ReservedOp "["
@@ -159,12 +161,16 @@ parserList = do
 
 parserPattern :: Parser Pattern
 parserPattern = do
-	opTable <- fmap getOpTablePat getState
+	opTable <- fmap ( map buildOpPat ) getState
 	buildExprParser token ( on (==) fst ) opTable parserPatternAtom
 
 parserPatternAtom :: Parser Pattern
 parserPatternAtom =
-	token tokenToPattern <|> parserPatternComplex <|> parserPatternList
+	token tokToPat <|> parserPatternComplex <|> parserPatternList
+	where
+	tokToPat ( Variable var, _ )	= Just $ PatVar var
+	tokToPat ( TokInteger i, _ )	= Just $ PatInteger i
+	tokToPat _			= Nothing
 
 parserPatternComplex :: Parser Pattern
 parserPatternComplex = do
@@ -181,39 +187,20 @@ parserPatternList = do
 	tok ( ReservedOp "]" )
 	return ret
 
-tokenToPattern :: ( Token, SourcePos ) -> Maybe Pattern
-tokenToPattern ( Variable var, _ )	= Just $ PatVar var
-tokenToPattern ( TokInteger i, _ )	= Just $ PatInteger i
-tokenToPattern _			= Nothing
+fromRawOp :: ( String -> a -> a -> a ) -> ( String, Int, Assoc ) ->
+	Op ( Token, SourcePos ) a
+fromRawOp f ( op, power, assoc ) =
+	( ( Operator op, initialPos "" ), f op, power, assoc )
 
-getTokConst :: ( Token, SourcePos ) -> Maybe String
-getTokConst ( TokConst name, _ )	= Just name
-getTokConst _				= Nothing
+buildOpVal :: ( String, Int, Assoc ) -> Op ( Token, SourcePos ) Value
+buildOpVal = fromRawOp $ (.) Apply . Apply . Identifier
 
-getOpTableVal :: OpTable ->
-	[ (( Token, SourcePos ), Value -> Value -> Value, Int, Assoc ) ]
-getOpTableVal = map $ uncurry3 mkAssoc
+buildOpPat :: ( String, Int, Assoc ) -> Op ( Token, SourcePos ) Pattern
+buildOpPat = fromRawOp $ \op -> (.) ( PatConst op ) . flip (.) ( : [] ) . (:)
 
-getOpTablePat :: OpTable ->
-	[ ( ( Token, SourcePos ), Pattern -> Pattern -> Pattern, Int, Assoc ) ]
-getOpTablePat = map $ uncurry3 mkAssocPat
+-------------------------------------------------------------------------------
 
-uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
-uncurry3 f ( x, y, z ) = f x y z
-
-mkAssoc :: String -> Int -> Assoc ->
-	( ( Token, SourcePos ), Value -> Value -> Value, Int, Assoc )
-mkAssoc op power assoc =
-	( ( Operator op, initialPos "" ), Apply . Apply ( Identifier op ),
-		power, assoc )
-
-mkAssocPat :: String -> Int -> Assoc ->
-	( ( Token, SourcePos ), Pattern -> Pattern -> Pattern, Int, Assoc )
-mkAssocPat op power assoc =
-	( ( Operator op, initialPos "" ), \x y -> PatConst op [ x, y ],
-		power, assoc )
-
-getOpTable :: String -> OpTable
+getOpTable :: String -> OpTable'
 getOpTable = map readOpTable . concatMap prepOpTable . lines
 
 prepOpTable :: String -> [ String ]
