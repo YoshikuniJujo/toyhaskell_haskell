@@ -22,8 +22,8 @@ mkTable :: Token t st -> Compare t -> [ Op t a ] -> T t st a
 mkTable tk eq = foldr ( insertToTable tk eq ) $ replicate 10 [ ]
 
 insertToTable :: Token t st -> Compare t -> Op t a -> T t st a -> T t st a
-insertToTable tk eq ( op, f, power, assoc ) tbl =
-	insertToI ( 9 - power ) ( Infix ( mkOpParser tk eq op f ) assoc ) tbl
+insertToTable tk eq ( op, f, power, assoc ) =
+	insertToI ( 9 - power ) ( Infix ( mkOpParser tk eq op f ) assoc )
 
 mkOpParser :: Token t st -> Compare t -> t -> OpFun a -> P t st ( OpFun a )
 mkOpParser tk eq op f = tk ( boolM . eq op ) >> return f

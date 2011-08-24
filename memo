@@ -74,3 +74,8 @@ getOpTable は将来的には Parser の一部とするので、
 今のところ Parser に置くのが適切ではないが、そこに置いておくことにする。
 
 残りは、BuildExpression, Preprocessor, Lexer, Types の refactoring
+
+近いうちに lex を haskell 98 report に則って書き直そう。
+2010 のほうがいいのかもしれないけれど 98 のほうは日本語訳がある。
+
+2010 にも日本語訳があった。
