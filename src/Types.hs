@@ -60,6 +60,7 @@ patMatch1 ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
 	| otherwise	= Nothing
 patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
+patMatch1 _ PatUScore		= Just [ ]
 patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
 	| name1 == name0	=
 		liftM concat $ zipWithM patMatch1 bodys pats
@@ -71,9 +72,10 @@ addEnvs :: Env -> Env -> Env
 addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2
 
 data Pattern =
-	PatConst String [ Pattern ] |
-	PatVar { patVar :: String } |
-	PatInteger Integer |
+	PatConst String [ Pattern ]	|
+	PatVar { patVar :: String }	|
+	PatUScore			|
+	PatInteger Integer		|
 	PatEmpty
 	deriving ( Eq, Show )
 
@@ -145,6 +147,3 @@ data Token =
 
 type OpTable' = Table
 type Table = [ ( String, Int, Assoc ) ]
-
-uncurry3 :: ( a -> b -> c -> d ) -> ( a, b, c ) -> d
-uncurry3 f ( x, y, z ) = f x y z

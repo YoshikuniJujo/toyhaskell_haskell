@@ -170,6 +170,7 @@ parserPatternAtom =
 	where
 	tokToPat ( Variable var, _ )	= Just $ PatVar var
 	tokToPat ( TokInteger i, _ )	= Just $ PatInteger i
+	tokToPat ( Reserved "_", _ )	= Just PatUScore
 	tokToPat _			= Nothing
 
 parserPatternComplex :: Parser Pattern

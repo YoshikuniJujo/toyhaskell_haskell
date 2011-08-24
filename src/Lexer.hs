@@ -5,12 +5,17 @@ module Lexer (
 
 import Prelude hiding ( lex )
 import Types ( Token( .. ) )
-import Text.ParserCombinators.Parsec.Pos
-import Data.Char
+import Text.ParserCombinators.Parsec.Pos ( SourcePos, SourceName, initialPos,
+	sourceColumn, setSourceColumn, incSourceColumn, incSourceLine )
+import Data.Char ( isSpace, isSymbol, isLower, isUpper, isAlphaNum, isDigit )
 
 reserved, reservedOp :: [ String ]
-reserved = [ "let", "in", "if", "then", "else", "case", "of" ]
-reservedOp = [ "=", ";", "->", "[", "]", "," ]
+reserved = [
+	"case", "class", "data", "default", "deriving", "do", "else", "if",
+	"import", "in", "infix", "infixl", "infixr", "instance", "let",
+	"module", "newtype", "of", "then", "type", "where", "_"
+ ]
+reservedOp = [ "..", {-":",-} "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
 next, nextLine :: SourcePos -> SourcePos
 next = flip incSourceColumn 1
@@ -26,6 +31,7 @@ lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
 lex _ ""			= [ ]
 lex sp ( '-' : '-' : cs )	= lex sp $ dropWhile ( /= '\n' ) cs
 lex sp ( '\n' : cs )		= ( NewLine, sp ) : lex ( nextLine sp ) cs
+lex sp ( ',' : cs )		= ( ReservedOp ",", sp ) : lex ( next sp ) cs
 lex sp ( ';' : cs )		= ( ReservedOp ";", sp ) : lex ( next sp ) cs
 lex sp ( '{' : cs )		= ( OpenBrace, sp ) : lex ( next sp ) cs
 lex sp ( '}' : cs )		= ( CloseBrace, sp ) : lex ( next sp ) cs
@@ -58,7 +64,7 @@ lex sp s@( c : cs )
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		( TokInteger ( read ret ), isc sp $ length ret ) : lex sp rest
 	where
-	isSym cc = isSymbol cc || cc `elem` "\\-*;:,/"
+	isSym = ( `elem` "!#$%&*+./<=>?@\\^|-~:" ) -- isSymbol cc || cc `elem` "\\-*;:,/"
 	isLow cc = isLower cc || cc `elem` "_"
 	isAlNum cc = isAlphaNum cc || cc `elem` "_"
 lex sp s			= error $ "lex failed: " ++ show sp ++ s
