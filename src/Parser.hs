@@ -3,8 +3,9 @@ module Parser (
 	getOpTable
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Token( .. ), emptyEnv, OpTable' )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), OpTable' )
 import BuildExpression ( buildExprParser, Assoc( .. ), Op )
+import Env ( emptyEnv )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, runParser, (<|>), eof, option, optional, many, many1, sepBy1,

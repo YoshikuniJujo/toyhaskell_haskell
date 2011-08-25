@@ -2,8 +2,8 @@ module Eval (
 	eval
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Env, addEnvs, setPatToEnv,
-	setPatsToEnv, setsToEnv, getFromEnv, match )
+import Types ( Value( .. ), Pattern( .. ), Env, match )
+import Env
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------

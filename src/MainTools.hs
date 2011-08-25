@@ -8,7 +8,8 @@ import Eval ( eval )
 import Parser ( toyParse, getOpTable )
 import Preprocessor ( prep )
 import Lexer ( toyLex, SourceName )
-import Types ( Value( .. ), showValue, Env, setPatsToEnv, OpTable' )
+import Types ( Value( .. ), showValue, Env, OpTable' )
+import Env
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )

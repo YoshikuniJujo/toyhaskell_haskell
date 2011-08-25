@@ -2,7 +2,8 @@ module Primitives (
 	initEnv
 ) where
 
-import Types ( Value(..), Env, setsToEnv, emptyEnv )
+import Types ( Value(..), Env )
+import Env
 
 initEnv :: Env
 initEnv = setsToEnv [

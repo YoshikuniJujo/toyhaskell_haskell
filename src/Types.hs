@@ -1,75 +1,18 @@
 module Types (
-	Env,
-	emptyEnv,
-	setToEnv,
-	setsToEnv,
-	setPatToEnv,
-	setPatsToEnv,
-	getFromEnv,
-	addEnvs,
-	match,
+	Env( .. ),
 	Value( .. ),
 	Pattern( .. ),
 	showValue,
 	isInteger,
 	Token( .. ),
-	OpTable'
+	OpTable',
+	match
 ) where
 
-import Control.Monad
 import Text.ParserCombinators.Parsec.Expr
-import Data.Maybe
+import Control.Monad
 
 data Env = Env [ ( [ String ], Pattern, Value ) ]
-
-emptyEnv :: Env
-emptyEnv = Env [ ]
-
-setToEnv :: String -> Value -> Env -> Env
-setToEnv var val ( Env ps ) =
-	Env $ ( [ var ], PatVar var, val ) : ps
-
-setsToEnv :: [ ( String, Value ) ] -> Env -> Env
-setsToEnv = flip $ foldr $ uncurry setToEnv
-
-setPatToEnv :: Pattern -> Value -> Env -> Env
-setPatToEnv pat val ( Env env ) = Env $ ( vars, pat, val ) : env
-	where vars = getPatVars pat
-
-setPatsToEnv :: [ ( Pattern, Value ) ] -> Env -> Env
-setPatsToEnv = flip $ foldr $ uncurry setPatToEnv
-
-getPatVars :: Pattern -> [ String ]
-getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
-getPatVars ( PatVar var ) = [ var ]
-getPatVars _ = [ ]
-
-getFromEnv :: ( Value -> Value ) -> String -> Env -> Maybe Value
-getFromEnv f var ( Env ps ) = do
-	( _, pat, val ) <- usePat
-	match ( f val ) pat >>= lookup var
-	where
-	one ( x, _, _ ) = x
-	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
-
-match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
-match = patMatch1
-
-patMatch1 :: Value -> Pattern -> Maybe [ ( String, Value ) ]
-patMatch1 ( Integer i1 ) ( PatInteger i0 )
-	| i1 == i0	= Just [ ]
-	| otherwise	= Nothing
-patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
-patMatch1 _ PatUScore		= Just [ ]
-patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
-	| name1 == name0	=
-		liftM concat $ zipWithM patMatch1 bodys pats
-	| otherwise		= Nothing
-patMatch1 Empty PatEmpty	= Just [ ]
-patMatch1 _ _			= Nothing
-
-addEnvs :: Env -> Env -> Env
-addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2
 
 data Pattern =
 	PatConst String [ Pattern ]	|
@@ -147,3 +90,19 @@ data Token =
 
 type OpTable' = Table
 type Table = [ ( String, Int, Assoc ) ]
+
+match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
+match = patMatch1
+
+patMatch1 :: Value -> Pattern -> Maybe [ ( String, Value ) ]
+patMatch1 ( Integer i1 ) ( PatInteger i0 )
+	| i1 == i0	= Just [ ]
+	| otherwise	= Nothing
+patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
+patMatch1 _ PatUScore		= Just [ ]
+patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
+	| name1 == name0	=
+		liftM concat $ zipWithM patMatch1 bodys pats
+	| otherwise		= Nothing
+patMatch1 Empty PatEmpty	= Just [ ]
+patMatch1 _ _			= Nothing
