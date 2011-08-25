@@ -1,3 +1,5 @@
+module Main where
+
 -- import Prelude hiding ( putStr, putStrLn )
 
 some = let 1 : x : 3 : [] = 1 : 2 : 3 : [] in x;

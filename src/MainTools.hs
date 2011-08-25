@@ -5,7 +5,7 @@ module MainTools (
 import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
-import Parser ( toyParse, getOpTable )
+import Parser ( toyParse, toyParseModule, getOpTable )
 import Preprocessor ( prep )
 import Lexer ( toyLex, SourceName )
 import Types ( Value( .. ), showValue, OpTable, Env, setPats )
@@ -25,6 +25,9 @@ getDefaultOpTable = getDataFileName "operator-table.lst"
 
 parse :: OpTable -> SourceName -> String -> Value
 parse opLst fn = toyParse opLst fn . prep 0 [ ] . toyLex fn
+
+parseModule :: OpTable -> SourceName -> String -> Value
+parseModule opLst fn = toyParseModule opLst fn . prep 0 [ ] . toyLex fn
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
@@ -77,6 +80,6 @@ runCmd opLst cmd env
 loadFile :: OpTable -> Env -> FilePath -> IO Env
 loadFile opLst env fn = do
 	cnt <- readFile fn
-	case eval env $ parse opLst fn ( "let\n" ++ cnt ) of
+	case eval env $ parseModule opLst fn cnt of
 		Let ps	-> return $ setPats ps env
 		bad	-> error $ show bad
