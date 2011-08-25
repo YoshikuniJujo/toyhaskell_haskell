@@ -38,8 +38,10 @@ parserModule = do
 	tok $ ReservedId "module"
 	name <- token getTokConst
 	tok $ ReservedId "where"
+	tok $ Special '{'
 	optional $ tok $ ReservedOp ";"
 	ps <- sepBy1 parserDef ( tok $ ReservedOp ";" )
+	tok $ Special '}'
 	eof
 	return $ Let $ catMaybes ps
 
@@ -115,8 +117,10 @@ parserLetin = do
 parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
 	tok $ ReservedId "let"
+	tok $ Special '{'
 	optional $ tok $ ReservedOp ";"
 	ps <- sepBy1 parserDef $ tok $ ReservedOp ";"
+	tok $ Special '}'
 	return $ catMaybes ps
 
 parserDef :: Parser ( Maybe ( Pattern, Value ) )

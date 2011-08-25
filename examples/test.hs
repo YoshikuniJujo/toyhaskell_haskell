@@ -2,7 +2,7 @@ module Main where
 
 -- import Prelude hiding ( putStr, putStrLn )
 
-some = let 1 : x : 3 : [] = 1 : 2 : 3 : [] in x;
+some = let { 1 : x : 3 : [] = 1 : 2 : 3 : [] } in x;
 
 hello = "Hello, world!\n";
 bye = "Good-bye, world";
