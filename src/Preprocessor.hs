@@ -26,10 +26,10 @@ prep i1 ia@( i0 : is ) ( ( NewLine, _ ) : ts@( ( _, sp ) : _ ) )
 	| i1 == i0				= semi : prep ( sc sp ) ia ts
 	| otherwise				= prep ( sc sp ) ia ts
 prep i1 ( _ : is ) ( t@( Special '}', _ ) : ts )	= t : prep i1 is ts
-prep i1 ia ( t1@( Reserved "of", _ ) : t2@( Special '{', _ ) : ts )	=
+prep i1 ia ( t1@( ReservedId "of", _ ) : t2@( Special '{', _ ) : ts )	=
 	t1 : t2 : prep i1 ( 0 : ia ) ts
-prep _ ia ( t@( Reserved "of", _ ) : ( NewLine, _ ) : ts@( ( _, sp ) : _ ) ) =
+prep _ ia ( t@( ReservedId "of", _ ) : ( NewLine, _ ) : ts@( ( _, sp ) : _ ) ) =
 	t : ob : prep ( sc sp ) ( sc sp : ia ) ts
-prep _ ia ( t@( Reserved "of", _ ) : ts@( ( _, sp ) : _ ) )		=
+prep _ ia ( t@( ReservedId "of", _ ) : ts@( ( _, sp ) : _ ) )		=
 	t : ob : prep ( sc sp ) ( sc sp : ia ) ts
 prep i1 ia ( t : ts )				= t : prep i1 ia ts

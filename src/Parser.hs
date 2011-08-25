@@ -64,7 +64,7 @@ parserAtom =
 	where
 	tokToVal ( TokChar c, _ )	= Just $ Char c
 	tokToVal ( TokInteger i, _ )	= Just $ Integer i
-	tokToVal ( Variable var, _ )	= Just $ Identifier var
+	tokToVal ( Varid var, _ )	= Just $ Identifier var
 	tokToVal ( TokString str, _ )	= Just $ mkStr str
 	tokToVal _			= Nothing
 	mkStr ""			= Empty
@@ -81,7 +81,7 @@ parserParens = do
 
 parserLambda :: Parser Value
 parserLambda = do
-	tok Backslash
+	tok $ ReservedOp "\\"
 	vars <- many1 parserPattern
 	tok $ ReservedOp "->"
 	body <- parserExpr
@@ -91,13 +91,13 @@ parserLetin :: Parser Value
 parserLetin = do
 	pairs <- parserLet
 	option ( Let pairs ) $ do
-		tok $ Reserved "in"
+		tok $ ReservedId "in"
 		body <- parserExpr
 		return $ Letin pairs body
 
 parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
-	tok $ Reserved "let"
+	tok $ ReservedId "let"
 	optional $ tok $ ReservedOp ";"
 	p <- parserDef
 	ps <- many $ do
@@ -117,20 +117,20 @@ parserDef = option Nothing $ do
 
 parserIf :: Parser Value
 parserIf = do
-	tok $ Reserved "if"
+	tok $ ReservedId "if"
 	test <- parserExpr
-	tok $ Reserved "then"
+	tok $ ReservedId "then"
 	thn <- parserExpr
-	tok $ Reserved "else"
+	tok $ ReservedId "else"
 	els <- parserExpr
 	return $ Case test [ ( PatConst "True" [ ], thn ),
 		( PatConst "False" [ ], els ) ]
 
 parserCase :: Parser Value
 parserCase = do
-	tok $ Reserved "case"
+	tok $ ReservedId "case"
 	val	<- parserExpr
-	tok $ Reserved "of"
+	tok $ ReservedId "of"
 	tok $ Special '{'
 	tests	<- flip sepBy1 ( tok $ ReservedOp ";" ) $ option Nothing $ do
 		pattern	<- parserPattern
@@ -147,7 +147,7 @@ parserComplex = do
 	return $ Complex name bodys
 
 getTokConst :: ( Token, SourcePos ) -> Maybe String
-getTokConst ( TokConst name, _ )	= Just name
+getTokConst ( Conid name, _ )	= Just name
 getTokConst _				= Nothing
 
 parserList :: Parser Value
@@ -168,9 +168,9 @@ parserPatternAtom :: Parser Pattern
 parserPatternAtom =
 	token tokToPat <|> parserPatternComplex <|> parserPatternList
 	where
-	tokToPat ( Variable var, _ )	= Just $ PatVar var
+	tokToPat ( Varid var, _ )	= Just $ PatVar var
 	tokToPat ( TokInteger i, _ )	= Just $ PatInteger i
-	tokToPat ( Reserved "_", _ )	= Just PatUScore
+	tokToPat ( ReservedId "_", _ )	= Just PatUScore
 	tokToPat _			= Nothing
 
 parserPatternComplex :: Parser Pattern
@@ -191,7 +191,7 @@ parserPatternList = do
 fromRawOp :: ( String -> a -> a -> a ) -> ( String, Int, Assoc ) ->
 	Op ( Token, SourcePos ) a
 fromRawOp f ( op, power, assoc ) =
-	( ( Operator op, initialPos "" ), f op, power, assoc )
+	( ( VarSym op, initialPos "" ), f op, power, assoc )
 
 buildOpVal :: ( String, Int, Assoc ) -> Op ( Token, SourcePos ) Value
 buildOpVal = fromRawOp $ (.) Apply . Apply . Identifier

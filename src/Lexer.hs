@@ -40,29 +40,29 @@ lex sp ( '[' : cs )		= ( ReservedOp "[", sp ) : lex ( next sp ) cs
 lex sp ( ']' : cs )		= ( ReservedOp "]", sp ) : lex ( next sp ) cs
 lex sp ( '(' : cs )		= ( Special '(', sp ) : lex ( next sp ) cs
 lex sp ( ')' : cs )		= ( Special ')', sp ) : lex ( next sp ) cs
-lex sp ( '\\' : cs )		= ( Backslash, sp ) : lex ( next sp ) cs
+lex sp ( '\\' : cs )		= ( ReservedOp "\\", sp ) : lex ( next sp ) cs
 lex sp ( '\'' : '\\' : 'n' : '\'' : cs )
 				= ( TokChar '\n', sp ) : lex ( isc sp 4 ) cs
 lex sp ( '\'' : c : '\'' : cs )	= ( TokChar c, sp ) : lex ( isc sp 3 ) cs
 lex sp ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
 	( TokString ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
 lex sp ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
-	( Operator ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
+	( VarSym ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
 lex sp ( '\t' : cs )		= let c = sourceColumn sp in
 	lex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
 lex sp s@( c : _ )
 	| isLow c		= let
 		( ret, rest )	= span isAlNum s
 		mkTok		= if ret `elem` reserved
-					then Reserved else Variable in
+					then ReservedId else Varid in
 		( mkTok ret, sp ) : lex ( isc sp $ length ret ) rest
 	| isUpper c		= let
 		( ret, rest )	= span isAlphaNum s in
-		( TokConst ret, sp ) : lex ( isc sp $ length ret ) rest
+		( Conid ret, sp ) : lex ( isc sp $ length ret ) rest
 	| isSym c		= let
 		( ret, rest )	= span isSym s
 		mkTok		= if ret `elem` reservedOp
-					then ReservedOp else Operator in
+					then ReservedOp else VarSym in
 		( mkTok ret, sp ) : lex ( isc sp $ length ret ) rest
 	| isDigit c	= let ( ret, rest ) = span isDigit s in
 		( TokInteger ( read ret ), isc sp $ length ret ) : lex sp rest
