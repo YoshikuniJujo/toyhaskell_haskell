@@ -8,8 +8,7 @@ import Eval ( eval )
 import Parser ( toyParse, getOpTable )
 import Preprocessor ( prep )
 import Lexer ( toyLex, SourceName )
-import Types ( Value( .. ), showValue, Env, OpTable' )
-import Env
+import Types ( Value( .. ), showValue, OpTable, Env, setPats )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -24,7 +23,7 @@ import Paths_toyhaskell ( getDataFileName )
 getDefaultOpTable :: IO String
 getDefaultOpTable = getDataFileName "operator-table.lst"
 
-parse :: OpTable' -> SourceName -> String -> Value
+parse :: OpTable -> SourceName -> String -> Value
 parse opLst fn = toyParse opLst fn . prep 0 [ ] . toyLex fn
 
 mainGen :: [ String ] -> [ String ] -> IO ()
@@ -40,7 +39,7 @@ mainGen args _ = do
 			':' : cmd	-> runCmd opLst cmd env
 			_		-> case eval env $
 				parse opLst "<interactive>" inp of
-				Let ps	-> return $ setPatsToEnv ps env
+				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 
 data Option = Expr String | OpTable String
@@ -66,7 +65,7 @@ readOption args = let
 		where
 		( path, expr ) = fromOps ops
 
-runCmd :: OpTable' -> String -> Env -> IO Env
+runCmd :: OpTable -> String -> Env -> IO Env
 runCmd opLst cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
@@ -75,9 +74,9 @@ runCmd opLst cmd env
 		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
 		return env
 
-loadFile :: OpTable' -> Env -> FilePath -> IO Env
+loadFile :: OpTable -> Env -> FilePath -> IO Env
 loadFile opLst env fn = do
 	cnt <- readFile fn
 	case eval env $ parse opLst fn ( "let\n" ++ cnt ) of
-		Let ps	-> return $ setPatsToEnv ps env
+		Let ps	-> return $ setPats ps env
 		bad	-> error $ show bad

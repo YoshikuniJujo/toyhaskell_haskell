@@ -11,8 +11,8 @@ sp0 :: SourcePos
 sp0 = initialPos ""
 
 ob, cb, semi :: ( Token, SourcePos )
-ob	= ( OpenBrace, sp0 )
-cb	= ( CloseBrace, sp0 )
+ob	= ( Special '{', sp0 )
+cb	= ( Special '}', sp0 )
 semi	= ( ReservedOp ";", sp0 )
 
 sc :: SourcePos -> Int
@@ -25,8 +25,8 @@ prep i1 ia@( i0 : is ) ( ( NewLine, _ ) : ts@( ( _, sp ) : _ ) )
 	| i1 < i0				= cb : prep ( sc sp ) is ts
 	| i1 == i0				= semi : prep ( sc sp ) ia ts
 	| otherwise				= prep ( sc sp ) ia ts
-prep i1 ( _ : is ) ( t@( CloseBrace, _ ) : ts )	= t : prep i1 is ts
-prep i1 ia ( t1@( Reserved "of", _ ) : t2@( OpenBrace, _ ) : ts )	=
+prep i1 ( _ : is ) ( t@( Special '}', _ ) : ts )	= t : prep i1 is ts
+prep i1 ia ( t1@( Reserved "of", _ ) : t2@( Special '{', _ ) : ts )	=
 	t1 : t2 : prep i1 ( 0 : ia ) ts
 prep _ ia ( t@( Reserved "of", _ ) : ( NewLine, _ ) : ts@( ( _, sp ) : _ ) ) =
 	t : ob : prep ( sc sp ) ( sc sp : ia ) ts

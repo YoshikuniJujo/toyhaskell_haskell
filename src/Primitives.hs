@@ -2,11 +2,10 @@ module Primitives (
 	initEnv
 ) where
 
-import Types ( Value(..), Env )
-import Env
+import Types ( Value( .. ), Env, setVars, emptyEnv )
 
 initEnv :: Env
-initEnv = setsToEnv [
+initEnv = setVars [
 	( "+",		Function $ mkBinIntFunction (+) ),
 	( "-",		Function $ mkBinIntFunction (-) ),
 	( "*",		Function $ mkBinIntFunction (*) ),

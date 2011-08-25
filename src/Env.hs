@@ -1,38 +1,42 @@
-module Env where
+module Env (
+	Env,
+	emptyEnv,
+	setsToEnv,
+	setPatToEnv,
+	setPatsToEnv,
+	getFromEnv,
+	addEnvs
+) where
 
-import Control.Monad
 import Data.Maybe
-import Types
 
-emptyEnv :: Env
+data Env p v = Env [ ( [ String ], p, v ) ]
+
+emptyEnv :: Env p v
 emptyEnv = Env [ ]
 
-setToEnv :: String -> Value -> Env -> Env
-setToEnv var val ( Env ps ) =
-	Env $ ( [ var ], PatVar var, val ) : ps
+setToEnv :: ( String -> p ) -> String -> v -> Env p v -> Env p v
+setToEnv pv var val ( Env ps ) =
+	Env $ ( [ var ], pv var, val ) : ps
 
-setsToEnv :: [ ( String, Value ) ] -> Env -> Env
-setsToEnv = flip $ foldr $ uncurry setToEnv
+setsToEnv :: ( String -> p ) -> [ ( String, v ) ] -> Env p v -> Env p v
+setsToEnv pv = flip $ foldr $ uncurry ( setToEnv pv )
 
-setPatToEnv :: Pattern -> Value -> Env -> Env
-setPatToEnv pat val ( Env env ) = Env $ ( vars, pat, val ) : env
-	where vars = getPatVars pat
+setPatToEnv :: ( p -> [ String ] ) -> p -> v -> Env p v -> Env p v
+setPatToEnv gpv pat val ( Env env ) = Env $ ( vars, pat, val ) : env
+	where vars = gpv pat
 
-setPatsToEnv :: [ ( Pattern, Value ) ] -> Env -> Env
-setPatsToEnv = flip $ foldr $ uncurry setPatToEnv
+setPatsToEnv :: ( p -> [ String ] ) -> [ ( p, v ) ] -> Env p v -> Env p v
+setPatsToEnv gpv = flip $ foldr $ uncurry ( setPatToEnv gpv )
 
-getPatVars :: Pattern -> [ String ]
-getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
-getPatVars ( PatVar var ) = [ var ]
-getPatVars _ = [ ]
-
-getFromEnv :: ( Value -> Value ) -> String -> Env -> Maybe Value
-getFromEnv f var ( Env ps ) = do
+getFromEnv :: ( v -> p -> Maybe [ ( String, v ) ] ) -> ( v -> v ) -> String ->
+	Env p v -> Maybe v
+getFromEnv m f var ( Env ps ) = do
 	( _, pat, val ) <- usePat
-	match ( f val ) pat >>= lookup var
+	m ( f val ) pat >>= lookup var
 	where
 	one ( x, _, _ ) = x
 	usePat = listToMaybe $ filter ( ( var `elem` ) . one ) ps
 
-addEnvs :: Env -> Env -> Env
+addEnvs :: Env p v -> Env p v -> Env p v
 addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2

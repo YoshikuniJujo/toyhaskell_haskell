@@ -3,9 +3,8 @@ module Parser (
 	getOpTable
 ) where
 
-import Types ( Value( .. ), Pattern( .. ), Token( .. ), OpTable' )
+import Types ( Value( .. ), Pattern( .. ), Token( .. ), OpTable, emptyEnv )
 import BuildExpression ( buildExprParser, Assoc( .. ), Op )
-import Env ( emptyEnv )
 
 import Text.ParserCombinators.Parsec (
 	GenParser, runParser, (<|>), eof, option, optional, many, many1, sepBy1,
@@ -18,7 +17,7 @@ import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-type Parser = GenParser ( Token, SourcePos ) OpTable'
+type Parser = GenParser ( Token, SourcePos ) OpTable
 	
 token :: ( ( Token, SourcePos ) -> Maybe a ) -> Parser a
 token = P.token ( show . fst ) snd
@@ -27,7 +26,7 @@ tok :: Token -> Parser ()
 tok = ( >> return () ) . token . eq
 	where eq x y = if x == fst y then Just () else Nothing
 
-toyParse :: OpTable' -> String -> [ ( Token, SourcePos ) ] -> Value
+toyParse :: OpTable -> String -> [ ( Token, SourcePos ) ] -> Value
 toyParse opTable fn input = case runParser parser opTable fn input of
 	Right v	-> v
 	Left v	-> Error $ show v
@@ -75,9 +74,9 @@ parserAtom =
 
 parserParens :: Parser Value
 parserParens = do
-	tok OpenParen
+	tok $ Special '('
 	ret <- option Nil parserExpr
-	tok CloseParen
+	tok $ Special ')'
 	return ret
 
 parserLambda :: Parser Value
@@ -132,13 +131,13 @@ parserCase = do
 	tok $ Reserved "case"
 	val	<- parserExpr
 	tok $ Reserved "of"
-	tok OpenBrace
+	tok $ Special '{'
 	tests	<- flip sepBy1 ( tok $ ReservedOp ";" ) $ option Nothing $ do
 		pattern	<- parserPattern
 		tok $ ReservedOp "->"
 		ret	<- parserExpr
 		return $ Just ( pattern, ret )
-	tok CloseBrace
+	tok $ Special '}'
 	return $ Case val $ catMaybes tests
 
 parserComplex :: Parser Value
@@ -202,7 +201,7 @@ buildOpPat = fromRawOp $ \op -> (.) ( PatConst op ) . flip (.) ( : [] ) . (:)
 
 -------------------------------------------------------------------------------
 
-getOpTable :: String -> OpTable'
+getOpTable :: String -> OpTable
 getOpTable = map readOpTable . concatMap prepOpTable . lines
 
 prepOpTable :: String -> [ String ]

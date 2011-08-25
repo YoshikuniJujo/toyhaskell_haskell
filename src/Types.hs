@@ -1,18 +1,33 @@
 module Types (
-	Env( .. ),
-	Value( .. ),
-	Pattern( .. ),
-	showValue,
-	isInteger,
 	Token( .. ),
-	OpTable',
-	match
+	Pattern( .. ),
+	Value( .. ),
+	OpTable,
+
+	showValue,
+	match,
+
+	Env,
+	emptyEnv,
+	addEnvs,
+	setVars,
+	setPat,
+	setPats,
+	getVal
 ) where
 
-import Text.ParserCombinators.Parsec.Expr
-import Control.Monad
+import Env (
+	emptyEnv, addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv )
+import qualified Env as E ( Env )
+import Text.ParserCombinators.Parsec.Expr ( Assoc )
+import Control.Monad ( liftM, zipWithM )
 
-data Env = Env [ ( [ String ], Pattern, Value ) ]
+data Token =
+	Special Char |
+	Variable String | TokConst String | Operator String |
+	Backslash | Reserved String | ReservedOp String |
+	TokInteger Integer | TokChar Char | TokString String | NewLine
+	deriving ( Show, Eq )
 
 data Pattern =
 	PatConst String [ Pattern ]	|
@@ -37,10 +52,6 @@ data Value =
 	Let [ ( Pattern, Value ) ] |
 	Case Value [ ( Pattern, Value ) ] |
 	Error String
-
-isInteger :: Value -> Bool
-isInteger ( Integer _ )	= True
-isInteger _		= False
 
 instance Show Value where
 	show Nil		= "()"
@@ -81,28 +92,36 @@ showValue ( IOAction act ) = do
 		_	-> print v
 showValue v = print v
 
-data Token =
-	OpenBrace | CloseBrace |
-	Variable String | TokConst String | Operator String | OpenParen |
-	CloseParen | Backslash | Reserved String | ReservedOp String |
-	TokInteger Integer | TokChar Char | TokString String | NewLine
-	deriving ( Show, Eq )
+type Env = E.Env Pattern Value
 
-type OpTable' = Table
-type Table = [ ( String, Int, Assoc ) ]
+type OpTable = [ ( String, Int, Assoc ) ]
 
 match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
-match = patMatch1
-
-patMatch1 :: Value -> Pattern -> Maybe [ ( String, Value ) ]
-patMatch1 ( Integer i1 ) ( PatInteger i0 )
+match ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
 	| otherwise	= Nothing
-patMatch1 val ( PatVar var )	= Just [ ( var, val ) ]
-patMatch1 _ PatUScore		= Just [ ]
-patMatch1 ( Complex name1 bodys ) ( PatConst name0 pats )
+match val ( PatVar var )	= Just [ ( var, val ) ]
+match _ PatUScore		= Just [ ]
+match ( Complex name1 bodys ) ( PatConst name0 pats )
 	| name1 == name0	=
-		liftM concat $ zipWithM patMatch1 bodys pats
+		liftM concat $ zipWithM match bodys pats
 	| otherwise		= Nothing
-patMatch1 Empty PatEmpty	= Just [ ]
-patMatch1 _ _			= Nothing
+match Empty PatEmpty	= Just [ ]
+match _ _			= Nothing
+
+getPatVars :: Pattern -> [ String ]
+getPatVars ( PatConst _ pats ) = concatMap getPatVars pats
+getPatVars ( PatVar var ) = [ var ]
+getPatVars _ = [ ]
+
+setPat :: Pattern -> Value -> Env -> Env
+setPat = setPatToEnv getPatVars
+
+setPats :: [ ( Pattern, Value ) ] -> Env -> Env
+setPats = setPatsToEnv getPatVars
+
+setVars :: [ ( String, Value ) ] -> Env -> Env
+setVars = setsToEnv PatVar
+
+getVal :: ( Value -> Value ) -> String -> Env -> Maybe Value
+getVal = getFromEnv match

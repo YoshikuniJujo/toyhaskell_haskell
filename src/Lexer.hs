@@ -34,12 +34,12 @@ lex sp ( '\n' : cs )		= ( NewLine, sp ) : lex ( nextLine sp ) cs
 lex sp ( ' ' : cs )		= lex ( next sp ) cs
 lex sp ( ',' : cs )		= ( ReservedOp ",", sp ) : lex ( next sp ) cs
 lex sp ( ';' : cs )		= ( ReservedOp ";", sp ) : lex ( next sp ) cs
-lex sp ( '{' : cs )		= ( OpenBrace, sp ) : lex ( next sp ) cs
-lex sp ( '}' : cs )		= ( CloseBrace, sp ) : lex ( next sp ) cs
+lex sp ( '{' : cs )		= ( Special '{', sp ) : lex ( next sp ) cs
+lex sp ( '}' : cs )		= ( Special '}', sp ) : lex ( next sp ) cs
 lex sp ( '[' : cs )		= ( ReservedOp "[", sp ) : lex ( next sp ) cs
 lex sp ( ']' : cs )		= ( ReservedOp "]", sp ) : lex ( next sp ) cs
-lex sp ( '(' : cs )		= ( OpenParen, sp ) : lex ( next sp ) cs
-lex sp ( ')' : cs )		= ( CloseParen, sp ) : lex ( next sp ) cs
+lex sp ( '(' : cs )		= ( Special '(', sp ) : lex ( next sp ) cs
+lex sp ( ')' : cs )		= ( Special ')', sp ) : lex ( next sp ) cs
 lex sp ( '\\' : cs )		= ( Backslash, sp ) : lex ( next sp ) cs
 lex sp ( '\'' : '\\' : 'n' : '\'' : cs )
 				= ( TokChar '\n', sp ) : lex ( isc sp 4 ) cs
