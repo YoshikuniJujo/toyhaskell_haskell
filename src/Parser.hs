@@ -1,5 +1,6 @@
 module Parser (
 	toyParse,
+	toyParseModule,
 	getOpTable
 ) where
 
@@ -25,6 +26,22 @@ token = P.token ( show . fst ) snd
 tok :: Token -> Parser ()
 tok = ( >> return () ) . token . eq
 	where eq x y = if x == fst y then Just () else Nothing
+
+toyParseModule :: OpTable -> String -> [ ( Token, SourcePos ) ] -> Value
+toyParseModule opTable fn input =
+	case runParser parserModule opTable fn input of
+		Right v	-> v
+		Left v	-> Error $ show v
+
+parserModule :: Parser Value
+parserModule = do
+	tok $ ReservedId "module"
+	name <- token getTokConst
+	tok $ ReservedId "where"
+	optional $ tok $ ReservedOp ";"
+	ps <- sepBy1 parserDef ( tok $ ReservedOp ";" )
+	eof
+	return $ Let $ catMaybes ps
 
 toyParse :: OpTable -> String -> [ ( Token, SourcePos ) ] -> Value
 toyParse opTable fn input = case runParser parser opTable fn input of
@@ -99,11 +116,8 @@ parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
 	tok $ ReservedId "let"
 	optional $ tok $ ReservedOp ";"
-	p <- parserDef
-	ps <- many $ do
-		tok $ ReservedOp ";"
-		parserDef
-	return $ catMaybes $ p : ps
+	ps <- sepBy1 parserDef $ tok $ ReservedOp ";"
+	return $ catMaybes ps
 
 parserDef :: Parser ( Maybe ( Pattern, Value ) )
 parserDef = option Nothing $ do
