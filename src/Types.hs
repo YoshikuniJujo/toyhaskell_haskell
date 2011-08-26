@@ -1,3 +1,5 @@
+{-# Language PackageImports #-}
+
 module Types (
 	Token( .. ),
 	Pattern( .. ),
@@ -13,7 +15,9 @@ module Types (
 	setVars,
 	setPat,
 	setPats,
-	getVal
+	getVal,
+
+	ParserMonad
 ) where
 
 import Env (
@@ -21,6 +25,9 @@ import Env (
 import qualified Env as E ( Env )
 import Text.ParserCombinators.Parsec.Expr ( Assoc )
 import Control.Monad ( liftM, zipWithM )
+import "monads-tf" Control.Monad.State
+
+type ParserMonad = State String
 
 data Token =
 	Special Char		|
