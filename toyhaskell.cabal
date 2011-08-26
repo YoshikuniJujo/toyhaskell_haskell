@@ -21,7 +21,7 @@ executable runtoy
   hs-source-dirs:	src
   main-is:		runtoy.hs
   other-modules:	MainTools, Interact, Eval, Parser, BuildExpression,
-    Preprocessor, Lexer, Types
+    Preprocessor, Lexer, Types, NewParser
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec
 
@@ -29,6 +29,13 @@ executable toy
   hs-source-dirs:	src
   main-is:		toy.hs
   other-modules:	MainTools, Interact, Eval, Parser, BuildExpression,
-    Preprocessor, Lexer, Types
+    Preprocessor, Lexer, Types, NewParser
+  ghc-options:		-Wall
+  build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec
+
+executable testHappy
+  hs-source-dirs:	src
+  main-is:		testHappy.hs
+  other-modules:	MainTools, Interact, Eval, Lexer, Types, NewParser
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec
