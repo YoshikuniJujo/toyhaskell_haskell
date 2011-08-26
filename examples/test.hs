@@ -6,6 +6,7 @@ some = let { 1 : x : 3 : [] = 1 : 2 : 3 : [] } in x;
 
 hello = "Hello, world!\n"
 bye = "Good-bye, world"
+list = [ 1, 2, 3 ]
 
 fac n = if n == 0 then 1 else n * fac ( n - 1 )
 
