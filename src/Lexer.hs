@@ -2,6 +2,8 @@
 
 module Lexer (
 	toyLex,
+	toyLex',
+	lexer,
 	SourceName,
 ) where
 
@@ -32,6 +34,9 @@ isc = incSourceColumn
 
 toyLex :: SourceName -> String -> [ ( Token, SourcePos ) ]
 toyLex = lex . initialPos
+
+toyLex' :: SourceName -> String -> [ Token ]
+toyLex' sn = map fst . toyLex sn
 
 lexer :: ( Token -> ParserMonad a ) -> ParserMonad a
 lexer cont = real_lexer >>= \token -> cont token
