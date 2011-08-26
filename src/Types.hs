@@ -39,7 +39,8 @@ data Token =
 	TokInteger Integer	|
 	TokChar Char		|
 	TokString String	|
-	NewLine
+	NewLine			|
+	TokenEOF
 	deriving ( Show, Eq )
 
 data Pattern =

@@ -58,6 +58,12 @@ lex sp ca		= t : lex nsp rest
 	where ( t, nsp, rest ) = spanLex sp ca
 
 spanLex :: SourcePos -> String -> ( ( Token, SourcePos ), SourcePos, String )
+spanLex sp ""			= ( ( TokenEOF, sp ), sp, "" )
+spanLex sp ( '-' : '-' : cs )	= spanLex sp $ dropWhile ( /= '\n' ) cs
+spanLex sp ( ' ' : cs )		= spanLex ( next sp ) cs
+spanLex sp ( '\t' : cs )	= let c = sourceColumn sp in
+	spanLex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
+spanLex sp ( '\n' : cs )	= ( ( NewLine, sp ), nextLine sp, cs )
 spanLex sp ( '\'' : '\\' : 'n' : '\'' : cs )
 				= ( ( TokChar '\n', sp ), isc sp 4, cs )
 spanLex sp ( '\'' : c : '\'' : cs )

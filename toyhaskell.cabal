@@ -36,6 +36,7 @@ executable toy
 executable testHappy
   hs-source-dirs:	src
   main-is:		testHappy.hs
-  other-modules:	MainTools, Interact, Eval, Lexer, Types, NewParser
+  other-modules:	MainTools, Interact, Eval, Lexer, Types, NewParser,
+    ParserTools
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec, array
