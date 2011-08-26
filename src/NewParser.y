@@ -32,6 +32,8 @@ import "monads-tf" Control.Monad.State
 	string	{ TokString $$ }
 	char	{ TokChar $$ }
 	varid	{ Varid $$ }
+	conid	{ Conid $$ }
+	varsym	{ VarSym $$ }
 	let	{ ReservedId "let" }
 	in	{ ReservedId "in" }
 	eq	{ ReservedOp "=" }
@@ -39,13 +41,23 @@ import "monads-tf" Control.Monad.State
 	cbrc	{ Special '}' }
 	opr	{ Special '(' }
 	cpr	{ Special ')' }
+	bslash	{ ReservedOp "\\" }
+	rarrow	{ ReservedOp "->" }
+	if	{ ReservedId "if" }
+	then	{ ReservedId "then" }
+	else	{ ReservedId "else" }
 
 %left in
 
 %%
 
+Exp_	: Exp				{ $1 }
+	| Apply varsym Apply		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+
 Exp	: Letin				{ $1 }
 	| Apply				{ $1 }
+	| Lambda			{ $1 }
+	| If				{ $1 }
 
 Apply	: Atom				{ $1 }
 	| Apply Atom			{ Apply $1 $2 }
@@ -54,12 +66,18 @@ Atom	: int				{ Integer $1 }
 	| string			{ makeString $1 }
 	| char				{ Char $1 }
 	| varid				{ Identifier $1 }
+	| conid				{ Complex $1 [ ] }
 	| Parens			{ $1 }
 
 Letin	: let obrc Pattern eq Exp cbrc in Exp
 					{ Letin [ ( $3, $5 ) ] $8 }
 
-Parens	: opr Exp cpr			{ $2 }
+Lambda	: bslash Pattern rarrow Exp	{ Lambda emptyEnv [ $2 ] $4 }
+
+Parens	: opr Exp_ cpr			{ $2 }
+
+If	: if Exp_ then Exp_ else Exp_	{ Case $2 [ ( PatConst "True" [ ], $4 ),
+						( PatConst "False" [ ], $6 ) ] }
 
 Pattern	: varid				{ PatVar $1 }
 
