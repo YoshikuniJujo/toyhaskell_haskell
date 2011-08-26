@@ -39,8 +39,8 @@ parserModule = do
 	name <- token getTokConst
 	tok $ ReservedId "where"
 	tok $ Special '{'
-	optional $ tok $ ReservedOp ";"
-	ps <- sepBy1 parserDef ( tok $ ReservedOp ";" )
+	optional $ tok $ Special ';'
+	ps <- sepBy1 parserDef ( tok $ Special ';' )
 	tok $ Special '}'
 	eof
 	return $ Let $ catMaybes ps
@@ -118,8 +118,8 @@ parserLet :: Parser [ ( Pattern, Value ) ]
 parserLet = do
 	tok $ ReservedId "let"
 	tok $ Special '{'
-	optional $ tok $ ReservedOp ";"
-	ps <- sepBy1 parserDef $ tok $ ReservedOp ";"
+	optional $ tok $ Special ';'
+	ps <- sepBy1 parserDef $ tok $ Special ';'
 	tok $ Special '}'
 	return $ catMaybes ps
 
@@ -150,7 +150,7 @@ parserCase = do
 	val	<- parserExpr
 	tok $ ReservedId "of"
 	tok $ Special '{'
-	tests	<- flip sepBy1 ( tok $ ReservedOp ";" ) $ option Nothing $ do
+	tests	<- flip sepBy1 ( tok $ Special ';' ) $ option Nothing $ do
 		pattern	<- parserPattern
 		tok $ ReservedOp "->"
 		ret	<- parserExpr
@@ -170,11 +170,11 @@ getTokConst _				= Nothing
 
 parserList :: Parser Value
 parserList = do
-	tok $ ReservedOp "["
+	tok $ Special '['
 	ret	<- do
-		vs	<- sepBy parserExpr $ tok $ ReservedOp ","
+		vs	<- sepBy parserExpr $ tok $ Special ','
 		return $ foldr ( \x xs -> Complex ":" [ x, xs ] ) Empty vs
-	tok $ ReservedOp "]"
+	tok $ Special ']'
 	return ret
 
 parserPattern :: Parser Pattern
@@ -199,11 +199,11 @@ parserPatternComplex = do
 
 parserPatternList :: Parser Pattern
 parserPatternList = do
-	tok ( ReservedOp "[" )
+	tok ( Special '[' )
 	ret <- do
-		vs	<- sepBy parserPattern $ tok $ ReservedOp ","
+		vs	<- sepBy parserPattern $ tok $ Special ','
 		return $ foldr ( \x xs -> PatConst ":" [ x, xs ] ) PatEmpty vs
-	tok ( ReservedOp "]" )
+	tok ( Special ']' )
 	return ret
 
 fromRawOp :: ( String -> a -> a -> a ) -> ( String, Int, Assoc ) ->

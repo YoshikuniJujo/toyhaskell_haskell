@@ -17,6 +17,9 @@ reserved = [
  ]
 reservedOp = [ "..", {-":",-} "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
+special :: [ Char ]
+special = "(),;[]{}" -- ++ [ '`' ]
+
 next, nextLine :: SourcePos -> SourcePos
 next		= flip incSourceColumn 1
 nextLine	= flip incSourceLine 1 . flip setSourceColumn 0
@@ -25,22 +28,16 @@ isc :: SourcePos -> Int -> SourcePos
 isc = incSourceColumn
 
 toyLex :: SourceName -> String -> [ ( Token, SourcePos ) ]
-toyLex = lex . initialPos
+toyLex = lexer . initialPos
+
+lexer :: SourcePos -> String -> [ ( Token, SourcePos ) ]
+lexer = lex
 
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
 lex _ ""			= [ ]
 lex sp ( '-' : '-' : cs )	= lex sp $ dropWhile ( /= '\n' ) cs
 lex sp ( '\n' : cs )		= ( NewLine, sp ) : lex ( nextLine sp ) cs
 lex sp ( ' ' : cs )		= lex ( next sp ) cs
-lex sp ( ',' : cs )		= ( ReservedOp ",", sp ) : lex ( next sp ) cs
-lex sp ( ';' : cs )		= ( ReservedOp ";", sp ) : lex ( next sp ) cs
-lex sp ( '{' : cs )		= ( Special '{', sp ) : lex ( next sp ) cs
-lex sp ( '}' : cs )		= ( Special '}', sp ) : lex ( next sp ) cs
-lex sp ( '[' : cs )		= ( ReservedOp "[", sp ) : lex ( next sp ) cs
-lex sp ( ']' : cs )		= ( ReservedOp "]", sp ) : lex ( next sp ) cs
-lex sp ( '(' : cs )		= ( Special '(', sp ) : lex ( next sp ) cs
-lex sp ( ')' : cs )		= ( Special ')', sp ) : lex ( next sp ) cs
-lex sp ( '\\' : cs )		= ( ReservedOp "\\", sp ) : lex ( next sp ) cs
 lex sp ( '\'' : '\\' : 'n' : '\'' : cs )
 				= ( TokChar '\n', sp ) : lex ( isc sp 4 ) cs
 lex sp ( '\'' : c : '\'' : cs )	= ( TokChar c, sp ) : lex ( isc sp 3 ) cs
@@ -50,7 +47,8 @@ lex sp ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
 	( VarSym ret, sp ) : lex ( isc sp $ length ret + 2 ) rest
 lex sp ( '\t' : cs )		= let c = sourceColumn sp in
 	lex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
-lex sp s@( c : _ )
+lex sp s@( c : cs )
+	| c `elem` special	= ( Special c, sp ) : lex ( next sp ) cs
 	| isLow c		= let
 		( ret, rest )	= span isAlNum s
 		mkTok		= if ret `elem` reserved

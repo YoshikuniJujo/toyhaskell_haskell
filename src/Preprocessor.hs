@@ -16,7 +16,7 @@ sp0 = initialPos ""
 ob, cb, semi :: ( Token, SourcePos )
 ob	= ( Special '{', sp0 )
 cb	= ( Special '}', sp0 )
-semi	= ( ReservedOp ";", sp0 )
+semi	= ( Special ';', sp0 )
 
 sc :: SourcePos -> Int
 sc = sourceColumn
