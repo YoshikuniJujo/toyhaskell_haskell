@@ -38,7 +38,7 @@ import "monads-tf" Control.Monad.State
 	in	{ ReservedId "in" }
 	eq	{ ReservedOp "=" }
 	obrc	{ Special '{' }
-	cbrc	{ Special '}' }
+	'}'	{ Special '}' }
 	opr	{ Special '(' }
 	cpr	{ Special ')' }
 	bslash	{ ReservedOp "\\" }
@@ -69,8 +69,11 @@ Atom	: int				{ Integer $1 }
 	| conid				{ Complex $1 [ ] }
 	| Parens			{ $1 }
 
-Letin	: let obrc Pattern eq Exp cbrc in Exp
+Letin	: let obrc Pattern eq Exp close in Exp
 					{ Letin [ ( $3, $5 ) ] $8 }
+
+close	: '}'				{ () }
+	| error				{ () }
 
 Lambda	: bslash Pattern rarrow Exp	{ Lambda emptyEnv [ $2 ] $4 }
 

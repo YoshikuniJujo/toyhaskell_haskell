@@ -44,7 +44,11 @@ lexer cont = real_lexer >>= \token -> cont token
 real_lexer :: ParserMonad Token
 real_lexer = do
 	( ( tok, _ ), _, rest ) <- fmap ( spanLex $ initialPos "" ) get
-	put rest
+	if tok == ReservedId "let" then do
+		case spanLex ( initialPos "" ) rest of
+			( ( Special '{', _ ), _, _ )	-> put rest
+			_				-> put $ '{' : rest
+		else put rest
 	return tok
 
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
