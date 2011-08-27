@@ -18,8 +18,8 @@ main = do
 	env0 <- loadFile initEnv fn
 	runLoop "testHappy" env0 $ \env input -> case input of
 		':' : cmd	-> runCmd cmd env
-		_		-> do
-			case eval env $ flip evalState ( 0, [ ], ( 1, 1 ), input ) $ toyParse of
+		_		->
+			case eval env $ evalState toyParse ( 0, [ ], ( 1, 1 ), input ) of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 

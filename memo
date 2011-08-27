@@ -147,3 +147,8 @@ layout rule は Happy でなら上手く扱える。
 今後は ParserMonad を、layout rule に必要な status も含むように拡張し、
 error の時にちゃんと pop するようにする。
 また、もし pop したものが 0 であったなら error とするようにする。
+
+2011.08.27 Sat.
+
+test-for-happy の refactoring が必要かもしれない。
+とくに Lexer の コードを見直す必要がある。

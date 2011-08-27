@@ -22,7 +22,7 @@ reserved = [
  ]
 reservedOp = [ "..", {-":",-} "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
-special :: [ Char ]
+special :: String
 special = "(),;[]{}" -- ++ [ '`' ]
 
 next, nextLine :: SourcePos -> SourcePos
@@ -39,20 +39,34 @@ toyLex' :: SourceName -> String -> [ Token ]
 toyLex' sn = map fst . toyLex sn
 
 lexer :: ( Token -> ParserMonad a ) -> ParserMonad a
-lexer cont = real_lexer >>= \token -> cont token
+lexer cont = realLexer >>= cont
 
-real_lexer :: ParserMonad Token
-real_lexer = do
-	( idnt, idnts, pos, src ) <- get
-	let ( ( tok, _ ), _, rest ) = spanLex ( initialPos "" ) src
-	if tok `elem` [ ReservedId "let", ReservedId "where" ] then do
-		case spanLex ( initialPos "" ) rest of
-			( ( Special '{', _ ), _, _ )	-> put ( idnt, 0 : idnts, pos, rest )
-			_				-> put $ ( idnt, idnts, pos, '{' : rest )
-		else case tok of
-			Special '}'	-> put ( idnt, tail idnts, pos, rest )
-			_		-> put ( idnt, idnts, pos, rest )
-	return tok
+realLexer :: ParserMonad Token
+realLexer = do
+	( idnt1, idnta@( ~( idnt0 : idnts ) ), pos, src ) <- get
+	case spanLex ( initialPos "" ) src of
+		( ( tok@( Special '}' ), _ ), _, rest ) -> do
+			when ( idnt0 /= 0 ) $ error "bad indent"
+			put ( idnt1, idnts, pos, rest )
+			return tok
+		( ( NewLine, _ ), _, rest ) -> do
+			put ( idnt1, idnta, pos, rest )
+			realLexer
+		( ( tok@( ReservedId "let" ), _ ), _, rest ) -> do
+			case spanLex ( initialPos "" ) rest of
+				( ( Special '{', _ ), _, _ )	-> put ( idnt1, 0 : idnta, pos, rest )
+				_				-> put ( idnt1, idnta, pos, '{' : rest )
+			return tok
+		( ( tok@( ReservedId "where" ), _ ), _, rest ) -> do
+			case spanLex ( initialPos "" ) rest of
+				( ( Special '{', _ ), _, _ )	-> put ( idnt1, 0 : idnta, pos, rest )
+				_				-> put ( idnt1, idnta, pos, '{' : rest )
+			return tok
+		( ( tok, _ ), _, rest ) -> do
+			case tok of
+				Special '}'	-> put ( idnt1, tail idnta, pos, rest )
+				_		-> put ( idnt1, idnta, pos, rest )
+			return tok
 
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
 lex _ ""			= [ ]
@@ -70,8 +84,8 @@ spanLex sp ( '-' : '-' : cs )	= spanLex sp $ dropWhile ( /= '\n' ) cs
 spanLex sp ( ' ' : cs )		= spanLex ( next sp ) cs
 spanLex sp ( '\t' : cs )	= let c = sourceColumn sp in
 	spanLex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
--- spanLex sp ( '\n' : cs )	= ( ( NewLine, sp ), nextLine sp, cs )
-spanLex sp ( '\n' : cs )	= spanLex ( nextLine sp ) cs
+spanLex sp ( '\n' : cs )	= ( ( NewLine, sp ), nextLine sp, cs )
+-- spanLex sp ( '\n' : cs )	= spanLex ( nextLine sp ) cs
 spanLex sp ( '\'' : '\\' : 'n' : '\'' : cs )
 				= ( ( TokChar '\n', sp ), isc sp 4, cs )
 spanLex sp ( '\'' : c : '\'' : cs )
