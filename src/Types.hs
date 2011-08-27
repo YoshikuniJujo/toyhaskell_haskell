@@ -17,7 +17,8 @@ module Types (
 	setPats,
 	getVal,
 
-	ParserMonad
+	ParserMonad,
+	getSource
 ) where
 
 import Env (
@@ -27,7 +28,10 @@ import Text.ParserCombinators.Parsec.Expr ( Assoc )
 import Control.Monad ( liftM, zipWithM )
 import "monads-tf" Control.Monad.State
 
-type ParserMonad = State String
+type ParserMonad = State ( Int, [ Int ], ( Int, Int ), String )
+
+getSource :: ( Int, [ Int ], ( Int, Int ), String ) -> String
+getSource ( _, _, _, src ) = src
 
 data Token =
 	Special Char		|

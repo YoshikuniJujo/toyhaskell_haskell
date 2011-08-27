@@ -8,7 +8,33 @@ import Eval
 import Primitives
 import Types
 import "monads-tf" Control.Monad.State
+import Data.Char
+import Data.List
+import System.Environment
 
 main :: IO ()
-main = runLoop "testHappy" () $ \() input -> do
-		showValue $ eval initEnv $ flip evalState input $ toyParse
+main = do
+	[ fn ] <- getArgs
+	env0 <- loadFile initEnv fn
+	runLoop "testHappy" env0 $ \env input -> case input of
+		':' : cmd	-> runCmd cmd env
+		_		-> do
+			case eval env $ flip evalState ( 0, [ ], ( 1, 1 ), input ) $ toyParse of
+				Let ps	-> return $ setPats ps env
+				ret	-> showValue ret >> return env
+
+runCmd :: String -> Env -> IO Env
+runCmd cmd env
+	| "load" `isPrefixOf` cmd	= do
+		let fn = dropWhile isSpace $ drop 4 cmd
+		loadFile env fn
+	| otherwise			= do
+		putStrLn $ "unknown command : '" ++ cmd ++ "'"
+		return env
+
+loadFile :: Env -> FilePath -> IO Env
+loadFile env fn = do
+	cnt <- readFile fn
+	case eval env $ evalState toyParseModule ( 0, [ ], (1, 1 ), cnt ) of
+		Let ps	-> return $ setPats ps env
+		bad	-> error $ show bad

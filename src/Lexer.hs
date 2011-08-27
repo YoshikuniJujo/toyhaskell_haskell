@@ -43,12 +43,15 @@ lexer cont = real_lexer >>= \token -> cont token
 
 real_lexer :: ParserMonad Token
 real_lexer = do
-	( ( tok, _ ), _, rest ) <- fmap ( spanLex $ initialPos "" ) get
-	if tok == ReservedId "let" then do
+	( idnt, idnts, pos, src ) <- get
+	let ( ( tok, _ ), _, rest ) = spanLex ( initialPos "" ) src
+	if tok `elem` [ ReservedId "let", ReservedId "where" ] then do
 		case spanLex ( initialPos "" ) rest of
-			( ( Special '{', _ ), _, _ )	-> put rest
-			_				-> put $ '{' : rest
-		else put rest
+			( ( Special '{', _ ), _, _ )	-> put ( idnt, 0 : idnts, pos, rest )
+			_				-> put $ ( idnt, idnts, pos, '{' : rest )
+		else case tok of
+			Special '}'	-> put ( idnt, tail idnts, pos, rest )
+			_		-> put ( idnt, idnts, pos, rest )
 	return tok
 
 lex :: SourcePos -> String -> [ ( Token, SourcePos ) ]
@@ -67,7 +70,8 @@ spanLex sp ( '-' : '-' : cs )	= spanLex sp $ dropWhile ( /= '\n' ) cs
 spanLex sp ( ' ' : cs )		= spanLex ( next sp ) cs
 spanLex sp ( '\t' : cs )	= let c = sourceColumn sp in
 	spanLex ( setSourceColumn  sp ( 8 * ( c `div` 8 + 1 ) + 1 ) ) cs
-spanLex sp ( '\n' : cs )	= ( ( NewLine, sp ), nextLine sp, cs )
+-- spanLex sp ( '\n' : cs )	= ( ( NewLine, sp ), nextLine sp, cs )
+spanLex sp ( '\n' : cs )	= spanLex ( nextLine sp ) cs
 spanLex sp ( '\'' : '\\' : 'n' : '\'' : cs )
 				= ( ( TokChar '\n', sp ), isc sp 4, cs )
 spanLex sp ( '\'' : c : '\'' : cs )

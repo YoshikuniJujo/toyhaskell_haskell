@@ -11,6 +11,7 @@
 
 module NewParser (
 	toyParse,
+	toyParseModule,
 	toyLex',
 	lexer
  ) where
@@ -22,7 +23,8 @@ import "monads-tf" Control.Monad.State
 
 }
 
-%name		toyParse
+%name		toyParse	Exp_
+%name		toyParseModule	Module
 %monad		{ ParserMonad }
 %lexer		{ lexer } { TokenEOF }
 %tokentype	{ Token }
@@ -36,16 +38,19 @@ import "monads-tf" Control.Monad.State
 	varsym	{ VarSym $$ }
 	let	{ ReservedId "let" }
 	in	{ ReservedId "in" }
-	eq	{ ReservedOp "=" }
-	obrc	{ Special '{' }
+	'='	{ ReservedOp "=" }
+	'{'	{ Special '{' }
 	'}'	{ Special '}' }
-	opr	{ Special '(' }
-	cpr	{ Special ')' }
+	'('	{ Special '(' }
+	')'	{ Special ')' }
+	';'	{ Special ';' }
 	bslash	{ ReservedOp "\\" }
 	rarrow	{ ReservedOp "->" }
 	if	{ ReservedId "if" }
 	then	{ ReservedId "then" }
 	else	{ ReservedId "else" }
+	module	{ ReservedId "module" }
+	where	{ ReservedId "where" }
 
 %left in
 
@@ -55,6 +60,7 @@ Exp_	: Exp				{ $1 }
 	| Apply varsym Apply		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
 
 Exp	: Letin				{ $1 }
+	| Let				{ Let $1 }
 	| Apply				{ $1 }
 	| Lambda			{ $1 }
 	| If				{ $1 }
@@ -69,15 +75,22 @@ Atom	: int				{ Integer $1 }
 	| conid				{ Complex $1 [ ] }
 	| Parens			{ $1 }
 
-Letin	: let obrc Pattern eq Exp close in Exp
-					{ Letin [ ( $3, $5 ) ] $8 }
+Module	: module conid where '{' Eqs '}'
+					{ Let $5 }
+
+Letin	: Let in Exp_			{ Letin $1 $3 }
+
+ Let	: let '{' Eqs close		{ $3 }
+
+Eqs	: Pattern '=' Exp_		{ [ ( $1, $3 ) ] }
+	| Eqs ';' Pattern '=' Exp_	{ ( $3, $5 ) : $1 }
 
 close	: '}'				{ () }
 	| error				{ () }
 
-Lambda	: bslash Pattern rarrow Exp	{ Lambda emptyEnv [ $2 ] $4 }
+Lambda	: bslash Pattern rarrow Exp_	{ Lambda emptyEnv [ $2 ] $4 }
 
-Parens	: opr Exp_ cpr			{ $2 }
+Parens	: '(' Exp_ ')'			{ $2 }
 
 If	: if Exp_ then Exp_ else Exp_	{ Case $2 [ ( PatConst "True" [ ], $4 ),
 						( PatConst "False" [ ], $6 ) ] }
