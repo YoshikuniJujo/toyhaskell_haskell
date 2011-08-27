@@ -19,7 +19,7 @@ main = do
 	runLoop "testHappy" env0 $ \env input -> case input of
 		':' : cmd	-> runCmd cmd env
 		_		->
-			case eval env $ evalState toyParse ( 0, [ ], ( 1, 1 ), input ) of
+			case eval env $ evalState toyParse ( 0, [ ], ( 1, 1 ), input, [ ] ) of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 
@@ -35,6 +35,6 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ evalState toyParseModule ( 0, [ ], (1, 1 ), cnt ) of
+	case eval env $ evalState toyParseModule ( 0, [ ], (1, 1 ), cnt, [ ] ) of
 		Let ps	-> return $ setPats ps env
 		bad	-> error $ show bad

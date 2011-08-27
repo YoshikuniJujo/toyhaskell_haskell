@@ -28,7 +28,7 @@ import Text.ParserCombinators.Parsec.Expr ( Assoc )
 import Control.Monad ( liftM, zipWithM )
 import "monads-tf" Control.Monad.State
 
-type ParserMonad = State ( Int, [ Int ], ( Int, Int ), String )
+type ParserMonad = State ( Int, [ Int ], ( Int, Int ), String, [ ( Token, Int ) ] )
 
 getSource :: ( Int, [ Int ], ( Int, Int ), String ) -> String
 getSource ( _, _, _, src ) = src
@@ -44,7 +44,9 @@ data Token =
 	TokChar Char		|
 	TokString String	|
 	NewLine			|
-	TokenEOF
+	TokenEOF		|
+	AddBrace Int		|
+	Indent Int
 	deriving ( Show, Eq )
 
 data Pattern =

@@ -5,6 +5,8 @@ module Lexer (
 	toyLex',
 	lexer,
 	SourceName,
+	popIndents,
+	prep'
 ) where
 
 import Prelude hiding ( lex )
@@ -39,45 +41,139 @@ toyLex' :: SourceName -> String -> [ Token ]
 toyLex' sn = map fst . toyLex sn
 
 lexer :: ( Token -> ParserMonad a ) -> ParserMonad a
-lexer cont = realLexer >>= cont
+lexer cont = prep' >>= cont
 
 countWhites :: Int -> String -> Int
 countWhites n ( ' ' : cs )	= countWhites ( n + 1 ) cs
 countWhites n ( '\t' : cs )	= countWhites ( 8 * ( n `div` 8 + 1 ) + 1 ) cs
 countWhites n _			= n
 
-realLexer :: ParserMonad Token
+addOpenBrace :: ParserMonad ()
+addOpenBrace = do
+	( idnt1, idnta, pos, src, buf ) <- get
+	put ( idnt1, idnta, pos, '{' : src, buf )
+
+prep' :: ParserMonad Token
+prep' = do
+	t <- prep
+	ma@( ~ ( m : ms ) ) <- getIndents
+	case t of
+		Indent n	-> do
+			case ma of
+				[ ] -> prep'
+				( m : ms )
+					| m == n	-> return $ Special ';'-- pushBackBuf ( Special ';', 0 )
+					| n < m		-> do
+--						error $ "debug " ++ show n ++ " " ++ show m
+						putIndents ms
+--						pushBackBuf ( Special '}', 0 )
+						return $ Special '}'
+					| otherwise	-> return () >> prep'
+--			prep'
+		AddBrace n	-> do
+			putIndents $ n : ma
+			return $ Special '{'
+		Special '}'	-> case ma of
+			[ ] -> error $ "bad ma"
+			m : ms -> if m == 0 then popIndents >> return t else error "bad close brace"
+		Special '{'	-> putIndents ( 0 : ma ) >> return t
+		TokenEOF	-> if null ma then return t else do
+			putIndents ms
+			return $ Special '}'
+		_		-> return t
+
+popIndents :: ParserMonad Int
+popIndents = do
+	m : ms <- getIndents
+	putIndents ms
+	return m
+
+putIndents :: [ Int ] -> ParserMonad ()
+putIndents idnta = do
+	( idnt1, _, pos, src, buf ) <- get
+	put ( idnt1, idnta, pos, src, buf )
+
+getIndents :: ParserMonad [ Int ]
+getIndents = do
+	( _idnt1, idnta, _pos, _src, _buf ) <- get
+	return idnta
+
+prep :: ParserMonad Token
+prep = do
+	( t, _ ) <- realLexer'
+	case t of
+		ReservedId "let" -> do
+			nt <- realLexerNoNewLine
+			case nt of
+				( Special '{', _ )	-> pushBackBuf nt >> return ()
+				( TokenEOF, _ )		->
+					pushBackBuf nt >> pushBackBuf ( AddBrace 0, 0 )
+				( _, cols )		->
+					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
+			return t
+		NewLine		-> do
+			nt <- realLexerNoNewLine
+			pushBackBuf nt
+			let ( _, cols ) = nt
+			pushBackBuf $ ( Indent cols, 0 )
+			prep
+		_		-> return t
+
+peekToken :: ParserMonad Token
+peekToken = do
+	( _, _, _, src, _ ) <- get
+	return $ one $ spanLex src
+	where
+	one ( x, _, _ ) = x
+
+realLexerNoNewLine :: ParserMonad ( Token, Int )
+realLexerNoNewLine = do
+	t <- realLexer'
+	case t of
+		( NewLine, _ )	-> realLexerNoNewLine
+		_		-> return t
+
+realLexer' :: ParserMonad ( Token, Int )
+realLexer' = do
+	( idnt1, idnta, pos, src, buf@( ~( t : ts ) ) ) <- get
+	if null buf then realLexer else do
+		put ( idnt1, idnta, pos, src, ts )
+		return t
+
+pushBuf :: ( Token, Int ) -> ParserMonad ()
+pushBuf t = do
+	( idnt1, idnta, pos, src, buf ) <- get
+	put ( idnt1, idnta, pos, src, buf ++ [ t ] )
+
+pushBackBuf :: ( Token, Int ) -> ParserMonad ()
+pushBackBuf t = do
+	( idnt1, idnta, pos, src, buf ) <- get
+	put ( idnt1, idnta, pos, src, t : buf )
+
+popBuf :: ParserMonad ( Maybe ( Token, Int ) )
+popBuf = do
+	( idnt1, idnta, pos, src, buf@( ~( t : ts ) ) ) <- get
+	if null buf then return Nothing else do
+		put ( idnt1, idnta, pos, src, ts )
+		return $ Just t
+
+resetCols :: ParserMonad ()
+resetCols = do
+	( idnt1, idnta, ( lns, _ ), src, buf ) <- get
+	put ( idnt1, idnta, ( lns, 1 ), src, buf )
+
+realLexer :: ParserMonad ( Token, Int )
 realLexer = do
-	( idnt1, idnta@( ~( idnt0 : idnts ) ), ( lns, cols ), src_ ) <- get
+	( idnt1, idnta{- @( ~( idnt0 : idnts ) ) -}, ( lns, cols ), src_, buf ) <- get
 	let	( white, src ) = span ( `elem` " \t" ) src_
 		ncols = countWhites cols white
 	case spanLex src of
-		( tok@( Special '}' ), c, rest ) -> do
-			when ( idnt0 /= 0 ) $ error "bad indent"
-			put ( idnt1, idnts, ( lns, ncols + c ), rest )
-			return tok
-		( NewLine, _, rest ) -> do
-			let idnt = countWhites 0 rest
-			put ( idnt, idnta, ( lns + 1, 1 ), rest )
-			realLexer
-		( tok@( ReservedId "let" ), c, rest ) -> do
-			case spanLex rest of
-				( Special '{', c', _ )	->
-					put ( idnt1, 0 : idnta, ( lns, ncols + c + c' ), rest )
-				( _, c', _ )		->
-					put ( idnt1, ncols + c + c' : idnta, ( lns, ncols + c ), '{' : rest )
-			return tok
-		( tok@( ReservedId "where" ), c, rest ) -> do
-			case spanLex rest of
-				( Special '{', c', _ )
-					-> put ( idnt1, 0 : idnta, ( lns, ncols + c + c' ), rest )
-				( _, c', _ )		->
-					put ( idnt1, ncols + c + c' : idnta, ( lns, ncols + c ), '{' : rest )
---				_	-> put ( idnt1, idnta, ( lns, ncols + c ), '{' : rest )
-			return tok
-		( tok, c, rest ) -> do
-			put ( idnt1, idnta, ( lns, ncols + c ), rest )
-			return tok
+		( NewLine, _, rest )	-> do
+			put ( idnt1, idnta, ( lns + 1, 1 ), rest, buf )
+			return ( NewLine, ncols )
+		( tok, c, rest )	-> do
+			put ( idnt1, idnta, ( lns, ncols + c ), rest, buf )
+			return ( tok, ncols )
 
 spanLex :: String -> ( Token, Int, String )
 spanLex ""			= ( TokenEOF, 0, "" )

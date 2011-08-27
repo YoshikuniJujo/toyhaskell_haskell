@@ -88,7 +88,7 @@ Eqs	: Pattern '=' Exp_		{ [ ( $1, $3 ) ] }
 	| {- empty -}			{ [ ] }
 
 close	: '}'				{ () }
-	| error				{ () }
+	| error				{% popIndents >> return () }
 
 Lambda	: bslash Pattern rarrow Exp_	{ Lambda emptyEnv [ $2 ] $4 }
 
