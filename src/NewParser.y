@@ -80,10 +80,12 @@ Module	: module conid where '{' Eqs '}'
 
 Letin	: Let in Exp_			{ Letin $1 $3 }
 
- Let	: let '{' Eqs close		{ $3 }
+Let	: let '{' Eqs close		{ $3 }
 
 Eqs	: Pattern '=' Exp_		{ [ ( $1, $3 ) ] }
+	| Eqs ';'			{ $1 }
 	| Eqs ';' Pattern '=' Exp_	{ ( $3, $5 ) : $1 }
+	| {- empty -}			{ [ ] }
 
 close	: '}'				{ () }
 	| error				{ () }
