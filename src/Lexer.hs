@@ -111,6 +111,24 @@ prep = do
 				( _, cols )		->
 					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
 			return t
+		ReservedId "where" -> do
+			nt <- realLexerNoNewLine
+			case nt of
+				( Special '{', _ )	-> pushBackBuf nt >> return ()
+				( TokenEOF, _ )		->
+					pushBackBuf nt >> pushBackBuf ( AddBrace 0, 0 )
+				( _, cols )		->
+					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
+			return t
+		ReservedId "of" -> do
+			nt <- realLexerNoNewLine
+			case nt of
+				( Special '{', _ )	-> pushBackBuf nt >> return ()
+				( TokenEOF, _ )		->
+					pushBackBuf nt >> pushBackBuf ( AddBrace 0, 0 )
+				( _, cols )		->
+					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
+			return t
 		NewLine		-> do
 			nt <- realLexerNoNewLine
 			pushBackBuf nt
