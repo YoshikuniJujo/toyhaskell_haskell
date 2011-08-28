@@ -66,6 +66,7 @@ prep' = do
 					| n < m		-> do
 --						error $ "debug " ++ show n ++ " " ++ show m
 						putIndents ms
+						pushBackBuf ( t, 0 )
 --						pushBackBuf ( Special '}', 0 )
 						return $ Special '}'
 					| otherwise	-> return () >> prep'

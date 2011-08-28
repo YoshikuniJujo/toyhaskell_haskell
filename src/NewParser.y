@@ -45,12 +45,15 @@ import "monads-tf" Control.Monad.State
 	')'	{ Special ')' }
 	';'	{ Special ';' }
 	bslash	{ ReservedOp "\\" }
-	rarrow	{ ReservedOp "->" }
+	'->'	{ ReservedOp "->" }
 	if	{ ReservedId "if" }
 	then	{ ReservedId "then" }
 	else	{ ReservedId "else" }
+	case	{ ReservedId "case" }
+	of	{ ReservedId "of" }
 	module	{ ReservedId "module" }
 	where	{ ReservedId "where" }
+	'_'	{ ReservedId "_" }
 
 %left in
 
@@ -64,6 +67,7 @@ Exp	: Letin				{ $1 }
 	| Apply				{ $1 }
 	| Lambda			{ $1 }
 	| If				{ $1 }
+	| Case				{ $1 }
 
 Apply	: Atom				{ $1 }
 	| Apply Atom			{ Apply $1 $2 }
@@ -82,22 +86,37 @@ Letin	: Let in Exp_			{ Letin $1 $3 }
 
 Let	: let '{' Eqs close		{ $3 }
 
-Eqs	: Pattern '=' Exp_		{ [ ( $1, $3 ) ] }
+Eqs	: Eq				{ [ $1 ] }
 	| Eqs ';'			{ $1 }
-	| Eqs ';' Pattern '=' Exp_	{ ( $3, $5 ) : $1 }
+	| Eqs ';' Eq			{ $3 : $1 }
 	| {- empty -}			{ [ ] }
+
+Eq	: Pattern '=' Exp_		{ ( $1, $3 ) }
+	| varid Pattern '=' Exp_	{ ( PatVar $1, Lambda emptyEnv [ $2 ] $4 ) }
 
 close	: '}'				{ () }
 	| error				{% popIndents >> return () }
 
-Lambda	: bslash Pattern rarrow Exp_	{ Lambda emptyEnv [ $2 ] $4 }
+Lambda	: bslash Pattern '->' Exp_	{ Lambda emptyEnv [ $2 ] $4 }
 
 Parens	: '(' Exp_ ')'			{ $2 }
 
 If	: if Exp_ then Exp_ else Exp_	{ Case $2 [ ( PatConst "True" [ ], $4 ),
 						( PatConst "False" [ ], $6 ) ] }
 
+Case	: case Exp_ of '{' Cases '}'
+					{ Case $2 $ reverse $5 }
+
+Cases	: Case1				{ [ $1 ] }
+	| Cases ';'			{ $1 }
+	| Cases ';' Case1		{ $3 : $1 }
+	| {- empty -}			{ [ ] }
+
+Case1	: Pattern '->' Exp_		{ ( $1, $3 ) }
+
 Pattern	: varid				{ PatVar $1 }
+	| int				{ PatInteger $1 }
+	| '_'				{ PatUScore }
 
 {
 
