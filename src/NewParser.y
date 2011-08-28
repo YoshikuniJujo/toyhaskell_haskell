@@ -35,6 +35,7 @@ import "monads-tf" Control.Monad.State
 	char	{ TokChar $$ }
 	varid	{ Varid $$ }
 	conid	{ Conid $$ }
+--	':'	{ VarSym ":" }
 	varsym	{ VarSym $$ }
 	let	{ ReservedId "let" }
 	in	{ ReservedId "in" }
@@ -44,6 +45,9 @@ import "monads-tf" Control.Monad.State
 	'('	{ Special '(' }
 	')'	{ Special ')' }
 	';'	{ Special ';' }
+	'['	{ Special '[' }
+	']'	{ Special ']' }
+	','	{ Special ',' }
 	bslash	{ ReservedOp "\\" }
 	'->'	{ ReservedOp "->" }
 	if	{ ReservedId "if" }
@@ -60,7 +64,8 @@ import "monads-tf" Control.Monad.State
 %%
 
 Exp_	: Exp				{ $1 }
-	| Apply varsym Apply		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+	| Apply varsym Exp_		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+--	| Exp ':' Exp_			{ Apply ( Apply ( Identifier ":" ) $1 ) $3 }
 
 Exp	: Letin				{ $1 }
 	| Let				{ Let $1 }
@@ -78,6 +83,7 @@ Atom	: int				{ Integer $1 }
 	| varid				{ Identifier $1 }
 	| conid				{ Complex $1 [ ] }
 	| Parens			{ $1 }
+	| List				{ $1 }
 
 Module	: module conid where '{' Eqs '}'
 					{ Let $5 }
@@ -91,7 +97,7 @@ Eqs	: Eq				{ [ $1 ] }
 	| Eqs ';' Eq			{ $3 : $1 }
 	| {- empty -}			{ [ ] }
 
-Eq	: Pattern '=' Exp_		{ ( $1, $3 ) }
+Eq	: Pat_ '=' Exp_			{ ( $1, $3 ) }
 	| varid Pattern '=' Exp_	{ ( PatVar $1, Lambda emptyEnv [ $2 ] $4 ) }
 
 close	: '}'				{ () }
@@ -100,6 +106,7 @@ close	: '}'				{ () }
 Lambda	: bslash Pattern '->' Exp_	{ Lambda emptyEnv [ $2 ] $4 }
 
 Parens	: '(' Exp_ ')'			{ $2 }
+	| '(' ')'			{ Nil }
 
 If	: if Exp_ then Exp_ else Exp_	{ Case $2 [ ( PatConst "True" [ ], $4 ),
 						( PatConst "False" [ ], $6 ) ] }
@@ -112,11 +119,36 @@ Cases	: Case1				{ [ $1 ] }
 	| Cases ';' Case1		{ $3 : $1 }
 	| {- empty -}			{ [ ] }
 
-Case1	: Pattern '->' Exp_		{ ( $1, $3 ) }
+Case1	: Pat_ '->' Exp_		{ ( $1, $3 ) }
+
+List	: '[' Elems_ ']'		{ $2 }
+
+Elems_	: {- empty -}			{ Empty }
+	| Elems				{ $1 }
+
+Elems	: Exp_				{ Complex ":" [ $1, Empty ] }
+	| Exp_ ',' Elems		{ Complex ":" [ $1, $3 ] }
+
+Pat_	: PatL				{ $1 }
 
 Pattern	: varid				{ PatVar $1 }
 	| int				{ PatInteger $1 }
 	| '_'				{ PatUScore }
+	| '[' PatLst_ ']'		{ $2 }
+--	| conid Pats			{ PatConst $1 $2 }
+--	| PatL				{ $1 }
+
+-- Pats	: {- empty -}			{ [ ] }
+--	| Pattern Pats			{ $1 : $2 }
+
+PatL	: Pattern varsym PatL		{ PatConst $2 [ $1, $3 ] }
+	| Pattern			{ $1 }
+
+PatLst_	: {- empty -}			{ PatEmpty }
+	| PatLst			{ $1 }
+
+PatLst	: Pattern			{ PatConst ":" [ $1, PatEmpty ] }
+	| Pattern ',' PatLst		{ PatConst ":" [ $1, $3 ] }
 
 {
 
