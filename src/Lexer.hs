@@ -7,8 +7,10 @@ module Lexer (
 
 import Prelude hiding ( lex )
 import Types ( Token( .. ), ParserMonad )
-import Data.Char ( isLower, isUpper, isAlphaNum, isDigit )
+import Data.Char ( isLower, isUpper, isAlphaNum, isDigit, isSpace )
 import "monads-tf" Control.Monad.State
+
+--------------------------------------------------------------------------------
 
 reserved, reservedOp :: [ String ]
 reserved = [
@@ -24,20 +26,10 @@ special = "(),;[]{}`"
 lexer :: ( Token -> ParserMonad a ) -> ParserMonad a
 lexer cont = prep' >>= cont
 
-countWhites :: Int -> String -> Int
-countWhites n ( ' ' : cs )	= countWhites ( n + 1 ) cs
-countWhites n ( '\t' : cs )	= countWhites ( 8 * ( n `div` 8 + 1 ) + 1 ) cs
-countWhites n _			= n
-
-addOpenBrace :: ParserMonad ()
-addOpenBrace = do
-	( idnt1, idnta, pos, src, buf ) <- get
-	put ( idnt1, idnta, pos, '{' : src, buf )
-
 prep' :: ParserMonad Token
 prep' = do
 	t <- prep
-	ma@( ~ ( _ : ms ) ) <- getIndents
+	ma <- getIndents
 	case t of
 		Indent n	->
 			case ma of
@@ -57,25 +49,9 @@ prep' = do
 			m : _ -> if m == 0 then popIndents >> return t else error "bad close brace"
 		Special '{'	-> putIndents ( 0 : ma ) >> return t
 		TokenEOF	-> if null ma then return t else do
-			putIndents ms
+			_ <- popIndents
 			return $ Special '}'
 		_		-> return t
-
-popIndents :: ParserMonad Int
-popIndents = do
-	m : ms <- getIndents
-	putIndents ms
-	return m
-
-putIndents :: [ Int ] -> ParserMonad ()
-putIndents idnta = do
-	( idnt1, _, pos, src, buf ) <- get
-	put ( idnt1, idnta, pos, src, buf )
-
-getIndents :: ParserMonad [ Int ]
-getIndents = do
-	( _idnt1, idnta, _pos, _src, _buf ) <- get
-	return idnta
 
 prep :: ParserMonad Token
 prep = do
@@ -116,13 +92,6 @@ prep = do
 			prep
 		_		-> return t
 
-peekToken :: ParserMonad Token
-peekToken = do
-	( _, _, _, src, _ ) <- get
-	return $ one $ spanLex src
-	where
-	one ( x, _, _ ) = x
-
 realLexerNoNewLine :: ParserMonad ( Token, Int )
 realLexerNoNewLine = do
 	t <- realLexer'
@@ -132,15 +101,85 @@ realLexerNoNewLine = do
 
 realLexer' :: ParserMonad ( Token, Int )
 realLexer' = do
-	( idnt1, idnta, pos, src, buf@( ~( t : ts ) ) ) <- get
-	if null buf then realLexer else do
-		put ( idnt1, idnta, pos, src, ts )
-		return t
+	t <- popBuf
+	maybe realLexer_ return t
 
-pushBuf :: ( Token, Int ) -> ParserMonad ()
-pushBuf t = do
-	( idnt1, idnta, pos, src, buf ) <- get
-	put ( idnt1, idnta, pos, src, buf ++ [ t ] )
+realLexer_ :: ParserMonad ( Token, Int )
+realLexer_ = do
+	( _, _, ( _, cols ), src, _ ) <- get
+	let ( t, fin, rest ) = spanLex src
+	updatePos fin
+	putSrc rest
+	return ( t, cols )
+
+spanLex :: String -> ( Token, String, String )
+spanLex src = let
+	( t, fin, rest ) = getToken src
+	( ws, rest' ) = readWhite rest in
+	( t, fin ++ ws, rest' )
+
+getToken :: String -> ( Token, String, String )
+getToken = spanLex_
+
+spanLex_ :: String -> ( Token, String, String )
+spanLex_ ""			= ( TokenEOF, "", "" )
+spanLex_ ( '\n' : cs )		= ( NewLine, "\n", cs )
+spanLex_ ( '\'' : '\\' : 'n' : '\'' : cs )
+				= ( TokChar '\n', "'\\n'", cs )
+spanLex_ ( '\'' : c : '\'' : cs )
+				= ( TokChar c, [ '\'', c, '\'' ], cs )
+spanLex_ ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
+	( TokString ret, '"' : ret ++ "\"", rest )
+spanLex_ ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
+	( VarSym ret, '`' : ret ++ "`", rest )
+spanLex_ ( '-' : '-' : _ )	= error "bad"
+spanLex_ s@( c : cs )
+	| isSpace c		= error "bad"
+	| c `elem` special	= ( Special c, [ c ], cs )
+	| isLow c		= let
+		( ret, rest )	= span isAlNum s
+		mkTok		= if ret `elem` reserved
+					then ReservedId else Varid in
+		( mkTok ret, ret, rest )
+	| isUpper c		= let
+		( ret, rest )	= span isAlphaNum s in
+		( Conid ret, ret, rest )
+	| isSym c		= let
+		( ret, rest )	= span isSym s
+		mkTok		= if ret `elem` reservedOp
+					then ReservedOp else VarSym in
+		( mkTok ret, ret, rest )
+	| isDigit c	= let ( ret, rest ) = span isDigit s in
+		( TokInteger ( read ret ), ret, rest )
+	where
+	isSym		= ( `elem` "!#$%&*+./<=>?@\\^|-~:" )
+	isLow cc	= isLower cc || cc `elem` "_"
+	isAlNum cc	= isAlphaNum cc || cc `elem` "_"
+spanLex_ s			= error $ "spanLex_ failed: " ++ s
+
+--------------------------------------------------------------------------------
+
+updatePos :: String -> ParserMonad ()
+updatePos str = do
+	( idnt1, idnta, ( lns, cols ), src, buf ) <- get
+	let ( nlns, ncols ) = up lns cols str
+	put ( idnt1, idnta, ( nlns, ncols ), src, buf )
+	where
+	up l c ""		= ( l, c )
+	up l _ ( '\n' : cs )	= up ( l + 1 ) 1 cs
+	up l c ( '\t' : cs )	= up l ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
+	up l c ( _ : cs )	= up l ( c + 1 ) cs
+
+readWhite :: String -> ( String, String )
+readWhite ca@( '-' : '-' : _ )	= let
+	( com, src ) = span ( /= '\n' ) ca
+	( ws, rest ) = readWhite src in
+	( com ++ ws, rest )
+readWhite ( ' ' : cs )		=
+	let ( ws, rest ) = readWhite cs in ( ' ' : ws, rest )
+readWhite ( '\t' : cs )		=
+	let ( ws, rest ) = readWhite cs in ( '\t' : ws, rest )
+readWhite ca = ( "", ca )
 
 pushBackBuf :: ( Token, Int ) -> ParserMonad ()
 pushBackBuf t = do
@@ -154,52 +193,32 @@ popBuf = do
 		put ( idnt1, idnta, pos, src, ts )
 		return $ Just t
 
-realLexer :: ParserMonad ( Token, Int )
-realLexer = do
-	( idnt1, idnta{- @( ~( idnt0 : idnts ) ) -}, ( lns, cols ), src_, buf ) <- get
-	let	( white, src ) = span ( `elem` " \t" ) src_
-		ncols = countWhites cols white
-	case spanLex src of
-		( NewLine, _, rest )	-> do
-			put ( idnt1, idnta, ( lns + 1, 1 ), rest, buf )
-			return ( NewLine, ncols )
-		( tok, c, rest )	-> do
-			put ( idnt1, idnta, ( lns, ncols + c ), rest, buf )
-			return ( tok, ncols )
+popIndents :: ParserMonad Int
+popIndents = do
+	m : ms <- getIndents
+	putIndents ms
+	return m
 
-spanLex :: String -> ( Token, Int, String )
-spanLex ""			= ( TokenEOF, 0, "" )
-spanLex ( '-' : '-' : cs )	= spanLex $ dropWhile ( /= '\n' ) cs
-spanLex ( ' ' : cs )		= spanLex cs
-spanLex ( '\t' : cs )		= spanLex cs
-spanLex ( '\n' : cs )		= ( NewLine, 0, cs )
-spanLex ( '\'' : '\\' : 'n' : '\'' : cs )
-				= ( TokChar '\n', 4, cs )
-spanLex ( '\'' : c : '\'' : cs )
-				= ( TokChar c, 3, cs )
-spanLex ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
-	( TokString ret, length ret + 2, rest )
-spanLex ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
-	( VarSym ret, length cs + 2, rest )
-spanLex s@( c : cs )
-	| c `elem` special	= ( Special c, 1, cs )
-	| isLow c		= let
-		( ret, rest )	= span isAlNum s
-		mkTok		= if ret `elem` reserved
-					then ReservedId else Varid in
-		( mkTok ret, length ret, rest )
-	| isUpper c		= let
-		( ret, rest )	= span isAlphaNum s in
-		( Conid ret, length ret, rest )
-	| isSym c		= let
-		( ret, rest )	= span isSym s
-		mkTok		= if ret `elem` reservedOp
-					then ReservedOp else VarSym in
-		( mkTok ret, length ret, rest )
-	| isDigit c	= let ( ret, rest ) = span isDigit s in
-		( TokInteger ( read ret ), length ret, rest )
+putIndents :: [ Int ] -> ParserMonad ()
+putIndents idnta = do
+	( idnt1, _, pos, src, buf ) <- get
+	put ( idnt1, idnta, pos, src, buf )
+
+putSrc :: String -> ParserMonad ()
+putSrc src = do
+	( idnt1, idnta, pos, _, buf ) <- get
+	put ( idnt1, idnta, pos, src, buf )
+
+getIndents :: ParserMonad [ Int ]
+getIndents = do
+	( _idnt1, idnta, _pos, _src, _buf ) <- get
+	return idnta
+
+{-
+peekToken :: ParserMonad Token
+peekToken = do
+	( _, _, _, src, _ ) <- get
+	return $ one $ spanLex' src
 	where
-	isSym		= ( `elem` "!#$%&*+./<=>?@\\^|-~:" )
-	isLow cc	= isLower cc || cc `elem` "_"
-	isAlNum cc	= isAlphaNum cc || cc `elem` "_"
-spanLex s			= error $ "spanLex failed: " ++ s
+	one ( x, _, _ ) = x
+-}

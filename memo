@@ -165,3 +165,8 @@ Parsec による Parser を削除して、refactoring すること。
 
 % wc src/Lexer.hs
  276 1899 8814 src/Lexer.hs
+
+spanLex あたりに問題がある。
+indent を求めるには、そのトークンの終了位置ではなく開始位置が必要。
+となると、space を先に読み飛ばすのではなく、
+token を読み込んだ後に読み捨てる必要がある。
