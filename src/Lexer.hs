@@ -1,10 +1,11 @@
 module Lexer (
-	toyLexer
+	toyLexer,
+	makeParserInput
 ) where
 
 import Types (
 	Token( .. ), ParserMonad, getSrc, putSrc, updatePos, getCols,
-	pushBuf, popBuf, peekIndents, pushIndents, popIndents )
+	pushBuf, popBuf, peekIndents, pushIndents, popIndents, makeParserInput )
 import Control.Arrow ( first )
 
 --------------------------------------------------------------------------------

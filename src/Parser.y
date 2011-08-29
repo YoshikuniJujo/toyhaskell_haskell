@@ -15,13 +15,15 @@ module Parser (
  ) where
 
 import Lexer
-import ParserTools
+import Types ( Value( .. ), Token( .. ), Pattern( .. ), ParserMonad,
+	popIndents, emptyEnv )
+
 import "monads-tf" Control.Monad.State
 
 }
 
-%name		toyParse	Exp_
-%name		toyParseModule	Module
+%name		toyParser	Exp_
+%name		toyParserModule	Module
 %monad		{ ParserMonad }
 %lexer		{ toyLexer } { TokenEOF }
 %tokentype	{ Token }
@@ -159,5 +161,17 @@ PatLst	: Pattern			{ PatConst ":" [ $1, PatEmpty ] }
 {
 
 happyError = get >>= error . ( "parse error: " ++ ) . show
+
+toyParse :: String -> Value
+toyParse input = toyParser `evalState` makeParserInput input
+
+toyParseModule :: String -> Value
+toyParseModule input = toyParserModule `evalState` makeParserInput input
+
+makeString :: String -> Value
+makeString ""			= Empty
+makeString ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', makeString cs ]
+makeString ( '\\' : '\\' : cs )	= Complex ":" [ Char '\\', makeString cs ]
+makeString ( c : cs )		= Complex ":" [ Char c, makeString cs ]
 
 }

@@ -6,58 +6,46 @@ import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
 import Parser ( toyParse, toyParseModule )
-import Types ( Value( .. ), showValue, Env, setPats, makeParserInput )
+import Types ( Value( .. ), showValue, Env, setPats )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
 import Control.Monad ( foldM )
-import Control.Monad.State ( evalState )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-parse :: String -> Value
-parse input = toyParse `evalState` makeParserInput input
-
-parseModule :: String -> Value
-parseModule input = toyParseModule `evalState` makeParserInput input
-
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
-	let	( _, expr, fns, errs ) = readOption args
+	let	( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0	<- foldM loadFile initEnv fns
-	( flip . flip maybe ) ( showValue . eval env0 . parse ) expr $
+	( flip . flip maybe ) ( showValue . eval env0 . toyParse ) expr $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
 			_		-> case eval env $
-				parse inp of
+				toyParse inp of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 
-data Option = Expr String | OpTable String
+data Option = Expr String
 
 options :: [ OptDescr Option ]
 options = [
-	Option "e" [ ] ( ReqArg Expr "haskell expression" ) "run expression",
-	Option "" [ "op-table" ] ( ReqArg OpTable "operation table path" )
-	"set operation table path"
+	Option "e" [ ] ( ReqArg Expr "haskell expression" ) "run expression"
  ]
 
 readOption ::
-	[ String ] -> ( Maybe FilePath, Maybe String, [ FilePath ], [ String ] )
+	[ String ] -> ( Maybe String, [ FilePath ], [ String ] )
 readOption args = let
 	( opts, fns, errs )	= getOpt RequireOrder options args
-	( tbl, expr )		= fromOps opts in
-	( tbl, expr, fns, errs )
+	( expr )		= fromOps opts in
+	( expr, fns, errs )
 	where
-	fromOps [ ]		= ( Nothing, Nothing )
-	fromOps ( op : ops )	= case op of
-		Expr e		-> ( path, Just e )
-		OpTable p	-> ( Just p, expr )
-		where
-		( path, expr ) = fromOps ops
+	fromOps [ ]		= Nothing
+	fromOps ( op : _ )	= case op of
+		Expr e		-> Just e
 
 runCmd :: String -> Env -> IO Env
 runCmd cmd env
@@ -71,6 +59,6 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ parseModule cnt of
+	case eval env $ toyParseModule cnt of
 		Let ps	-> return $ setPats ps env
 		bad	-> error $ show bad
