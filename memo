@@ -152,3 +152,9 @@ error の時にちゃんと pop するようにする。
 
 test-for-happy の refactoring が必要かもしれない。
 とくに Lexer の コードを見直す必要がある。
+
+2011.08.28 Sun.
+
+Happy による置き換えが可能になった。
+置き換えをして、
+Parsec による Parser を削除して、refactoring すること。

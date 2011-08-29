@@ -5,7 +5,8 @@ module MainTools (
 import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
-import Parser ( toyParse, toyParseModule, getOpTable )
+-- import Parser ( toyParse, toyParseModule, getOpTable )
+import NewParser
 import Preprocessor ( prep )
 import Lexer ( toyLex, SourceName )
 import Types ( Value( .. ), showValue, OpTable, Env, setPats )
@@ -18,30 +19,30 @@ import Data.Char ( isSpace )
 
 import Paths_toyhaskell ( getDataFileName )
 
+import Control.Monad.State
+
 --------------------------------------------------------------------------------
 
 getDefaultOpTable :: IO String
 getDefaultOpTable = getDataFileName "operator-table.lst"
 
-parse :: OpTable -> SourceName -> String -> Value
-parse opLst fn = toyParse opLst fn . prep 0 [ ] . toyLex fn
+parse :: String -> Value
+parse input = toyParse `evalState` ( 0, [ ], ( 1, 1 ), input, [ ] )
 
-parseModule :: OpTable -> SourceName -> String -> Value
-parseModule opLst fn = toyParseModule opLst fn . prep 0 [ ] . toyLex fn
+parseModule :: String -> Value
+parseModule input = toyParseModule `evalState` ( 0, [ ], ( 1, 1 ), input, [ ] )
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
 	let	( tbl, expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	opLst	<- fmap getOpTable $ ( >>= readFile ) $
-			maybe getDefaultOpTable return tbl
-	env0	<- foldM ( loadFile opLst ) initEnv fns
+	env0	<- foldM loadFile initEnv fns
 	flip ( flip . flip maybe ) expr
-		( showValue . eval env0 . parse opLst "" ) $
+		( showValue . eval env0 . parse ) $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
-			':' : cmd	-> runCmd opLst cmd env
+			':' : cmd	-> runCmd cmd env
 			_		-> case eval env $
-				parse opLst "<interactive>" inp of
+				parse inp of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 
@@ -68,18 +69,18 @@ readOption args = let
 		where
 		( path, expr ) = fromOps ops
 
-runCmd :: OpTable -> String -> Env -> IO Env
-runCmd opLst cmd env
+runCmd :: String -> Env -> IO Env
+runCmd cmd env
 	| "load" `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ drop 4 cmd
-		loadFile opLst env fn
+		loadFile env fn
 	| otherwise			= do
 		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
 		return env
 
-loadFile :: OpTable -> Env -> FilePath -> IO Env
-loadFile opLst env fn = do
+loadFile :: Env -> FilePath -> IO Env
+loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ parseModule opLst fn cnt of
+	case eval env $ parseModule cnt of
 		Let ps	-> return $ setPats ps env
 		bad	-> error $ show bad
