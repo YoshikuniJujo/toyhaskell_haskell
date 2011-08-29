@@ -7,21 +7,27 @@ module Lexer (
 
 import Prelude hiding ( lex )
 import Types ( Token( .. ), ParserMonad )
-import Data.Char ( isLower, isUpper, isAlphaNum, isDigit, isSpace )
 import "monads-tf" Control.Monad.State
 
 --------------------------------------------------------------------------------
 
-reserved, reservedOp :: [ String ]
-reserved = [
+type Lexer = String -> ( Token, String, String )
+
+white, small, large, digit, special, symbol :: String
+white	= " \t\n"
+small	= "abcdefghijklmnopqrstuvwxyz_"
+large	= "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+digit	= "0123456789"
+symbol	= "!#$%&*+./<=>?@\\^|-~:"
+special = "(),;[]{}`"
+
+reservedId, reservedOp :: [ String ]
+reservedId = [
 	"case", "class", "data", "default", "deriving", "do", "else", "if",
 	"import", "in", "infix", "infixl", "infixr", "instance", "let",
 	"module", "newtype", "of", "then", "type", "where", "_"
  ]
 reservedOp = [ "..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
-
-special :: String
-special = "(),;[]{}`"
 
 lexer :: ( Token -> ParserMonad a ) -> ParserMonad a
 lexer cont = prep' >>= cont
@@ -107,55 +113,43 @@ realLexer' = do
 realLexer_ :: ParserMonad ( Token, Int )
 realLexer_ = do
 	( _, _, ( _, cols ), src, _ ) <- get
-	let ( t, fin, rest ) = spanLex src
+	let ( t, fin, rest ) = lexeme getToken src
 	updatePos fin
 	putSrc rest
 	return ( t, cols )
 
-spanLex :: String -> ( Token, String, String )
-spanLex src = let
-	( t, fin, rest ) = getToken src
-	( ws, rest' ) = readWhite rest in
-	( t, fin ++ ws, rest' )
-
-getToken :: String -> ( Token, String, String )
-getToken = spanLex_
-
-spanLex_ :: String -> ( Token, String, String )
-spanLex_ ""			= ( TokenEOF, "", "" )
-spanLex_ ( '\n' : cs )		= ( NewLine, "\n", cs )
-spanLex_ ( '\'' : '\\' : 'n' : '\'' : cs )
-				= ( TokChar '\n', "'\\n'", cs )
-spanLex_ ( '\'' : c : '\'' : cs )
-				= ( TokChar c, [ '\'', c, '\'' ], cs )
-spanLex_ ( '"' : cs )		= let ( ret, '"' : rest ) = span (/= '"') cs in
-	( TokString ret, '"' : ret ++ "\"", rest )
-spanLex_ ( '`' : cs )		= let ( ret, '`' : rest ) = span ( /= '`' ) cs in
-	( VarSym ret, '`' : ret ++ "`", rest )
-spanLex_ ( '-' : '-' : _ )	= error "bad"
-spanLex_ s@( c : cs )
-	| isSpace c		= error "bad"
+getToken :: Lexer
+getToken ""			= ( TokenEOF, "", "" )
+getToken ( '\n' : cs )		= ( NewLine, "\n", cs )
+getToken ( '\'' : cs )		= getTokenChar cs
+getToken ( '"' : cs )		= getTokenString cs
+getToken ca@( c : cs )
 	| c `elem` special	= ( Special c, [ c ], cs )
-	| isLow c		= let
-		( ret, rest )	= span isAlNum s
-		mkTok		= if ret `elem` reserved
-					then ReservedId else Varid in
-		( mkTok ret, ret, rest )
-	| isUpper c		= let
-		( ret, rest )	= span isAlphaNum s in
-		( Conid ret, ret, rest )
-	| isSym c		= let
-		( ret, rest )	= span isSym s
-		mkTok		= if ret `elem` reservedOp
-					then ReservedOp else VarSym in
-		( mkTok ret, ret, rest )
-	| isDigit c	= let ( ret, rest ) = span isDigit s in
-		( TokInteger ( read ret ), ret, rest )
+	| c `elem` small	= spanToken varChar mkTkV ca
+	| c `elem` large	= spanToken varChar Conid ca
+	| c `elem` symbol	= spanToken symbol mkTkO ca
+	| c `elem` digit	= spanToken digit ( TokInteger . read ) ca
+        | otherwise		= error $ "getToken failed: " ++ ca
 	where
-	isSym		= ( `elem` "!#$%&*+./<=>?@\\^|-~:" )
-	isLow cc	= isLower cc || cc `elem` "_"
-	isAlNum cc	= isAlphaNum cc || cc `elem` "_"
-spanLex_ s			= error $ "spanLex_ failed: " ++ s
+	varChar	= small ++ large ++ digit
+	mkTkV v	= ( if v `elem` reservedId then ReservedId else Varid ) v
+	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
+
+spanToken :: [ Char ] -> ( String -> Token ) -> Lexer
+spanToken cs0 f ca =
+	let ( ret, rest ) = span ( `elem` cs0 ) ca in ( f ret, ret, rest )
+
+getTokenChar :: Lexer
+getTokenChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in
+	( TokChar $ readChar ret, '\'' : ret ++ "'", rest )
+	where
+	readChar "\\n"	= '\n'
+	readChar [ c ]	= c
+	readChar _	= error "bad charactor literal"
+
+getTokenString :: Lexer
+getTokenString ca = let ( ret, '"' : rest ) = span ( /= '"' ) ca in
+	( TokString ret, '"' : ret ++ "\"", rest )
 
 --------------------------------------------------------------------------------
 
@@ -169,6 +163,12 @@ updatePos str = do
 	up l _ ( '\n' : cs )	= up ( l + 1 ) 1 cs
 	up l c ( '\t' : cs )	= up l ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
 	up l c ( _ : cs )	= up l ( c + 1 ) cs
+
+lexeme :: Lexer -> Lexer
+lexeme l s = let
+	( t, fin, rest ) = l s
+	( ws, rest' ) = readWhite rest in
+	( t, fin ++ ws, rest' )
 
 readWhite :: String -> ( String, String )
 readWhite ca@( '-' : '-' : _ )	= let

@@ -36,6 +36,7 @@ import "monads-tf" Control.Monad.State
 	varid	{ Varid $$ }
 	conid	{ Conid $$ }
 	':'	{ ReservedOp ":" }
+	'`'	{ Special '`' }
 	varsym	{ VarSym $$ }
 	let	{ ReservedId "let" }
 	in	{ ReservedId "in" }
@@ -64,9 +65,11 @@ import "monads-tf" Control.Monad.State
 %%
 
 Exp_	: Exp				{ $1 }
-	| Apply varsym Exp_		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+	| Apply Varsym Exp_		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
 	| Apply ':' Exp_		{ Apply ( Apply ( Identifier ":" ) $1 ) $3 }
---	| Exp ':' Exp_			{ Apply ( Apply ( Identifier ":" ) $1 ) $3 }
+
+Varsym	: varsym			{ $1 }
+	| '`' varid '`'			{ $2 }
 
 Exp	: Letin				{ $1 }
 	| Let				{ Let $1 }
