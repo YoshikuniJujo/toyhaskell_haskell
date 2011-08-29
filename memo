@@ -158,3 +158,10 @@ test-for-happy の refactoring が必要かもしれない。
 Happy による置き換えが可能になった。
 置き換えをして、
 Parsec による Parser を削除して、refactoring すること。
+
+2011.08.29 Mon.
+
+何はともあれ Lexer の refactoring が必要だ。
+
+% wc src/Lexer.hs
+ 276 1899 8814 src/Lexer.hs

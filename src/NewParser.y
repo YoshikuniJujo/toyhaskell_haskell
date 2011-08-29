@@ -12,8 +12,8 @@
 module NewParser (
 	toyParse,
 	toyParseModule,
-	toyLex',
-	lexer
+--	toyLex',
+--	lexer
  ) where
 
 import Types
@@ -35,7 +35,7 @@ import "monads-tf" Control.Monad.State
 	char	{ TokChar $$ }
 	varid	{ Varid $$ }
 	conid	{ Conid $$ }
---	':'	{ VarSym ":" }
+	':'	{ ReservedOp ":" }
 	varsym	{ VarSym $$ }
 	let	{ ReservedId "let" }
 	in	{ ReservedId "in" }
@@ -65,6 +65,7 @@ import "monads-tf" Control.Monad.State
 
 Exp_	: Exp				{ $1 }
 	| Apply varsym Exp_		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+	| Apply ':' Exp_		{ Apply ( Apply ( Identifier ":" ) $1 ) $3 }
 --	| Exp ':' Exp_			{ Apply ( Apply ( Identifier ":" ) $1 ) $3 }
 
 Exp	: Letin				{ $1 }
@@ -142,6 +143,7 @@ Pattern	: varid				{ PatVar $1 }
 --	| Pattern Pats			{ $1 : $2 }
 
 PatL	: Pattern varsym PatL		{ PatConst $2 [ $1, $3 ] }
+	| Pattern ':' PatL		{ PatConst ":" [ $1, $3 ] }
 	| Pattern			{ $1 }
 
 PatLst_	: {- empty -}			{ PatEmpty }
