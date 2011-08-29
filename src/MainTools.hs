@@ -24,8 +24,7 @@ mainGen args _ = do
 	( flip . flip maybe ) ( showValue . eval env0 . toyParse ) expr $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
-			_		-> case eval env $
-				toyParse inp of
+			_		-> case eval env $ toyParse inp of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 
@@ -40,7 +39,7 @@ readOption ::
 	[ String ] -> ( Maybe String, [ FilePath ], [ String ] )
 readOption args = let
 	( opts, fns, errs )	= getOpt RequireOrder options args
-	( expr )		= fromOps opts in
+	expr			= fromOps opts in
 	( expr, fns, errs )
 	where
 	fromOps [ ]		= Nothing
@@ -49,8 +48,8 @@ readOption args = let
 
 runCmd :: String -> Env -> IO Env
 runCmd cmd env
-	| "load" `isPrefixOf` cmd	= do
-		let fn = dropWhile isSpace $ drop 4 cmd
+	| "load " `isPrefixOf` cmd	= do
+		let fn = dropWhile isSpace $ dropWhile ( not . isSpace ) cmd
 		loadFile env fn
 	| otherwise			= do
 		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
