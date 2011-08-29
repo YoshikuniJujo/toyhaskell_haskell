@@ -1,16 +1,19 @@
+{-# LANGUAGE TupleSections #-}
+
 module MainTools (
 	mainGen
 ) where
 
-import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
 import Parser ( toyParse, toyParseModule )
 import Types ( Value( .. ), showValue, Env, setPats )
 
+import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
 import Control.Monad ( foldM )
+import Control.Monad.Tools ( doWhile )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
@@ -27,6 +30,17 @@ mainGen args _ = do
 			_		-> case eval env $ toyParse inp of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
+
+runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
+runLoop name stat0 act = do
+	_ <- doWhile stat0 $ \stat -> do
+		input <- prompt $ name ++ "> "
+		if input `notElem` [ ":quit", ":q" ]
+			then fmap ( , True ) $ act stat input
+			else return ( stat, False )
+	putStrLn $ "Leaving " ++ name ++ "."
+	where
+	prompt p = putStr p >> hFlush stdout >> getLine
 
 data Option = Expr String
 
