@@ -1,1 +1,3 @@
-let x = let y = 3 in yy in xx
+module Main where
+
+hello = let x = let y = 3 in y in x

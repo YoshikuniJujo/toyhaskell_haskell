@@ -56,9 +56,9 @@ addOpenBrace = do
 prep' :: ParserMonad Token
 prep' = do
 	t <- prep
-	ma@( ~ ( m : ms ) ) <- getIndents
+	ma@( ~ ( _ : ms ) ) <- getIndents
 	case t of
-		Indent n	-> do
+		Indent n	->
 			case ma of
 				[ ] -> prep'
 				( m : ms )
@@ -75,8 +75,8 @@ prep' = do
 			putIndents $ n : ma
 			return $ Special '{'
 		Special '}'	-> case ma of
-			[ ] -> error $ "bad ma"
-			m : ms -> if m == 0 then popIndents >> return t else error "bad close brace"
+			[ ] -> error "bad ma"
+			m : _ -> if m == 0 then popIndents >> return t else error "bad close brace"
 		Special '{'	-> putIndents ( 0 : ma ) >> return t
 		TokenEOF	-> if null ma then return t else do
 			putIndents ms
@@ -134,7 +134,7 @@ prep = do
 			nt <- realLexerNoNewLine
 			pushBackBuf nt
 			let ( _, cols ) = nt
-			pushBackBuf $ ( Indent cols, 0 )
+			pushBackBuf ( Indent cols, 0 )
 			prep
 		_		-> return t
 
@@ -175,11 +175,6 @@ popBuf = do
 	if null buf then return Nothing else do
 		put ( idnt1, idnta, pos, src, ts )
 		return $ Just t
-
-resetCols :: ParserMonad ()
-resetCols = do
-	( idnt1, idnta, ( lns, _ ), src, buf ) <- get
-	put ( idnt1, idnta, ( lns, 1 ), src, buf )
 
 realLexer :: ParserMonad ( Token, Int )
 realLexer = do

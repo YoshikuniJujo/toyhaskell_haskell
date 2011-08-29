@@ -7,9 +7,8 @@ import Primitives ( initEnv )
 import Eval ( eval )
 -- import Parser ( toyParse, toyParseModule, getOpTable )
 import NewParser
-import Preprocessor ( prep )
-import Lexer ( toyLex, SourceName )
-import Types ( Value( .. ), showValue, OpTable, Env, setPats )
+-- import Lexer ( toyLex, SourceName )
+import Types ( Value( .. ), showValue, Env, setPats )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -17,14 +16,9 @@ import Control.Monad ( foldM )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
-import Paths_toyhaskell ( getDataFileName )
-
-import Control.Monad.State
+import Control.Monad.State ( evalState )
 
 --------------------------------------------------------------------------------
-
-getDefaultOpTable :: IO String
-getDefaultOpTable = getDataFileName "operator-table.lst"
 
 parse :: String -> Value
 parse input = toyParse `evalState` ( 0, [ ], ( 1, 1 ), input, [ ] )
@@ -34,7 +28,7 @@ parseModule input = toyParseModule `evalState` ( 0, [ ], ( 1, 1 ), input, [ ] )
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
-	let	( tbl, expr, fns, errs ) = readOption args
+	let	( _, expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0	<- foldM loadFile initEnv fns
 	flip ( flip . flip maybe ) expr
