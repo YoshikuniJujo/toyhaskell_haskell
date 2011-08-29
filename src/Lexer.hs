@@ -61,7 +61,7 @@ prep' = do
 
 prep :: ParserMonad Token
 prep = do
-	( t, _ ) <- realLexer'
+	( t, _ ) <- realLexer
 	case t of
 		ReservedId "let" -> do
 			nt <- realLexerNoNewLine
@@ -100,23 +100,21 @@ prep = do
 
 realLexerNoNewLine :: ParserMonad ( Token, Int )
 realLexerNoNewLine = do
-	t <- realLexer'
+	t <- realLexer
 	case t of
 		( NewLine, _ )	-> realLexerNoNewLine
 		_		-> return t
 
-realLexer' :: ParserMonad ( Token, Int )
-realLexer' = do
-	t <- popBuf
-	maybe realLexer_ return t
-
-realLexer_ :: ParserMonad ( Token, Int )
-realLexer_ = do
-	( _, _, ( _, cols ), src, _ ) <- get
-	let ( t, fin, rest ) = lexeme getToken src
-	updatePos fin
-	putSrc rest
-	return ( t, cols )
+realLexer :: ParserMonad ( Token, Int )
+realLexer = do
+	tb <- popBuf
+	( flip . flip maybe ) return tb $ do
+		src	<- getSrc
+		cols	<- getCols
+		let ( t, fin, rest ) = lexeme getToken src
+		updatePos fin
+		putSrc rest
+		return ( t, cols )
 
 getToken :: Lexer
 getToken ""			= ( TokenEOF, "", "" )
@@ -135,7 +133,7 @@ getToken ca@( c : cs )
 	mkTkV v	= ( if v `elem` reservedId then ReservedId else Varid ) v
 	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
 
-spanToken :: [ Char ] -> ( String -> Token ) -> Lexer
+spanToken :: String -> ( String -> Token ) -> Lexer
 spanToken cs0 f ca =
 	let ( ret, rest ) = span ( `elem` cs0 ) ca in ( f ret, ret, rest )
 
@@ -203,6 +201,16 @@ putIndents :: [ Int ] -> ParserMonad ()
 putIndents idnta = do
 	( idnt1, _, pos, src, buf ) <- get
 	put ( idnt1, idnta, pos, src, buf )
+
+getCols :: ParserMonad Int
+getCols = do
+	( _, _, ( _, cols ), _, _ ) <- get
+	return cols
+
+getSrc :: ParserMonad String
+getSrc = do
+	( _, _, _, src, _ ) <- get
+	return src
 
 putSrc :: String -> ParserMonad ()
 putSrc src = do
