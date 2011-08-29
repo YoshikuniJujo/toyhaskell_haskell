@@ -18,6 +18,7 @@ module Types (
 	getVal,
 
 	ParserMonad,
+	makeParserInput,
 	getSource,
 	getSrc,
 	putSrc,
@@ -35,7 +36,7 @@ import Env (
 import qualified Env as E ( Env )
 import Text.ParserCombinators.Parsec.Expr ( Assoc )
 import Control.Monad ( liftM, zipWithM )
-import "monads-tf" Control.Monad.State
+import "monads-tf" Control.Monad.State ( put, get, State )
 
 type ParserMonad = State ( Int, [ Int ], ( Int, Int ), String, [ ( Token, Int ) ] )
 
@@ -224,3 +225,5 @@ getIndents :: ParserMonad [ Int ]
 getIndents = do
 	( _idnt1, idnta, _pos, _src, _buf ) <- get
 	return idnta
+
+makeParserInput src = ( 0, [ ], ( 1, 1 ), src, [ ] )

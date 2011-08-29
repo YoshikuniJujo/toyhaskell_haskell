@@ -9,12 +9,11 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 
-module NewParser (
+module Parser (
 	toyParse,
 	toyParseModule
  ) where
 
-import Types
 import Lexer
 import ParserTools
 import "monads-tf" Control.Monad.State

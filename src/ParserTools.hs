@@ -1,8 +1,15 @@
 module ParserTools (
-	makeString
+	makeString,
+	Token( .. ),
+	Pattern( .. ),
+	Value( .. ),
+	ParserMonad,
+	popIndents,
+	emptyEnv
 ) where
 
-import Types
+import Types ( Value( .. ), Token( .. ), Pattern( .. ), ParserMonad,
+	popIndents, emptyEnv )
 
 makeString :: String -> Value
 makeString ""			= Empty

@@ -5,34 +5,30 @@ module MainTools (
 import Interact ( runLoop )
 import Primitives ( initEnv )
 import Eval ( eval )
--- import Parser ( toyParse, toyParseModule, getOpTable )
-import NewParser
--- import Lexer ( toyLex, SourceName )
-import Types ( Value( .. ), showValue, Env, setPats )
+import Parser ( toyParse, toyParseModule )
+import Types ( Value( .. ), showValue, Env, setPats, makeParserInput )
 
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
 import Control.Monad ( foldM )
+import Control.Monad.State ( evalState )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
-
-import Control.Monad.State ( evalState )
 
 --------------------------------------------------------------------------------
 
 parse :: String -> Value
-parse input = toyParse `evalState` ( 0, [ ], ( 1, 1 ), input, [ ] )
+parse input = toyParse `evalState` makeParserInput input
 
 parseModule :: String -> Value
-parseModule input = toyParseModule `evalState` ( 0, [ ], ( 1, 1 ), input, [ ] )
+parseModule input = toyParseModule `evalState` makeParserInput input
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
 	let	( _, expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0	<- foldM loadFile initEnv fns
-	flip ( flip . flip maybe ) expr
-		( showValue . eval env0 . parse ) $
+	( flip . flip maybe ) ( showValue . eval env0 . parse ) expr $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
 			_		-> case eval env $
