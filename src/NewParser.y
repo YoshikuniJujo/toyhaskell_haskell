@@ -11,9 +11,7 @@
 
 module NewParser (
 	toyParse,
-	toyParseModule,
---	toyLex',
---	lexer
+	toyParseModule
  ) where
 
 import Types
@@ -26,7 +24,7 @@ import "monads-tf" Control.Monad.State
 %name		toyParse	Exp_
 %name		toyParseModule	Module
 %monad		{ ParserMonad }
-%lexer		{ lexer } { TokenEOF }
+%lexer		{ toyLexer } { TokenEOF }
 %tokentype	{ Token }
 
 %token

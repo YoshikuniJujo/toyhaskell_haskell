@@ -1,20 +1,17 @@
-{-# Language PackageImports #-}
-
 module Lexer (
-	lexer,
-	popIndents,
+	toyLexer
 ) where
 
-import Prelude hiding ( lex )
-import Types ( Token( .. ), ParserMonad )
-import "monads-tf" Control.Monad.State
+import Types (
+	Token( .. ), ParserMonad, getSrc, putSrc, updatePos, getCols,
+	pushBuf, popBuf, peekIndents, pushIndents, popIndents )
+import Control.Arrow ( first )
 
 --------------------------------------------------------------------------------
 
 type Lexer = String -> ( Token, String, String )
 
-white, small, large, digit, special, symbol :: String
-white	= " \t\n"
+small, large, digit, special, symbol :: String
 small	= "abcdefghijklmnopqrstuvwxyz_"
 large	= "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 digit	= "0123456789"
@@ -23,82 +20,74 @@ special = "(),;[]{}`"
 
 reservedId, reservedOp :: [ String ]
 reservedId = [
-	"case", "class", "data", "default", "deriving", "do", "else", "if",
-	"import", "in", "infix", "infixl", "infixr", "instance", "let",
+	"case", "class", "data", "default", "deriving", "do", "else", "foreign",
+	 "if", "import", "in", "infix", "infixl", "infixr", "instance", "let",
 	"module", "newtype", "of", "then", "type", "where", "_"
  ]
 reservedOp = [ "..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
-lexer :: ( Token -> ParserMonad a ) -> ParserMonad a
-lexer cont = prep' >>= cont
+toyLexer :: ( Token -> ParserMonad a ) -> ParserMonad a
+toyLexer cont = preprocessor >>= cont
 
-prep' :: ParserMonad Token
-prep' = do
-	t	<- prep
+preprocessor :: ParserMonad Token
+preprocessor = do
+	t	<- addLayoutTokens
 	mm	<- peekIndents
 	case t of
-		Indent n	-> ( flip . maybe  ) prep' mm $ \m -> case m of
-			_	| m == n	-> return $ Special ';'
+		Indent n	-> case mm of
+			Just m	| m == n	-> return $ Special ';'
 				| n < m		-> do
 					_ <- popIndents
-					pushBackBuf ( t, 0 )
+					pushBuf ( t, 0 )
 					return $ Special '}'
-				| otherwise	-> prep'
+			_			-> preprocessor
 		AddBrace n	-> pushIndents n >> return ( Special '{' )
 		Special '}'	-> case mm of
 			Just 0	-> popIndents >> return t
 			_	-> error "bad close brace"
 		Special '{'	-> pushIndents 0 >> return t
-		TokenEOF	-> if mm == Nothing then return t else do
+		TokenEOF	-> ( flip . maybe ) ( return t ) mm $ \_ -> do
 			_ <- popIndents
 			return $ Special '}'
 		_		-> return t
 
-prep :: ParserMonad Token
-prep = do
-	( t, _ ) <- realLexer
+addLayoutTokens :: ParserMonad Token
+addLayoutTokens = do
+	( t, _ ) <- lexer
 	case t of
 		ReservedId res | res `elem` keywords	-> do
 			nt <- peekNextToken
 			case nt of
 				( Special '{', _ )	-> return ()
 				( TokenEOF, _ )		->
-					pushBackBuf ( AddBrace 0, 0 )
+					pushBuf ( AddBrace 0, 0 )
 				( _, cols )		->
-					pushBackBuf ( AddBrace cols, 0 )
+					pushBuf ( AddBrace cols, 0 )
 			return t
 		NewLine					-> do
 			nt <- peekNextToken
 			let ( _, cols ) = nt
-			pushBackBuf ( Indent cols, 0 )
-			prep
+			pushBuf ( Indent cols, 0 )
+			addLayoutTokens
 		_					-> return t
 	where
 	keywords = [ "where", "let", "do", "of" ]
 
 peekNextToken :: ParserMonad ( Token, Int )
-peekNextToken = do
-	ret <- realLexerNoNewLine
-	pushBackBuf ret
-	return ret
-
-realLexerNoNewLine :: ParserMonad ( Token, Int )
-realLexerNoNewLine = do
-	t <- realLexer
-	case t of
-		( NewLine, _ )	-> realLexerNoNewLine
+peekNextToken = lexerNoNL >>= \ret -> pushBuf ret >> return ret
+	where
+	lexerNoNL = lexer >>= \t -> case t of
+		( NewLine, _ )	-> lexerNoNL
 		_		-> return t
 
-realLexer :: ParserMonad ( Token, Int )
-realLexer = do
-	tb <- popBuf
-	( flip . flip maybe ) return tb $ do
-		src	<- getSrc
-		cols	<- getCols
-		let ( t, fin, rest ) = lexeme getToken src
-		updatePos fin
-		putSrc rest
-		return ( t, cols )
+lexer :: ParserMonad ( Token, Int )
+lexer = popBuf >>= \mtb -> ( flip . flip maybe ) return mtb $ do
+	src	<- getSrc
+	cols	<- getCols
+	let ( t, fin, rest ) = lexeme getToken src
+	updatePos fin
+	putSrc rest
+	return ( t, cols )
 
 getToken :: Lexer
 getToken ""			= ( TokenEOF, "", "" )
@@ -107,19 +96,16 @@ getToken ( '\'' : cs )		= getTokenChar cs
 getToken ( '"' : cs )		= getTokenString cs
 getToken ca@( c : cs )
 	| c `elem` special	= ( Special c, [ c ], cs )
-	| c `elem` small	= spanToken varChar mkTkV ca
-	| c `elem` large	= spanToken varChar Conid ca
-	| c `elem` symbol	= spanToken symbol mkTkO ca
-	| c `elem` digit	= spanToken digit ( TokInteger . read ) ca
+	| c `elem` small	= spanToken ( small ++ large ++ digit ) mkTkV
+	| c `elem` large	= spanToken ( small ++ large ++ digit ) Conid
+	| c `elem` symbol	= spanToken symbol mkTkO
+	| c `elem` digit	= spanToken digit ( TokInteger . read )
         | otherwise		= error $ "getToken failed: " ++ ca
 	where
-	varChar	= small ++ large ++ digit
+	spanToken chType f = let ( ret, rest ) = span ( `elem` chType ) ca in
+		( f ret, ret, rest )
 	mkTkV v	= ( if v `elem` reservedId then ReservedId else Varid ) v
 	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
-
-spanToken :: String -> ( String -> Token ) -> Lexer
-spanToken cs0 f ca =
-	let ( ret, rest ) = span ( `elem` cs0 ) ca in ( f ret, ret, rest )
 
 getTokenChar :: Lexer
 getTokenChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in
@@ -133,97 +119,15 @@ getTokenString :: Lexer
 getTokenString ca = let ( ret, '"' : rest ) = span ( /= '"' ) ca in
 	( TokString ret, '"' : ret ++ "\"", rest )
 
---------------------------------------------------------------------------------
-
-updatePos :: String -> ParserMonad ()
-updatePos str = do
-	( idnt1, idnta, ( lns, cols ), src, buf ) <- get
-	let ( nlns, ncols ) = up lns cols str
-	put ( idnt1, idnta, ( nlns, ncols ), src, buf )
-	where
-	up l c ""		= ( l, c )
-	up l _ ( '\n' : cs )	= up ( l + 1 ) 1 cs
-	up l c ( '\t' : cs )	= up l ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
-	up l c ( _ : cs )	= up l ( c + 1 ) cs
-
 lexeme :: Lexer -> Lexer
-lexeme l s = let
-	( t, fin, rest ) = l s
-	( ws, rest' ) = readWhite rest in
+lexeme lx src = let
+	( t, fin, rest )	= lx src
+	( ws, rest' )		= gw rest in
 	( t, fin ++ ws, rest' )
-
-readWhite :: String -> ( String, String )
-readWhite ca@( '-' : '-' : _ )	= let
-	( com, src ) = span ( /= '\n' ) ca
-	( ws, rest ) = readWhite src in
-	( com ++ ws, rest )
-readWhite ( ' ' : cs )		=
-	let ( ws, rest ) = readWhite cs in ( ' ' : ws, rest )
-readWhite ( '\t' : cs )		=
-	let ( ws, rest ) = readWhite cs in ( '\t' : ws, rest )
-readWhite ca = ( "", ca )
-
-pushBackBuf :: ( Token, Int ) -> ParserMonad ()
-pushBackBuf t = do
-	( idnt1, idnta, pos, src, buf ) <- get
-	put ( idnt1, idnta, pos, src, t : buf )
-
-popBuf :: ParserMonad ( Maybe ( Token, Int ) )
-popBuf = do
-	( idnt1, idnta, pos, src, buf@( ~( t : ts ) ) ) <- get
-	if null buf then return Nothing else do
-		put ( idnt1, idnta, pos, src, ts )
-		return $ Just t
-
-peekIndents :: ParserMonad ( Maybe Int )
-peekIndents = do
-	ma <- getIndents
-	case ma of
-		m : _	-> return $ Just m
-		_	-> return Nothing
-
-pushIndents :: Int -> ParserMonad ()
-pushIndents m = do
-	ma <- getIndents
-	putIndents $ m : ma
-
-popIndents :: ParserMonad ( Maybe Int )
-popIndents = do
-	ma <- getIndents
-	case ma of
-		m : ms	-> putIndents ms >> return ( Just m )
-		_	-> return Nothing
-
-putIndents :: [ Int ] -> ParserMonad ()
-putIndents idnta = do
-	( idnt1, _, pos, src, buf ) <- get
-	put ( idnt1, idnta, pos, src, buf )
-
-getCols :: ParserMonad Int
-getCols = do
-	( _, _, ( _, cols ), _, _ ) <- get
-	return cols
-
-getSrc :: ParserMonad String
-getSrc = do
-	( _, _, _, src, _ ) <- get
-	return src
-
-putSrc :: String -> ParserMonad ()
-putSrc src = do
-	( idnt1, idnta, pos, _, buf ) <- get
-	put ( idnt1, idnta, pos, src, buf )
-
-getIndents :: ParserMonad [ Int ]
-getIndents = do
-	( _idnt1, idnta, _pos, _src, _buf ) <- get
-	return idnta
-
-{-
-peekToken :: ParserMonad Token
-peekToken = do
-	( _, _, _, src, _ ) <- get
-	return $ one $ spanLex' src
 	where
-	one ( x, _, _ ) = x
--}
+	gw ca@( '-' : '-' : _ )	= let	( c, r ) = span ( /= '\n' ) ca
+					( w, r' ) = gw r in
+					( c ++ w, r' )
+	gw ( ' ' : cs )		= first ( ' ' : ) $ gw cs
+	gw ( '\t' : cs )	= first ( '\t' : ) $ gw cs
+	gw ca			= ( "", ca )
