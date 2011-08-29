@@ -105,7 +105,11 @@ Eq	: Pat_ '=' Exp_			{ ( $1, $3 ) }
 	| varid Pattern '=' Exp_	{ ( PatVar $1, Lambda emptyEnv [ $2 ] $4 ) }
 
 close	: '}'				{ () }
-	| error				{% popIndents >> return () }
+	| error				{% do
+						mm <- popIndents
+						let b = maybe True ( == 0 ) mm
+						when b $ happyError
+						return () }
 
 Lambda	: bslash Pattern '->' Exp_	{ Lambda emptyEnv [ $2 ] $4 }
 

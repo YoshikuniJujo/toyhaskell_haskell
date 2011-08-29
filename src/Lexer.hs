@@ -34,27 +34,22 @@ lexer cont = prep' >>= cont
 
 prep' :: ParserMonad Token
 prep' = do
-	t <- prep
-	ma <- getIndents
+	t	<- prep
+	mm	<- peekIndents
 	case t of
-		Indent n	->
-			case ma of
-				[ ] -> prep'
-				( m : ms )
-					| m == n	-> return $ Special ';'
-					| n < m		-> do
-						putIndents ms
-						pushBackBuf ( t, 0 )
-						return $ Special '}'
-					| otherwise	-> return () >> prep'
-		AddBrace n	-> do
-			putIndents $ n : ma
-			return $ Special '{'
-		Special '}'	-> case ma of
-			[ ] -> error "bad ma"
-			m : _ -> if m == 0 then popIndents >> return t else error "bad close brace"
-		Special '{'	-> putIndents ( 0 : ma ) >> return t
-		TokenEOF	-> if null ma then return t else do
+		Indent n	-> ( flip . maybe  ) prep' mm $ \m -> case m of
+			_	| m == n	-> return $ Special ';'
+				| n < m		-> do
+					_ <- popIndents
+					pushBackBuf ( t, 0 )
+					return $ Special '}'
+				| otherwise	-> prep'
+		AddBrace n	-> pushIndents n >> return ( Special '{' )
+		Special '}'	-> case mm of
+			Just 0	-> popIndents >> return t
+			_	-> error "bad close brace"
+		Special '{'	-> pushIndents 0 >> return t
+		TokenEOF	-> if mm == Nothing then return t else do
 			_ <- popIndents
 			return $ Special '}'
 		_		-> return t
@@ -63,40 +58,29 @@ prep :: ParserMonad Token
 prep = do
 	( t, _ ) <- realLexer
 	case t of
-		ReservedId "let" -> do
-			nt <- realLexerNoNewLine
+		ReservedId res | res `elem` keywords	-> do
+			nt <- peekNextToken
 			case nt of
-				( Special '{', _ )	-> pushBackBuf nt >> return ()
+				( Special '{', _ )	-> return ()
 				( TokenEOF, _ )		->
-					pushBackBuf nt >> pushBackBuf ( AddBrace 0, 0 )
+					pushBackBuf ( AddBrace 0, 0 )
 				( _, cols )		->
-					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
+					pushBackBuf ( AddBrace cols, 0 )
 			return t
-		ReservedId "where" -> do
-			nt <- realLexerNoNewLine
-			case nt of
-				( Special '{', _ )	-> pushBackBuf nt >> return ()
-				( TokenEOF, _ )		->
-					pushBackBuf nt >> pushBackBuf ( AddBrace 0, 0 )
-				( _, cols )		->
-					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
-			return t
-		ReservedId "of" -> do
-			nt <- realLexerNoNewLine
-			case nt of
-				( Special '{', _ )	-> pushBackBuf nt >> return ()
-				( TokenEOF, _ )		->
-					pushBackBuf nt >> pushBackBuf ( AddBrace 0, 0 )
-				( _, cols )		->
-					pushBackBuf nt >> pushBackBuf ( AddBrace cols, 0 )
-			return t
-		NewLine		-> do
-			nt <- realLexerNoNewLine
-			pushBackBuf nt
+		NewLine					-> do
+			nt <- peekNextToken
 			let ( _, cols ) = nt
 			pushBackBuf ( Indent cols, 0 )
 			prep
-		_		-> return t
+		_					-> return t
+	where
+	keywords = [ "where", "let", "do", "of" ]
+
+peekNextToken :: ParserMonad ( Token, Int )
+peekNextToken = do
+	ret <- realLexerNoNewLine
+	pushBackBuf ret
+	return ret
 
 realLexerNoNewLine :: ParserMonad ( Token, Int )
 realLexerNoNewLine = do
@@ -191,11 +175,24 @@ popBuf = do
 		put ( idnt1, idnta, pos, src, ts )
 		return $ Just t
 
-popIndents :: ParserMonad Int
+peekIndents :: ParserMonad ( Maybe Int )
+peekIndents = do
+	ma <- getIndents
+	case ma of
+		m : _	-> return $ Just m
+		_	-> return Nothing
+
+pushIndents :: Int -> ParserMonad ()
+pushIndents m = do
+	ma <- getIndents
+	putIndents $ m : ma
+
+popIndents :: ParserMonad ( Maybe Int )
 popIndents = do
-	m : ms <- getIndents
-	putIndents ms
-	return m
+	ma <- getIndents
+	case ma of
+		m : ms	-> putIndents ms >> return ( Just m )
+		_	-> return Nothing
 
 putIndents :: [ Int ] -> ParserMonad ()
 putIndents idnta = do
