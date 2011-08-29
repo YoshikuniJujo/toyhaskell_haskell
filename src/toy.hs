@@ -5,9 +5,7 @@ import System.Environment ( getArgs )
 import Control.Arrow ( first )
 
 main :: IO ()
-main = do
-	( args, pargs ) <- fmap separateArgs getArgs
-	mainGen args pargs
+main = getArgs >>= uncurry mainGen . separateArgs
 
 separateArgs :: [ String ] -> ( [ String ], [ String ] )
 separateArgs [ ]		= ( [ ], [ ] )
