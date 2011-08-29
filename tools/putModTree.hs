@@ -54,16 +54,27 @@ addTree ( Node x ns ) ts = case filter ( ( == x ) . rootLabel ) ts of
 
 depend :: FilePath -> [ String ] -> String -> IO ( String, [ String ] )
 depend dir fps fp = do
-	cnt <- readFile $ dir ++ "/" ++ fp ++ ".hs"
+	cnt <- readAnyFile [ dir ++ "/" ++ fp ++ ".hs", dir ++ "/" ++ fp ++ ".y" ]
 	return ( fp, map ( !! 1 ) $ ggetbrsRegexPR ( mkReg fps ) cnt )
 
 filterSource :: [ FilePath ] -> [ FilePath ]
 filterSource =
-	map ( initN 3 ) . filter ( isSuffixOf ".hs" ) .
+	map ( stripSuffix ) . filter ( isSuffixOf ".hs" ||| isSuffixOf ".y" ) .
 	filter ( not . isPrefixOf "." )
 
 mkReg :: [ FilePath ] -> String
 mkReg fps = "^import\\s+(?:qualified\\s+)?(" ++ intercalate "|" fps ++ ")"
 
+stripSuffix :: String -> String
+stripSuffix = takeWhile ( /= '.' )
+
 initN :: Int -> [ a ] -> [ a ]
 initN n = ( !! n ) . iterate init
+
+(|||) :: ( a -> Bool ) -> ( a -> Bool ) -> a -> Bool
+( f1 ||| f2 ) x = f1 x || f2 x
+
+readAnyFile :: [ FilePath ] -> IO String
+readAnyFile ( f : fs ) = do
+	ex <- doesFileExist f
+	if ex then readFile f else readAnyFile fs
