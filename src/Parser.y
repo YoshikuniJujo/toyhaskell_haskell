@@ -14,153 +14,134 @@ module Parser (
 	toyParseModule
  ) where
 
-import Lexer
+import Lexer ( toyLexer, makeParserInput )
 import Types ( Value( .. ), Token( .. ), Pattern( .. ), ParserMonad,
 	popIndents, emptyEnv )
 
-import "monads-tf" Control.Monad.State
+import "monads-tf" Control.Monad.State ( when, get, evalState )
 
 }
 
-%name		toyParser	Exp_
+%name		toyParser	Exp
 %name		toyParserModule	Module
 %monad		{ ParserMonad }
 %lexer		{ toyLexer } { TokenEOF }
 %tokentype	{ Token }
 
 %token
-	int	{ TokInteger $$ }
-	string	{ TokString $$ }
-	char	{ TokChar $$ }
 	varid	{ Varid $$ }
 	conid	{ Conid $$ }
-	':'	{ ReservedOp ":" }
-	'`'	{ Special '`' }
 	varsym	{ VarSym $$ }
-	let	{ ReservedId "let" }
-	in	{ ReservedId "in" }
-	'='	{ ReservedOp "=" }
-	'{'	{ Special '{' }
-	'}'	{ Special '}' }
+	integer	{ TokInteger $$ }
+	char	{ TokChar $$ }
+	string	{ TokString $$ }
 	'('	{ Special '(' }
 	')'	{ Special ')' }
+	','	{ Special ',' }
 	';'	{ Special ';' }
 	'['	{ Special '[' }
 	']'	{ Special ']' }
-	','	{ Special ',' }
-	bslash	{ ReservedOp "\\" }
+	'`'	{ Special '`' }
+	'{'	{ Special '{' }
+	'}'	{ Special '}' }
+	':'	{ ReservedOp ":" }
+	'='	{ ReservedOp "=" }
+	'\\'	{ ReservedOp "\\" }
 	'->'	{ ReservedOp "->" }
-	if	{ ReservedId "if" }
-	then	{ ReservedId "then" }
-	else	{ ReservedId "else" }
 	case	{ ReservedId "case" }
-	of	{ ReservedId "of" }
+	else	{ ReservedId "else" }
+	if	{ ReservedId "if" }
+	in	{ ReservedId "in" }
+	let	{ ReservedId "let" }
 	module	{ ReservedId "module" }
+	of	{ ReservedId "of" }
+	then	{ ReservedId "then" }
 	where	{ ReservedId "where" }
 	'_'	{ ReservedId "_" }
 
-%left in
-
 %%
 
-Exp_	: Exp				{ $1 }
-	| Apply Varsym Exp_		{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
-	| Apply ':' Exp_		{ Apply ( Apply ( Identifier ":" ) $1 ) $3 }
+Module	: module conid where '{' Decls '}'
+				{ Let $5 }
 
-Varsym	: varsym			{ $1 }
-	| '`' varid '`'			{ $2 }
+Exp	: LexpOpL Op Exp	{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+	| Lexp			{ $1 }
 
-Exp	: Letin				{ $1 }
-	| Let				{ Let $1 }
-	| Apply				{ $1 }
-	| Lambda			{ $1 }
-	| If				{ $1 }
-	| Case				{ $1 }
+Op	: varsym		{ $1 }
+	| '`' varid '`'		{ $2 }
+	| ':'			{ ":" }
 
-Apply	: Atom				{ $1 }
-	| Apply Atom			{ Apply $1 $2 }
-
-Atom	: int				{ Integer $1 }
-	| string			{ makeString $1 }
-	| char				{ Char $1 }
-	| varid				{ Identifier $1 }
-	| conid				{ Complex $1 [ ] }
-	| Parens			{ $1 }
-	| List				{ $1 }
-
-Module	: module conid where '{' Eqs '}'
-					{ Let $5 }
-
-Letin	: Let in Exp_			{ Letin $1 $3 }
-
-Let	: let '{' Eqs close		{ $3 }
-
-Eqs	: Eq				{ [ $1 ] }
-	| Eqs ';'			{ $1 }
-	| Eqs ';' Eq			{ $3 : $1 }
-	| {- empty -}			{ [ ] }
-
-Eq	: Pat_ '=' Exp_			{ ( $1, $3 ) }
-	| varid Pattern '=' Exp_	{ ( PatVar $1, Lambda emptyEnv [ $2 ] $4 ) }
-
-close	: '}'				{ () }
-	| error				{% do
-						mm <- popIndents
-						let b = maybe True ( == 0 ) mm
-						when b $ happyError
-						return () }
-
-Lambda	: bslash Pattern '->' Exp_	{ Lambda emptyEnv [ $2 ] $4 }
-
-Parens	: '(' Exp_ ')'			{ $2 }
-	| '(' ')'			{ Nil }
-
-If	: if Exp_ then Exp_ else Exp_	{ Case $2 [ ( PatConst "True" [ ], $4 ),
+Lexp	: '\\' LPat '->' Exp	{ Lambda emptyEnv [ $2 ] $4 }
+	| Let in Exp		{ Letin $1 $3 }
+	| if Exp then Exp else Exp
+				{ Case $2 [ ( PatConst "True" [ ], $4 ),
 						( PatConst "False" [ ], $6 ) ] }
+	| LexpOpL		{ $1 }
+	| Let			{ Let $1 }
 
-Case	: case Exp_ of '{' Cases '}'
-					{ Case $2 $ reverse $5 }
+LexpOpL	: case Exp of '{' Alts '}'
+				{ Case $2 $ reverse $5 }
+	| Fexp			{ $1 }
 
-Cases	: Case1				{ [ $1 ] }
-	| Cases ';'			{ $1 }
-	| Cases ';' Case1		{ $3 : $1 }
-	| {- empty -}			{ [ ] }
+Alts	: Alt			{ [ $1 ] }
+	| Alts ';'		{ $1 }
+	| Alts ';' Alt		{ $3 : $1 }
+	| {- empty -}		{ [ ] }
 
-Case1	: Pat_ '->' Exp_		{ ( $1, $3 ) }
+Alt	: Pat '->' Exp		{ ( $1, $3 ) }
 
-List	: '[' Elems_ ']'		{ $2 }
+Fexp	: Aexp			{ $1 }
+	| Fexp Aexp		{ Apply $1 $2 }
 
-Elems_	: {- empty -}			{ Empty }
-	| Elems				{ $1 }
+Aexp	: varid			{ Identifier $1 }
+	| conid			{ Complex $1 [ ] }
+	| integer		{ Integer $1 }
+	| char			{ Char $1 }
+	| string		{ makeString $1 }
+	| '(' ')'		{ Nil }
+	| '(' Exp ')'		{ $2 }
+	| '[' Elems ']'		{ $2 }
 
-Elems	: Exp_				{ Complex ":" [ $1, Empty ] }
-	| Exp_ ',' Elems		{ Complex ":" [ $1, $3 ] }
+Elems	: {- empty -}		{ Empty }
+	| Elems_		{ $1 }
 
-Pat_	: PatL				{ $1 }
+Elems_	: Exp			{ Complex ":" [ $1, Empty ] }
+	| Exp ',' Elems_	{ Complex ":" [ $1, $3 ] }
 
-Pattern	: varid				{ PatVar $1 }
-	| int				{ PatInteger $1 }
-	| '_'				{ PatUScore }
-	| '[' PatLst_ ']'		{ $2 }
---	| conid Pats			{ PatConst $1 $2 }
---	| PatL				{ $1 }
+Let	: let '{' Decls close	{ $3 }
 
--- Pats	: {- empty -}			{ [ ] }
---	| Pattern Pats			{ $1 : $2 }
+Decls	: Decl			{ [ $1 ] }
+	| Decls ';'		{ $1 }
+	| Decls ';' Decl	{ $3 : $1 }
+	| {- empty -}		{ [ ] }
 
-PatL	: Pattern varsym PatL		{ PatConst $2 [ $1, $3 ] }
-	| Pattern ':' PatL		{ PatConst ":" [ $1, $3 ] }
-	| Pattern			{ $1 }
+Decl	: Pat '=' Exp		{ ( $1, $3 ) }
+	| varid LPat '=' Exp	{ ( PatVar $1, Lambda emptyEnv [ $2 ] $4 ) }
 
-PatLst_	: {- empty -}			{ PatEmpty }
-	| PatLst			{ $1 }
+close	: '}'			{ () }
+	| error			{% do
+					mm <- popIndents
+					when ( maybe True ( == 0 ) mm ) $
+						happyError }
 
-PatLst	: Pattern			{ PatConst ":" [ $1, PatEmpty ] }
-	| Pattern ',' PatLst		{ PatConst ":" [ $1, $3 ] }
+Pat	: LPat ':' Pat		{ PatConst ":" [ $1, $3 ] }
+	| LPat			{ $1 }
+
+LPat	: APat			{ $1 }
+
+APat	: varid			{ PatVar $1 }
+	| integer		{ PatInteger $1 }
+	| '_'			{ PatUScore }
+	| '(' Pat ')'		{ $2 }
+	| '[' PatLst ']'	{ $2 }
+
+PatLst	: {- empty -}		{ PatEmpty }
+	| PatLst_		{ $1 }
+
+PatLst_	: LPat			{ PatConst ":" [ $1, PatEmpty ] }
+	| LPat ',' PatLst_	{ PatConst ":" [ $1, $3 ] }
 
 {
-
-happyError = get >>= error . ( "parse error: " ++ ) . show
 
 toyParse :: String -> Value
 toyParse input = toyParser `evalState` makeParserInput input
@@ -173,5 +154,8 @@ makeString ""			= Empty
 makeString ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', makeString cs ]
 makeString ( '\\' : '\\' : cs )	= Complex ":" [ Char '\\', makeString cs ]
 makeString ( c : cs )		= Complex ":" [ Char c, makeString cs ]
+
+happyError :: ParserMonad a
+happyError = get >>= error . ( "parse error: " ++ ) . show
 
 }

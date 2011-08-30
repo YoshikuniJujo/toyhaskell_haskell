@@ -15,7 +15,7 @@ initEnv = setVars [
 	( ":",		Function makeListFun ),
 	( ">>",		Function concatMonadFun ),
 	( "return",	Function $ IOAction . return ),
-	( "putChar", 	Function putCharFun ),
+	( "putChar",	Function putCharFun ),
 	( "add",	Function $ mkBinIntFunction (+) )
  ] emptyEnv
 
