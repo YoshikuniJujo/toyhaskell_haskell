@@ -7,7 +7,7 @@ module MainTools (
 import Primitives ( initEnv )
 import Eval ( eval )
 import Parser ( toyParse, toyParseModule )
-import Types ( Value( .. ), showValue, Env, setPats )
+import Value ( Value( .. ), showValue, Env, setPats )
 
 import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (

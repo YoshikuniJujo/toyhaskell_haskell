@@ -17,13 +17,13 @@ description:	small subset of haskell
 executable runtoy
   hs-source-dirs:	src
   main-is:		runtoy.hs
-  other-modules:	MainTools, Eval, Lexer, Types, Parser
+  other-modules:	MainTools, Eval, Lexer, Value, Parser
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec, array
 
 executable toy
   hs-source-dirs:	src
   main-is:		toy.hs
-  other-modules:	MainTools, Eval, Lexer, Types, Parser
+  other-modules:	MainTools, Eval, Lexer, Value, Parser
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec, array
