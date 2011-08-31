@@ -1,7 +1,5 @@
 module Eval (
-	eval,
-	checkAndEval,
-	getNotSetVars
+	checkAndEval
 ) where
 
 import Value ( Value( .. ), Pattern( .. ), match,
