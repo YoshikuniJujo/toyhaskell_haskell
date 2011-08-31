@@ -6,7 +6,7 @@ add x y = x + y
 
 some = let { 1 : x : 3 : [] = 1 : 2 : 3 : [] } in x;
 
-other = let z = 3 in ( \y -> x + y ) 4
+other = let z = 3; x = 8 in ( \y -> x + y ) 4
 
 hello = "Hello, world!\n"
 bye = "Good-bye, world"

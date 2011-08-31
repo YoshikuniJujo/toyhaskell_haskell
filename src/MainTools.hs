@@ -5,7 +5,7 @@ module MainTools (
 ) where
 
 import Primitives ( initEnv )
-import Eval ( eval )
+import Eval ( checkAndEval {- eval -}, getNotSetVars )
 import Parser ( toyParse, toyParseModule )
 import Value ( Value( .. ), showValue, Env, setPats )
 
@@ -18,6 +18,8 @@ import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
+
+eval = checkAndEval
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do

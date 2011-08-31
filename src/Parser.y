@@ -15,7 +15,7 @@ module Parser (
  ) where
 
 import Lexer -- ( toyLexer, makeParserInput )
-import Value ( Value( .. ), Pattern( .. ), emptyEnv )
+import Value ( Value( .. ), Pattern( .. ) )
 
 import "monads-tf" Control.Monad.State ( when, get )
 
@@ -70,7 +70,7 @@ Op	: varsym		{ $1 }
 	| '`' varid '`'		{ $2 }
 	| ':'			{ ":" }
 
-Lexp	: '\\' APats '->' Exp	{ Lambda emptyEnv $2 $4 }
+Lexp	: '\\' APats '->' Exp	{ Lambda $2 $4 }
 	| Let in Exp		{ Letin $1 $3 }
 	| if Exp then Exp else Exp
 				{ Case $2 [ ( PatCon "True" [ ], $4 ),
@@ -115,7 +115,7 @@ Decls	: Decl			{ [ $1 ] }
 	| {- empty -}		{ [ ] }
 
 Decl	: Pat '=' Exp		{ ( $1, $3 ) }
-	| varid APats '=' Exp	{ ( PatVar $1, Lambda emptyEnv $2 $4 ) }
+	| varid APats '=' Exp	{ ( PatVar $1, Lambda $2 $4 ) }
 
 close	: '}'			{ () }
 	| error			{% do

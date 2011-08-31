@@ -12,6 +12,7 @@ module Value (
 	setPat,
 	setPats,
 	getVal,
+	getPatVars
 ) where
 
 import Env (
@@ -37,7 +38,7 @@ data Value =
 	Apply Value Value			|
 	Function ( Value -> Value )		|
 	IOAction ( IO Value )			|
-	Lambda Env [ Pattern ] Value		|
+	Lambda [ Pattern ] Value		|
 	Closure Env [ Pattern ] Value		|
 	Case Value [ ( Pattern, Value ) ]	|
 	Letin [ ( Pattern, Value ) ] Value	|
@@ -59,7 +60,7 @@ instance Show Value where
 	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
 	show ( Function _ )	= "<function>"
 	show ( IOAction _ )	= "<IO>"
-	show ( Lambda _ _ _ )	= "<lambda>"
+	show ( Lambda _ _ )	= "<lambda>"
 	show ( Closure _ _ _ )	= "<closure>"
 	show ( Case _ _ )	= "<case>"
 	show ( Letin a b )	= "let " ++ show a ++ " in " ++ show b
