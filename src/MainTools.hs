@@ -5,7 +5,7 @@ module MainTools (
 ) where
 
 import Primitives ( initEnv )
-import Eval ( checkAndEval )
+import Eval ( toyEval )
 import Parser ( toyParse, toyParseModule )
 import Value ( Value( .. ), showValue, Env, setPats )
 
@@ -19,18 +19,15 @@ import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-eval :: Env -> Value -> Value
-eval = checkAndEval
-
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
 	let	( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0	<- foldM loadFile initEnv fns
-	( flip . flip maybe ) ( showValue . eval env0 . toyParse ) expr $
+	( flip . flip maybe ) ( showValue . toyEval env0 . toyParse ) expr $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
-			_		-> case eval env $ toyParse inp of
+			_		-> case toyEval env $ toyParse inp of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
 
@@ -38,9 +35,9 @@ runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
 runLoop name stat0 act = do
 	_ <- doWhile stat0 $ \stat -> do
 		input <- prompt $ name ++ "> "
-		if input `notElem` [ ":quit", ":q" ]
-			then fmap ( , True ) $ act stat input
-			else return ( stat, False )
+		if input `elem` [ ":quit", ":q" ]
+			then return ( stat, False )
+			else fmap ( , True ) $ act stat input
 	putStrLn $ "Leaving " ++ name ++ "."
 	where
 	prompt p = putStr p >> hFlush stdout >> getLine
@@ -75,6 +72,6 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case eval env $ toyParseModule cnt of
+	case toyEval env $ toyParseModule cnt of
 		Let ps	-> return $ setPats ps env
-		bad	-> error $ show bad
+		_	-> error $ "never occur"

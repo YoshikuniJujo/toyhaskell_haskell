@@ -1,5 +1,5 @@
 module Eval (
-	checkAndEval
+	toyEval
 ) where
 
 import Value ( Value( .. ), Pattern( .. ), match,
@@ -7,6 +7,9 @@ import Value ( Value( .. ), Pattern( .. ), match,
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
+
+toyEval :: Env -> Value -> Value
+toyEval = checkAndEval
 
 checkAndEval :: Env -> Value -> Value
 checkAndEval env v = case getNotSetVars env v of
