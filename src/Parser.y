@@ -73,8 +73,8 @@ Op	: varsym		{ $1 }
 Lexp	: '\\' LPat '->' Exp	{ Lambda emptyEnv [ $2 ] $4 }
 	| Let in Exp		{ Letin $1 $3 }
 	| if Exp then Exp else Exp
-				{ Case $2 [ ( PatConst "True" [ ], $4 ),
-						( PatConst "False" [ ], $6 ) ] }
+				{ Case $2 [ ( PatCon "True" [ ], $4 ),
+						( PatCon "False" [ ], $6 ) ] }
 	| LexpOpL		{ $1 }
 	| Let			{ Let $1 }
 
@@ -123,7 +123,7 @@ close	: '}'			{ () }
 					when ( maybe True ( == 0 ) mm ) $
 						happyError }
 
-Pat	: LPat ':' Pat		{ PatConst ":" [ $1, $3 ] }
+Pat	: LPat ':' Pat		{ PatCon ":" [ $1, $3 ] }
 	| LPat			{ $1 }
 
 LPat	: APat			{ $1 }
@@ -137,8 +137,8 @@ APat	: varid			{ PatVar $1 }
 PatLst	: {- empty -}		{ PatEmpty }
 	| PatLst_		{ $1 }
 
-PatLst_	: LPat			{ PatConst ":" [ $1, PatEmpty ] }
-	| LPat ',' PatLst_	{ PatConst ":" [ $1, $3 ] }
+PatLst_	: LPat			{ PatCon ":" [ $1, PatEmpty ] }
+	| LPat ',' PatLst_	{ PatCon ":" [ $1, $3 ] }
 
 {
 

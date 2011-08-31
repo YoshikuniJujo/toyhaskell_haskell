@@ -19,11 +19,11 @@ executable runtoy
   main-is:		runtoy.hs
   other-modules:	MainTools, Eval, Lexer, Value, Parser
   ghc-options:		-Wall
-  build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec, array
+  build-depends:	base > 3 && < 5, monads-tf, yjtools, array
 
 executable toy
   hs-source-dirs:	src
   main-is:		toy.hs
   other-modules:	MainTools, Eval, Lexer, Value, Parser
   ghc-options:		-Wall
-  build-depends:	base > 3 && < 5, monads-tf, yjtools, parsec, array
+  build-depends:	base > 3 && < 5, monads-tf, yjtools, array

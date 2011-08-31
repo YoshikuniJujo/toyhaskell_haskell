@@ -1,7 +1,6 @@
 module Value (
 	Pattern( .. ),
 	Value( .. ),
-	OpTable,
 
 	showValue,
 	match,
@@ -18,14 +17,13 @@ module Value (
 import Env (
 	emptyEnv, addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv )
 import qualified Env as E ( Env )
-import Text.ParserCombinators.Parsec.Expr ( Assoc )
 import Control.Monad ( liftM, zipWithM )
 
 data Pattern =
-	PatConst String [ Pattern ]	|
 	PatVar String			|
-	PatUScore			|
+	PatCon String [ Pattern ]	|
 	PatInteger Integer		|
+	PatUScore			|
 	PatEmpty
 	deriving ( Eq, Show )
 
@@ -86,8 +84,6 @@ showValue ( IOAction act )	= do
 		_	-> print v
 showValue v			= print v
 
-type OpTable = [ ( String, Int, Assoc ) ]
-
 --------------------------------------------------------------------------------
 
 type Env = E.Env Pattern Value
@@ -98,14 +94,14 @@ match _ PatUScore		= Just [ ]
 match ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
 	| otherwise	= Nothing
-match ( Complex name1 vals ) ( PatConst name0 pats )
+match ( Complex name1 vals ) ( PatCon name0 pats )
 	| name1 == name0	= liftM concat $ zipWithM match vals pats
 	| otherwise		= Nothing
 match Empty PatEmpty		= Just [ ]
 match _ _			= Nothing
 
 getPatVars :: Pattern -> [ String ]
-getPatVars ( PatConst _ pats )	= concatMap getPatVars pats
+getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
 getPatVars ( PatVar var )	= [ var ]
 getPatVars _			= [ ]
 
