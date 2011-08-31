@@ -184,3 +184,6 @@ Lisp 的なスコープになっているが、
 本来ならば scheme 的なスコープにしなければならない。
 
 Letin は再帰関数を扱えるため、Lambda では表せない。
+
+let x = 3 in ( \y -> x + y ) 4 と
+fun = \y -> x  + y; let x = 3 in fun 4 との違いについて。
