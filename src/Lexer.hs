@@ -12,17 +12,17 @@ import Control.Monad.State ( State, evalState, put, get, gets )
 --------------------------------------------------------------------------------
 
 data Token =
-	Special Char		|
-	ReservedId String	|
-	ReservedOp String	|
 	Varid String		|
 	Conid String		|
 	VarSym String		|
 	TokInteger Integer	|
 	TokChar Char		|
 	TokString String	|
+	Special Char		|
+	ReservedOp String	|
+	ReservedId String	|
 	NewLine			|
-	TokenEOF		|
+	TokEOF			|
 	AddBrace Int		|
 	Indent Int
 	deriving ( Show, Eq )
@@ -62,7 +62,7 @@ preprocessor = do
 			Just 0	-> popIndents >> return t
 			_	-> error "bad close brace"
 		Special '{'	-> pushIndents 0 >> return t
-		TokenEOF	-> ( flip . maybe ) ( return t ) mm $ \_ -> do
+		TokEOF		-> ( flip . maybe ) ( return t ) mm $ \_ -> do
 			_ <- popIndents
 			return $ Special '}'
 		_		-> return t
@@ -75,16 +75,13 @@ addLayoutTokens = do
 			nt <- peekNextToken
 			case nt of
 				( Special '{', _ )	-> return ()
-				( TokenEOF, _ )		->
+				( TokEOF, _ )		->
 					pushBuf ( AddBrace 0, 0 )
 				( _, cs )		->
 					pushBuf ( AddBrace cs, 0 )
 			return t
-		NewLine					-> do
-			nt <- peekNextToken
-			let ( _, cs ) = nt
-			pushBuf ( Indent cs, 0 )
-			addLayoutTokens
+		NewLine					->
+			fmap ( Indent . snd ) peekNextToken
 		_					-> return t
 	where
 	keywords = [ "where", "let", "do", "of" ]
@@ -97,7 +94,7 @@ peekNextToken = lexerNoNL >>= \ret -> pushBuf ret >> return ret
 		_		-> return t
 
 lexer :: Parse ( Token, Int )
-lexer = popBuf >>= \mtb -> ( flip . flip maybe ) return mtb $ do
+lexer = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
 	src	<- gets source
 	cs	<- gets cols
 	let ( t, fin, rest ) = lexeme getToken src
@@ -108,7 +105,7 @@ lexer = popBuf >>= \mtb -> ( flip . flip maybe ) return mtb $ do
 type Lexer = String -> ( Token, String, String )
 
 getToken :: Lexer
-getToken ""			= ( TokenEOF, "", "" )
+getToken ""			= ( TokEOF, "", "" )
 getToken ( '\n' : cs )		= ( NewLine, "\n", cs )
 getToken ( '\'' : cs )		= getTokenChar cs
 getToken ( '"' : cs )		= getTokenString cs
@@ -143,9 +140,8 @@ lexeme lx src = let
 	( ws, rest' )		= gw rest in
 	( t, fin ++ ws, rest' )
 	where
-	gw ca@( '-' : '-' : _ )	= let	( c, r ) = span ( /= '\n' ) ca
-					( w, r' ) = gw r in
-					( c ++ w, r' )
+	gw ca@( '-' : '-' : _ )	= first ( c ++ ) $ gw r
+		where ( c, r ) = span ( /= '\n' ) ca
 	gw ( ' ' : cs )		= first ( ' ' : ) $ gw cs
 	gw ( '\t' : cs )	= first ( '\t' : ) $ gw cs
 	gw ca			= ( "", ca )
@@ -155,7 +151,6 @@ lexeme lx src = let
 type Parse = State ParseState
 
 data ParseState = ParseState {
-	indent	:: Int,
 	indents	:: [ Int ],
 	lns	:: Int,
 	cols	:: Int,
@@ -165,7 +160,6 @@ data ParseState = ParseState {
 
 evalParse :: Parse a -> String -> a
 evalParse m src = m `evalState` ParseState {
-	indent	= 0,
 	indents	= [ ],
 	lns	= 1,
 	cols	= 1,

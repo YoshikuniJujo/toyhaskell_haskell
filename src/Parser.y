@@ -24,7 +24,7 @@ import "monads-tf" Control.Monad.State ( when, get )
 %name		toyParser	Exp
 %name		toyParserModule	Module
 %monad		{ Parse }
-%lexer		{ toyLexer } { TokenEOF }
+%lexer		{ toyLexer } { TokEOF }
 %tokentype	{ Token }
 
 %token
