@@ -2,6 +2,8 @@ module Main where
 
 -- import Prelude hiding ( putStr, putStrLn )
 
+add x y = x + y
+
 some = let { 1 : x : 3 : [] = 1 : 2 : 3 : [] } in x;
 
 other = let z = 3 in ( \y -> x + y ) 4
@@ -22,4 +24,4 @@ fac3 = \n -> case n of { 0 -> 1; _ -> n * fac ( n - 1 ) }
 putStr str = case str of { c : cs -> putChar c >> putStr cs; [] -> return () }
 putStrLn str = putStr str >> putChar '\n'
 
-main = putStrLn "Hello, World!" >> return ( let x = 5 in x + other )
+main = putStrLn "Hello, World!" >> return ( add ( let x = 5 in x + other ) some )

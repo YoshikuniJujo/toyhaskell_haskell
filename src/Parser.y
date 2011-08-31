@@ -70,7 +70,7 @@ Op	: varsym		{ $1 }
 	| '`' varid '`'		{ $2 }
 	| ':'			{ ":" }
 
-Lexp	: '\\' LPat '->' Exp	{ Lambda emptyEnv [ $2 ] $4 }
+Lexp	: '\\' APats '->' Exp	{ Lambda emptyEnv $2 $4 }
 	| Let in Exp		{ Letin $1 $3 }
 	| if Exp then Exp else Exp
 				{ Case $2 [ ( PatCon "True" [ ], $4 ),
@@ -115,7 +115,7 @@ Decls	: Decl			{ [ $1 ] }
 	| {- empty -}		{ [ ] }
 
 Decl	: Pat '=' Exp		{ ( $1, $3 ) }
-	| varid LPat '=' Exp	{ ( PatVar $1, Lambda emptyEnv [ $2 ] $4 ) }
+	| varid APats '=' Exp	{ ( PatVar $1, Lambda emptyEnv $2 $4 ) }
 
 close	: '}'			{ () }
 	| error			{% do
@@ -127,6 +127,9 @@ Pat	: LPat ':' Pat		{ PatCon ":" [ $1, $3 ] }
 	| LPat			{ $1 }
 
 LPat	: APat			{ $1 }
+
+APats	: APat			{ [ $1 ] }
+	| APat APats		{ $1 : $2 }
 
 APat	: varid			{ PatVar $1 }
 	| integer		{ PatInteger $1 }
