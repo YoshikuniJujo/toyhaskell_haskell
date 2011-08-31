@@ -11,12 +11,13 @@ import Data.Maybe ( fromMaybe )
 eval :: Env -> Value -> Value
 eval env ( Identifier i )	=
 	eval env $ fromMaybe ( noVarError i ) $ getVal ( eval env ) i env
+eval env ( Lambda _ pats body )	= Closure env pats body
 eval env ( Apply f a )		= case eval env f of
 	Function fun			-> fun $ eval env a
-	Lambda lenv [ pat ] body	->
-		eval ( setPat pat ( eval env a ) lenv `addEnvs` env ) body
-	Lambda lenv ( pat : pats ) body	->
-		Lambda ( setPat pat ( eval env a ) lenv ) pats body
+	Closure lenv [ pat ] body	->
+		eval ( setPat pat ( eval env a ) lenv ) body
+	Closure lenv ( pat : pats ) body	->
+		Closure ( setPat pat ( eval env a ) lenv ) pats body
 	e@( Error _ )			-> e
 	_				-> notFunctionError f
 eval env ( Letin pvs body )	= eval ( setPats pvs env ) body

@@ -38,6 +38,7 @@ data Value =
 	Function ( Value -> Value )		|
 	IOAction ( IO Value )			|
 	Lambda Env [ Pattern ] Value		|
+	Closure Env [ Pattern ] Value		|
 	Case Value [ ( Pattern, Value ) ]	|
 	Letin [ ( Pattern, Value ) ] Value	|
 	Let [ ( Pattern, Value ) ]		|
@@ -58,7 +59,8 @@ instance Show Value where
 	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
 	show ( Function _ )	= "<function>"
 	show ( IOAction _ )	= "<IO>"
-	show ( Lambda _ _ _ )	= "<closure>"
+	show ( Lambda _ _ _ )	= "<lambda>"
+	show ( Closure _ _ _ )	= "<closure>"
 	show ( Case _ _ )	= "<case>"
 	show ( Letin a b )	= "let " ++ show a ++ " in " ++ show b
 	show ( Let a )		= "let " ++ show a
