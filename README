@@ -1,0 +1,7 @@
+toyhaskell is haskell interpreter written with haskell.
+
+install with cabal and try like follow.
+
+% toy some.hs		# for interact
+% runtoy some.hs	# for run
+
