@@ -5,3 +5,5 @@ install with cabal and try like follow.
 % toy some.hs		# for interact
 % runtoy some.hs	# for run
 
+Yet version 0.0.1
+Now, no type, no Prelude and no ....
