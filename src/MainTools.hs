@@ -9,6 +9,8 @@ import Eval ( toyEval )
 import Parser ( toyParse, toyParseModule )
 import Value ( Value( .. ), showValue, Env, setPats )
 
+import Control.Arrow
+
 import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
@@ -30,7 +32,8 @@ mainGen args _ = do
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
 			_		-> case toyEval env $ alpha_ [ ] $ toyParse inp of
-				Let ps	-> return $ setPats ps env
+				Let ps	-> return $ setPats
+					( map ( second $ toyEval env ) ps ) env
 				ret	-> showValue ret >> return env
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
