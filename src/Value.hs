@@ -21,7 +21,7 @@ import qualified Env as E ( Env )
 import Control.Monad ( liftM, zipWithM )
 
 data Pattern =
-	PatVar String			|
+	PatVar String Int		|
 	PatCon String [ Pattern ]	|
 	PatInteger Integer		|
 	PatUScore			|
@@ -31,7 +31,7 @@ data Pattern =
 data Value =
 	Nil					|
 	Empty					|
-	Identifier String			|
+	Identifier String Int			|
 	Integer Integer				|
 	Char Char				|
 	Complex String [ Value ]		|
@@ -48,7 +48,7 @@ data Value =
 instance Show Value where
 	show Nil		= "()"
 	show Empty		= "[]"
-	show ( Identifier i )	= i
+	show ( Identifier i _ )	= i
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
 	show v@( Complex ":" [ Char _, _ ] )
@@ -92,7 +92,7 @@ showValue v			= print v
 type Env = E.Env Pattern Value
 
 match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
-match val ( PatVar var )	= Just [ ( var, val ) ]
+match val ( PatVar var _ )	= Just [ ( var, val ) ]
 match _ PatUScore		= Just [ ]
 match ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
@@ -105,7 +105,7 @@ match _ _			= Nothing
 
 getPatVars :: Pattern -> [ String ]
 getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
-getPatVars ( PatVar var )	= [ var ]
+getPatVars ( PatVar var _ )	= [ var ]
 getPatVars _			= [ ]
 
 setPat :: Pattern -> Value -> Env -> Env
@@ -115,7 +115,7 @@ setPats :: [ ( Pattern, Value ) ] -> Env -> Env
 setPats = setPatsToEnv getPatVars
 
 setVars :: [ ( String, Value ) ] -> Env -> Env
-setVars = setsToEnv PatVar
+setVars = setsToEnv ( flip PatVar 0 )
 
 getVal :: ( Value -> Value ) -> String -> Env -> Maybe Value
 getVal = getFromEnv match

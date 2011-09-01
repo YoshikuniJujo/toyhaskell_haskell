@@ -19,7 +19,7 @@ checkAndEval env v = case getNotSetVars env v of
 	mkErrMsg var = "Not in scope: `" ++ var ++ "'"
 
 getNotSetVars :: Env -> Value -> [ String ]
-getNotSetVars env ( Identifier i ) = case getVal ( eval env ) i env of
+getNotSetVars env ( Identifier i _ ) = case getVal ( eval env ) i env of
 	Just v	-> getNotSetVars env v
 	Nothing	-> [ i ]
 getNotSetVars env ( Lambda pats body )	=
@@ -36,7 +36,7 @@ getNotSetVars env ( Let pvs )		=
 getNotSetVars _ _			= [ ]
 
 eval :: Env -> Value -> Value
-eval env ( Identifier i )	=
+eval env ( Identifier i _ )	=
 	eval env $ fromMaybe ( noVarError i ) $ getVal ( eval env ) i env
 eval env ( Lambda pats body )	= Closure env pats body
 eval env ( Apply f a )		= case eval env f of

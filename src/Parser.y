@@ -63,7 +63,7 @@ import "monads-tf" Control.Monad.State ( when, get )
 Module	: module conid where '{' Decls '}'
 				{ Let $5 }
 
-Exp	: LexpOpL Op Exp	{ Apply ( Apply ( Identifier $2 ) $1 ) $3 }
+Exp	: LexpOpL Op Exp	{ Apply ( Apply ( Identifier $2 0 ) $1 ) $3 }
 	| Lexp			{ $1 }
 
 Op	: varsym		{ $1 }
@@ -92,7 +92,7 @@ Alt	: Pat '->' Exp		{ ( $1, $3 ) }
 Fexp	: Aexp			{ $1 }
 	| Fexp Aexp		{ Apply $1 $2 }
 
-Aexp	: varid			{ Identifier $1 }
+Aexp	: varid			{ Identifier $1 0 }
 	| conid			{ Complex $1 [ ] }
 	| integer		{ Integer $1 }
 	| char			{ Char $1 }
@@ -115,7 +115,7 @@ Decls	: Decl			{ [ $1 ] }
 	| {- empty -}		{ [ ] }
 
 Decl	: Pat '=' Exp		{ ( $1, $3 ) }
-	| varid APats '=' Exp	{ ( PatVar $1, Lambda $2 $4 ) }
+	| varid APats '=' Exp	{ ( PatVar $1 0, Lambda $2 $4 ) }
 
 close	: '}'			{ () }
 	| error			{% do
@@ -131,7 +131,7 @@ LPat	: APat			{ $1 }
 APats	: APat			{ [ $1 ] }
 	| APat APats		{ $1 : $2 }
 
-APat	: varid			{ PatVar $1 }
+APat	: varid			{ PatVar $1 0 }
 	| integer		{ PatInteger $1 }
 	| '_'			{ PatUScore }
 	| '(' Pat ')'		{ $2 }
