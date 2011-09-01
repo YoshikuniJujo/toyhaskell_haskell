@@ -48,7 +48,7 @@ data Value =
 instance Show Value where
 	show Nil		= "()"
 	show Empty		= "[]"
-	show ( Identifier i _ )	= i
+	show ( Identifier i n )	= i -- ++ show n
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
 	show v@( Complex ":" [ Char _, _ ] )
@@ -60,12 +60,30 @@ instance Show Value where
 	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
 	show ( Function _ )	= "<function>"
 	show ( IOAction _ )	= "<IO>"
-	show ( Lambda _ _ )	= "<lambda>"
+	show ( Lambda vs body )	= showLambda vs body -- "<lambda>"
 	show ( Closure _ _ _ )	= "<closure>"
-	show ( Case _ _ )	= "<case>"
-	show ( Letin a b )	= "let " ++ show a ++ " in " ++ show b
-	show ( Let a )		= "let " ++ show a
+	show ( Case v ps )	= showCase v ps
+	show ( Letin a b )	= "let " ++ showPair a ++ " in " ++ show b
+	show ( Let a )		= "let " ++
+		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
+		"; " ) a )
 	show ( Error msg )	= "Error: " ++ msg
+
+showPair a = unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
+	"; " ) a )
+
+showLambda :: [ Pattern ] -> Value -> String
+showLambda vs body = "( \\" ++ unwords ( map showPattern vs ) ++ " -> " ++
+	show body ++ " )"
+
+showCase :: Value -> [ ( Pattern, Value ) ] -> String
+showCase v ps = "case " ++ show v ++ " of { " ++
+	unwords ( map ( \( p, v ) -> showPattern p ++ " -> " ++ show v ++ "; " ) ps )
+	++ " }"
+
+showPattern :: Pattern -> String
+showPattern ( PatVar var n )	= var -- ++ show n
+showPattern p			= show p
 
 showL :: Value -> String
 showL ( Complex ":" [ v, Empty ] )	= show v
