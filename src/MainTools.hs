@@ -8,13 +8,12 @@ import Alpha ( alpha )
 import Parser ( toyParse, toyParseModule )
 import Value ( Value( .. ), showValue, Env, setPats )
 
-import Control.Arrow
-
 import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (
 	getOpt, ArgOrder( .. ), OptDescr( .. ), ArgDescr( .. ) )
 import Control.Monad ( foldM )
 import Control.Monad.Tools ( doWhile )
+import Control.Arrow ( second )
 import Data.List ( isPrefixOf )
 import Data.Char ( isSpace )
 
@@ -22,13 +21,13 @@ import Data.Char ( isSpace )
 
 mainGen :: [ String ] -> [ String ] -> IO ()
 mainGen args _ = do
-	let	( expr, fns, errs ) = readOption args
+	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	env0	<- foldM loadFile initEnv fns
-	( flip . flip maybe ) ( showValue . toyEval env0 . alpha [ ] . toyParse ) expr $
+	env0 <- foldM loadFile initEnv fns
+	( flip . flip maybe ) ( showValue . toyEval env0 . alpha . toyParse ) expr $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
-			_		-> case toyEval env $ alpha [ ] $ toyParse inp of
+			_		-> case toyEval env $ alpha $ toyParse inp of
 				Let ps	-> return $ setPats
 					( map ( second $ toyEval env ) ps ) env
 				ret	-> showValue ret >> return env
@@ -74,6 +73,6 @@ runCmd cmd env
 loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
-	case toyEval env $ alpha [ ] $ toyParseModule cnt of
+	case toyEval env $ alpha $ toyParseModule cnt of
 		Let ps	-> return $ setPats ps env
 		_	-> error "never occur"

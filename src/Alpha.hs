@@ -6,8 +6,8 @@ import Value
 import Data.List
 import Control.Arrow
 
-alpha :: [ ( String, Int ) ] -> Value -> Value
-alpha used = makeVar . alpha_ used
+alpha :: Value -> Value
+alpha = makeVar . alpha_ [ ]
 
 makeVar :: Value -> Value
 makeVar ( Identifier var 0 )	= Identifier var 0
