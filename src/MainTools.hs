@@ -35,7 +35,7 @@ mainGen args _ = do
 				ret	-> showValue ret >> return env
 
 testAlpha :: Maybe String -> IO ()
-testAlpha Nothing = runLoop "alpha" () $ \() input -> do
+testAlpha Nothing = runLoop "alpha" () $ \() input ->
 	print $ alpha_ [ ] $ toyParse input
 testAlpha ( Just fn ) = readFile fn >>= print . alpha_ [ ] . toyParseModule
 

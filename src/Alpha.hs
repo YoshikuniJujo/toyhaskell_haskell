@@ -34,7 +34,7 @@ alpha used ( Lambda vs body )	=
 	Lambda ( map ( setNextsPat usedV ) vs ) $ alpha nused $
 		setNextsValue usedV body
 	where
-	usedV	= intersect ( map fst used ) ( concatMap getPatVars vs )
+	usedV	= map fst used `intersect` concatMap getPatVars vs
 	nused	= updateUsed used ( concatMap getPatVars vs )
 alpha used ( Apply v1 v2 )	=
 	Apply ( alpha used v1 ) ( alpha used v2 )
@@ -42,14 +42,15 @@ alpha used ( Complex con vs )	= Complex con $ map ( alpha used ) vs
 alpha used ( Case v ps )	=
 	Case ( alpha used v ) $ map ( alphaCase used ) ps
 alpha used ( Letin ps v )	=
-	Letin ( map ( second $ alpha nused ) $ map ( setNextsPair usedV ) ps ) $ alpha nused $ setNextsValue usedV v
+	Letin ( map ( second ( alpha nused ) . setNextsPair usedV ) ps ) $
+		alpha nused $ setNextsValue usedV v
 	where
-	usedV	= intersect ( map fst used ) ( concatMap getPatVars $ map fst ps )
+	usedV	= map fst used `intersect` concatMap getPatVars ( map fst ps )
 	nused	= updateUsed used ( concatMap getPatVars $ map fst ps )
 alpha used ( Let ps )		=
-	Let ( map ( second $ alpha nused ) $ map ( setNextsPair usedV ) ps )
+	Let $ map ( second ( alpha nused ) . setNextsPair usedV ) ps
 	where
-	usedV	= intersect ( map fst used ) ( concatMap getPatVars $ map fst ps )
+	usedV	= map fst used `intersect` concatMap getPatVars ( map fst ps )
 	nused	= updateUsed used ( concatMap getPatVars $ map fst ps )
 alpha _ v			= v
 
@@ -57,13 +58,13 @@ alphaCase :: [ ( String, Int ) ] -> ( Pattern, Value ) -> ( Pattern, Value )
 alphaCase used ( pat, val )	=
 	( setNextsPat usedV pat, alpha nused $ setNextsValue usedV val )
 	where
-	usedV	= intersect ( map fst used ) ( getPatVars pat )
+	usedV	= map fst used `intersect` getPatVars pat
 	nused	= updateUsed used ( getPatVars pat )
 
 updateUsed :: [ ( String, Int ) ] -> [ String ] -> [ ( String, Int ) ]
 updateUsed [ ] vars = map ( , 1 ) vars
 updateUsed ( ( v, n ) : us ) vars
-	| elem v vars	= ( v, n + 1 ) : updateUsed us ( filter ( /= v ) vars )
+	| v `elem` vars	= ( v, n + 1 ) : updateUsed us ( filter ( /= v ) vars )
 	| otherwise	= ( v, n ) : updateUsed us vars
 
 setNextsValue :: [ String ] -> Value -> Value
@@ -98,6 +99,6 @@ setNextPair2 v0 ( v, p ) = ( setNextValue v0 v, setNextPat v0 p )
 
 setNextPat :: String -> Pattern -> Pattern
 setNextPat v0 ( PatVar v1 n )
-	| v0 == v1	= ( PatVar v1 $ n + 1 )
+	| v0 == v1	= PatVar v1 $ n + 1
 setNextPat v0 ( PatCon c pats )	= PatCon c $ map ( setNextPat v0 ) pats
 setNextPat _ p		= p
