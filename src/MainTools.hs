@@ -1,8 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module MainTools (
-	mainGen,
-	testAlpha
+	mainGen
 ) where
 
 import Primitives ( initEnv )
@@ -33,11 +32,6 @@ mainGen args _ = do
 			_		-> case toyEval env $ alpha_ [ ] $ toyParse inp of
 				Let ps	-> return $ setPats ps env
 				ret	-> showValue ret >> return env
-
-testAlpha :: Maybe String -> IO ()
-testAlpha Nothing = runLoop "alpha" () $ \() input ->
-	print $ alpha_ [ ] $ toyParse input
-testAlpha ( Just fn ) = readFile fn >>= print . alpha_ [ ] . toyParseModule
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
 runLoop name stat0 act = do

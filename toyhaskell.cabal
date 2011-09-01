@@ -27,10 +27,3 @@ executable toy
   other-modules:	MainTools, Eval, Lexer, Value, Parser
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, array
-
-executable testAlpha
-  hs-source-dirs:	src
-  main-is:		testAlpha.hs
-  other-modules:	MainTools, Eval, Lexer, Value, Parser, Alpha
-  ghc-options:		-Wall
-  build-depends:	base > 3 && < 5, monads-tf, yjtools, array
