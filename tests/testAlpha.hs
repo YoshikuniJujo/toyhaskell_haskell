@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Main where
 
 import Data.List
@@ -7,7 +9,7 @@ import Interact
 
 data Exp
 	= Int Int
-	| Var String
+	| Var String Int
 	| Apply Exp Exp
 	| Lambda [ String ] Exp
 	| Let [ ( String, Exp ) ] Exp
@@ -15,7 +17,8 @@ data Exp
 
 showExp :: Exp -> String
 showExp ( Int int )		= show int
-showExp ( Var var )		= var
+showExp ( Var var 0 )		= var
+showExp ( Var var n )		= var ++ "~" ++ show n
 showExp ( Apply fun arg )	=
 	"(" ++ showExp fun ++ " " ++ showExp arg ++ ")"
 showExp ( Lambda vars body )	=
@@ -27,7 +30,7 @@ showExp ( Let ps body )	=
 
 main :: IO ()
 main = do
-	putStrLn $ showExp $ Lambda [ "x" ] ( Var "x" )
+	putStrLn $ showExp $ Lambda [ "x" ] ( Var "x" 0 )
 	print $ head $ parse $ lexer "\\x y -> ( f x ) y"
 	runLoop "alpha" () $ \() input -> do
 		case parse $ lexer input of
@@ -78,7 +81,7 @@ parseParens = token TokOpenParen `next` parseExp `next` token TokCloseParen
 	`build` ( \( ( _, e ), _ ) -> e )
 
 parseVar :: Parser Exp
-parseVar = spot isTokVar `build` ( \( TokVar var ) -> Var var )
+parseVar = spot isTokVar `build` ( \( TokVar var ) -> Var var 0 )
 
 parseInt :: Parser Exp
 parseInt = spot isTokInt `build` ( \( TokInt int ) -> Int int )
@@ -143,12 +146,13 @@ lexer str@( c : _ )
 					TokInt ( read num ) : lexer rest
 lexer _				= error "bad"
 
--- alpha :: [ ( String, Int ) ] -> Exp -> Exp
-alpha used ( Lambda vars body ) = Lambda nvars $ alpha nused $ putTildas usedV body
+alpha :: [ ( String, Int ) ] -> Exp -> Exp
+alpha used ( Lambda vars body ) =
+	Lambda nvars $ alpha nused $ putTildas usedV body
 	where
-	nused = used ++ ( vars \\ used )
-	usedV = vars `intersect` used
-	nvars = ( vars \\ used ) ++ map ( ++ "~" ) usedV
+	nused = updateUsed used vars
+	usedV = filter ( ( `elem` vars ) . fst ) used -- vars `intersect` map fst used
+	nvars = ( vars \\ map fst used ) ++ map ( \( v, n ) -> v ++ "~" ++ show n ) usedV
 {-
 alpha used ( Let ps body ) = Let nps $ alpha nused $ putTildas usedV body
 	where
@@ -156,17 +160,23 @@ alpha used ( Let ps body ) = Let nps $ alpha nused $ putTildas usedV body
 -}
 alpha _ e = e
 
-putTildas :: [ String ] -> Exp -> Exp
-putTildas = flip ( foldr putTilda )
+updateUsed :: [ ( String, Int ) ] -> [ String ] -> [ ( String, Int ) ]
+updateUsed [ ] vars		= map ( , 1 ) vars
+updateUsed ( ( v, n ) : us ) vars
+	| elem v vars	= ( v, n + 1 ) : updateUsed us ( filter ( /= v ) vars )
+	| otherwise	= ( v, n ) : updateUsed us vars
 
-putTilda :: String -> Exp -> Exp
-putTilda var = changeVar var $ var ++ "~"
+putTildas :: [ ( String, Int ) ] -> Exp -> Exp
+putTildas = flip ( foldr $ uncurry putTilda )
+
+putTilda :: String -> Int -> Exp -> Exp
+putTilda var n = changeVar var $ var ++ "~" ++ show n
 
 changeVar :: String -> String -> Exp -> Exp
 changeVar p a ( Lambda vars body )	= Lambda vars $ changeVar p a body
 changeVar p a ( Let ps body )		= Let ps $ changeVar p a body
 changeVar p a ( Apply f arg )		= Apply ( changeVar p a f )
 						( changeVar p a arg )
-changeVar p a ( Var v )
-	| p == v			= Var a
+changeVar p a ( Var v n )
+	| p == v			= Var v ( n + 1 )
 changeVar _ _ e				= e
