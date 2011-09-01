@@ -48,7 +48,7 @@ data Value =
 instance Show Value where
 	show Nil		= "()"
 	show Empty		= "[]"
-	show ( Identifier i n )	= i -- ++ show n
+	show ( Identifier i _ )	= i -- ++ show n
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
 	show v@( Complex ":" [ Char _, _ ] )
@@ -69,6 +69,7 @@ instance Show Value where
 		"; " ) a )
 	show ( Error msg )	= "Error: " ++ msg
 
+showPair :: [ ( Pattern, Value ) ] -> String
 showPair a = unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
 	"; " ) a )
 
@@ -78,11 +79,11 @@ showLambda vs body = "( \\" ++ unwords ( map showPattern vs ) ++ " -> " ++
 
 showCase :: Value -> [ ( Pattern, Value ) ] -> String
 showCase v ps = "case " ++ show v ++ " of { " ++
-	unwords ( map ( \( p, v ) -> showPattern p ++ " -> " ++ show v ++ "; " ) ps )
+	unwords ( map ( \( p, v' ) -> showPattern p ++ " -> " ++ show v' ++ "; " ) ps )
 	++ " }"
 
 showPattern :: Pattern -> String
-showPattern ( PatVar var n )	= var -- ++ show n
+showPattern ( PatVar var _ )	= var -- ++ show n
 showPattern p			= show p
 
 showL :: Value -> String
