@@ -1,6 +1,6 @@
 module Main where
 
--- import Prelude hiding ( putStr, putStrLn )
+import Prelude hiding ( putStr, putStrLn )
 
 add x y = x + y
 

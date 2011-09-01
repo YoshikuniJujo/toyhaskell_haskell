@@ -1,13 +1,13 @@
 {-# LANGUAGE TupleSections #-}
 
-module Alpha ( alpha_ ) where
+module Alpha ( alpha ) where
 
 import Value
 import Data.List
 import Control.Arrow
 
-alpha_ :: [ ( String, Int ) ] -> Value -> Value
-alpha_ used = makeVar . alpha used
+alpha :: [ ( String, Int ) ] -> Value -> Value
+alpha used = makeVar . alpha_ used
 
 makeVar :: Value -> Value
 makeVar ( Identifier var 0 )	= Identifier var 0
@@ -29,34 +29,34 @@ makeVarP ( PatVar var n )	= PatVar ( var ++ "~" ++ show n ) n
 makeVarP ( PatCon con pats )	= PatCon con ( map makeVarP pats )
 makeVarP p			= p
 
-alpha :: [ ( String, Int ) ] -> Value -> Value
-alpha used ( Lambda vs body )	=
-	Lambda ( map ( setNextsPat usedV ) vs ) $ alpha nused $
+alpha_ :: [ ( String, Int ) ] -> Value -> Value
+alpha_ used ( Lambda vs body )	=
+	Lambda ( map ( setNextsPat usedV ) vs ) $ alpha_ nused $
 		setNextsValue usedV body
 	where
 	usedV	= map fst used `intersect` concatMap getPatVars vs
 	nused	= updateUsed used ( concatMap getPatVars vs )
-alpha used ( Apply v1 v2 )	=
-	Apply ( alpha used v1 ) ( alpha used v2 )
-alpha used ( Complex con vs )	= Complex con $ map ( alpha used ) vs
-alpha used ( Case v ps )	=
-	Case ( alpha used v ) $ map ( alphaCase used ) ps
-alpha used ( Letin ps v )	=
-	Letin ( map ( second ( alpha nused ) . setNextsPair usedV ) ps ) $
-		alpha nused $ setNextsValue usedV v
+alpha_ used ( Apply v1 v2 )	=
+	Apply ( alpha_ used v1 ) ( alpha_ used v2 )
+alpha_ used ( Complex con vs )	= Complex con $ map ( alpha_ used ) vs
+alpha_ used ( Case v ps )	=
+	Case ( alpha_ used v ) $ map ( alphaCase used ) ps
+alpha_ used ( Letin ps v )	=
+	Letin ( map ( second ( alpha_ nused ) . setNextsPair usedV ) ps ) $
+		alpha_ nused $ setNextsValue usedV v
 	where
 	usedV	= map fst used `intersect` concatMap getPatVars ( map fst ps )
 	nused	= updateUsed used ( concatMap getPatVars $ map fst ps )
-alpha used ( Let ps )		=
-	Let $ map ( second ( alpha nused ) . setNextsPair usedV ) ps
+alpha_ used ( Let ps )		=
+	Let $ map ( second ( alpha_ nused ) . setNextsPair usedV ) ps
 	where
 	usedV	= map fst used `intersect` concatMap getPatVars ( map fst ps )
 	nused	= updateUsed used ( concatMap getPatVars $ map fst ps )
-alpha _ v			= v
+alpha_ _ v			= v
 
 alphaCase :: [ ( String, Int ) ] -> ( Pattern, Value ) -> ( Pattern, Value )
 alphaCase used ( pat, val )	=
-	( setNextsPat usedV pat, alpha nused $ setNextsValue usedV val )
+	( setNextsPat usedV pat, alpha_ nused $ setNextsValue usedV val )
 	where
 	usedV	= map fst used `intersect` getPatVars pat
 	nused	= updateUsed used ( getPatVars pat )
@@ -93,9 +93,6 @@ setNextsPair = flip $ foldr setNextPair
 
 setNextPair :: String -> ( Pattern, Value ) -> ( Pattern, Value )
 setNextPair v0 ( p, v ) = ( setNextPat v0 p, setNextValue v0 v )
-
-setNextPair2 :: String -> ( Value, Pattern ) -> ( Value, Pattern )
-setNextPair2 v0 ( v, p ) = ( setNextValue v0 v, setNextPat v0 p )
 
 setNextPat :: String -> Pattern -> Pattern
 setNextPat v0 ( PatVar v1 n )
