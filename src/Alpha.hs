@@ -8,8 +8,8 @@ import Control.Arrow ( second, (***) )
 
 --------------------------------------------------------------------------------
 
-alpha :: Value -> Value
-alpha = mkVar . alpha_ [ ]
+alpha :: [ String ] -> Value -> Value
+alpha pre = mkVar . alpha_ pre
 
 alpha_ :: [ String ] -> Value -> Value
 alpha_ pre ( Complex con mems )	= Complex con $ alpha_ pre `map` mems

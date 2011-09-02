@@ -12,10 +12,11 @@ module Value (
 	setPat,
 	setPats,
 	getVal,
+	getVars,
 	getPatVars
 ) where
 
-import Env (
+import Env ( getVarsEnv,
 	emptyEnv, addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv )
 import qualified Env as E ( Env )
 import Control.Monad ( liftM, zipWithM )
@@ -135,6 +136,9 @@ setPats = setPatsToEnv getPatVars
 
 setVars :: [ ( String, Value ) ] -> Env -> Env
 setVars = setsToEnv ( flip PatVar 0 )
+
+getVars :: Env -> [ String ]
+getVars = getVarsEnv
 
 getVal :: ( Value -> Value ) -> String -> Env -> Maybe Value
 getVal = getFromEnv match
