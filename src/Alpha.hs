@@ -29,7 +29,7 @@ alpha_ pre ( Letin defs body )	=
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
 alpha_ pre ( Module defs )	= Module $ alphaLet pre defs
-alpha_ pre ( Let defs )		= Let $ second ( alpha_ [ ] ) `map` defs
+alpha_ _ ( Let defs )		= Let $ second ( alpha_ [ ] ) `map` defs
 {-
 	Let $ ( second ( alpha_ newPre ) . succVars dups ) `map` defs
 	where

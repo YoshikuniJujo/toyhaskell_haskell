@@ -66,6 +66,7 @@ instance Show Value where
 	show ( Closure _ _ _ )	= "<closure>"
 	show ( Case v ps )	= showCase v ps
 	show ( Letin a b )	= "let " ++ showPair a ++ " in " ++ show b
+	show ( Module _ )	= "<module>"
 	show ( Let a )		= "let " ++
 		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
 		"; " ) a )
