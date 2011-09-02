@@ -31,13 +31,13 @@ data Pattern =
 data Value =
 	Nil					|
 	Empty					|
-	Identifier String Int			|
 	Integer Integer				|
 	Char Char				|
-	Complex String [ Value ]		|
-	Apply Value Value			|
 	Function ( Value -> Value )		|
 	IOAction ( IO Value )			|
+	Identifier String Int			|
+	Complex String [ Value ]		|
+	Apply Value Value			|
 	Lambda [ Pattern ] Value		|
 	Closure Env [ Pattern ] Value		|
 	Case Value [ ( Pattern, Value ) ]	|

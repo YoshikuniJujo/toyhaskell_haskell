@@ -9,46 +9,43 @@ import Data.Maybe ( fromMaybe )
 --------------------------------------------------------------------------------
 
 toyEval :: Env -> Value -> Value
-toyEval = checkAndEval
-
-checkAndEval :: Env -> Value -> Value
-checkAndEval env v = case getNotSetVars env v of
+toyEval env v = case notSetVars env v of
 	[ ]	-> eval env v
-	vars	-> Error $ mkErrMsg $ head vars
-	where
-	mkErrMsg var = "Not in scope: `" ++ var ++ "'"
+	vars	-> Error $ unlines $ map errMsg vars
+	where errMsg var = "\tNot in scope: `" ++ var ++ "'"
 
-getNotSetVars :: Env -> Value -> [ String ]
-getNotSetVars env ( Identifier i _ ) = case getVal ( eval env ) i env of
-	Just v	-> getNotSetVars env v
+notSetVars :: Env -> Value -> [ String ]
+notSetVars env ( Identifier i _ ) = case getVal ( eval env ) i env of
+	Just v	-> notSetVars env v
 	Nothing	-> [ i ]
-getNotSetVars env ( Lambda pats body )	=
-	filter ( `notElem` concatMap getPatVars pats ) $ getNotSetVars env body
-getNotSetVars env ( Apply f a )		= getNotSetVars env f ++ getNotSetVars env a
-getNotSetVars env ( Letin pvs body )	=
-	filter ( `notElem` concatMap ( getPatVars . fst ) pvs ) $ getNotSetVars env body
-getNotSetVars env ( Case val bodys )	=
-	getNotSetVars env val ++ concatMap ( \( p, v ) ->
-		filter ( `notElem` getPatVars p ) $ getNotSetVars env v ) bodys
-getNotSetVars env ( Let pvs )		=
+notSetVars env ( Apply f a )		= notSetVars env f ++ notSetVars env a
+notSetVars env ( Lambda pats body )	=
+	filter ( `notElem` concatMap getPatVars pats ) $ notSetVars env body
+notSetVars env ( Case val bodys )	=
+	notSetVars env val ++ concatMap ( \( p, v ) ->
+		filter ( `notElem` getPatVars p ) $ notSetVars env v ) bodys
+notSetVars env ( Letin pvs body )	=
 	filter ( `notElem` concatMap ( getPatVars . fst ) pvs ) $
-		concatMap ( getNotSetVars env . snd ) pvs
-getNotSetVars _ _			= [ ]
+		notSetVars env body
+notSetVars env ( Let pvs )		=
+	filter ( `notElem` concatMap ( getPatVars . fst ) pvs ) $
+		concatMap ( notSetVars env . snd ) pvs
+notSetVars _ _			= [ ]
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i _ )	=
 	eval env $ fromMaybe ( noVarError i ) $ getVal ( eval env ) i env
-eval env ( Lambda pats body )	= Closure env pats body
 eval env ( Apply f a )		= case eval env f of
-	Function fun			-> fun $ eval env a
-	Closure lenv [ pat ] body	->
+	Function fun				-> fun $ eval env a
+	Closure lenv [ pat ] body		->
 		eval ( setPat pat ( eval env a ) lenv ) body
 	Closure lenv ( pat : pats ) body	->
 		Closure ( setPat pat ( eval env a ) lenv ) pats body
 	e@( Error _ )			-> e
 	_				-> notFunctionError f
-eval env ( Letin pvs body )	= eval ( setPats pvs env ) body
+eval env ( Lambda pats body )	= Closure env pats body
 eval env ( Case val bodys )	= patMatch env ( eval env val ) bodys
+eval env ( Letin pvs body )	= eval ( setPats pvs env ) body
 eval _ v			= v
 
 patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
