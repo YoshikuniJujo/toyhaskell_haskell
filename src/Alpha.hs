@@ -20,29 +20,36 @@ alpha_ pre ( Lambda args body )	= Lambda ( mapSuccVars dups args ) $
 	vars	= getPatVars `concatMap` args
 	dups	= pre `intersect` vars
 alpha_ pre ( Case val bodies )	=
-	Case ( alpha_ pre val ) $ alphaPV pre `map` bodies
+	Case ( alpha_ pre val ) $ alphaCase pre `map` bodies
 alpha_ pre ( Letin defs body )	=
-	Letin ( map ( second ( alpha_ newPre ) . succVars dups ) defs ) $
+	Letin ( alphaLet pre defs ) {- ( ( second ( alpha_ newPre ) . succVars dups ) `map` defs ) -} $
 		alpha_ newPre $ succVars dups body
---	Letin ( alphaPV pre `map` defs ) $ alpha_ newPre $ succVars dups body
 	where
 	vars	= ( getPatVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
-alpha_ pre ( Let defs )		=
-	Let $ ( second ( alpha_ $ pre `union` vars ) .
-		succVars ( pre `intersect` vars ) ) `map` defs
+alpha_ pre ( Let defs )		= Let $ alphaLet pre defs
+{-
+	Let $ ( second ( alpha_ newPre ) . succVars dups ) `map` defs
 	where
 	vars	= ( getPatVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
--- alpha_ pre ( Let defs )		= Let $ alphaPV pre `map` defs
+-}
 alpha_ _ v			= v
 
-alphaPV :: [ String ] -> ( Pattern, Value ) -> ( Pattern, Value )
-alphaPV pre body@( pat, _ )	= second ( alpha_ $ pre `union` vars ) $
+alphaCase :: [ String ] -> ( Pattern, Value ) -> ( Pattern, Value )
+alphaCase pre body@( pat, _ )	= second ( alpha_ $ pre `union` vars ) $
 	succVars ( pre `intersect` vars ) body
 	where vars = getPatVars pat
+
+alphaLet :: [ String ] -> [ ( Pattern, Value ) ] -> [ ( Pattern, Value ) ]
+alphaLet pre defs		=
+	( second ( alpha_ newPre ) . succVars dups ) `map` defs
+	where
+	vars	= ( getPatVars . fst ) `concatMap` defs
+	dups	= pre `intersect` vars
+	newPre	= pre `union` vars
 
 succVars :: Alpha sv => [ String ] -> sv -> sv
 succVars = flip $ foldr succVar
