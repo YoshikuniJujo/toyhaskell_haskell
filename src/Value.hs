@@ -43,6 +43,7 @@ data Value =
 	Closure Env [ Pattern ] Value		|
 	Case Value [ ( Pattern, Value ) ]	|
 	Letin [ ( Pattern, Value ) ] Value	|
+	Module [ ( Pattern, Value ) ]		|
 	Let [ ( Pattern, Value ) ]		|
 	Error String
 

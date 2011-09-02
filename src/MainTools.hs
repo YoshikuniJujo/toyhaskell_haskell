@@ -31,8 +31,8 @@ mainGen args _ = do
 			':' : cmd	-> runCmd cmd env
 			_		-> case toyEval env $ alpha vars $
 						toyParse inp of
-				Let ps	-> return $ setPats ps env
---					( second ( toyEval env ) `map` ps ) env
+				Let ps	-> return $ setPats -- ps env
+					( second ( toyEval env ) `map` ps ) env
 				ret	-> showValue ret >> return env
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
@@ -77,5 +77,5 @@ loadFile :: Env -> FilePath -> IO Env
 loadFile env fn = do
 	cnt <- readFile fn
 	case toyEval env $ alpha [ ] $ toyParseModule cnt of
-		Let ps	-> return $ setPats ps env
+		Module ps	-> return $ setPats ps env
 		_	-> error "never occur"

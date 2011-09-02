@@ -28,7 +28,8 @@ alpha_ pre ( Letin defs body )	=
 	vars	= ( getPatVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
-alpha_ pre ( Let defs )		= Let $ alphaLet pre defs
+alpha_ pre ( Module defs )	= Module $ alphaLet pre defs
+alpha_ pre ( Let defs )		= Let $ second ( alpha_ [ ] ) `map` defs
 {-
 	Let $ ( second ( alpha_ newPre ) . succVars dups ) `map` defs
 	where
@@ -103,6 +104,7 @@ mkVarVal ( Lambda args body )	= Lambda ( mkVar `map` args ) $ mkVar body
 mkVarVal ( Case val bodies )	= Case ( mkVar val ) $ mkVar `map` bodies
 mkVarVal ( Letin defs body )	= Letin ( mkVar `map` defs ) $ mkVar body
 mkVarVal ( Let defs )		= Let $ mkVar `map` defs
+mkVarVal ( Module defs )	= Module $ mkVar `map` defs
 mkVarVal val			= val
 
 mkVarPat :: Pattern -> Pattern

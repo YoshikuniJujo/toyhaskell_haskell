@@ -61,7 +61,7 @@ import "monads-tf" Control.Monad.State ( when, get )
 %%
 
 Module	: module conid where '{' Decls '}'
-				{ Let $5 }
+				{ Module $5 }
 
 Exp	: LexpOpL Op Exp	{ Apply ( Apply ( Identifier $2 0 ) $1 ) $3 }
 	| Lexp			{ $1 }
