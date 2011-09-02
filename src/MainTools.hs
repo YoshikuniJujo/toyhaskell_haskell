@@ -24,15 +24,15 @@ mainGen args _ = do
 	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0 <- foldM loadFile initEnv fns
-	( flip . flip maybe ) ( showValue . toyEval env0 . alpha ( getVars env0 ) .
-		toyParse ) expr $
+	let vars = getVars env0
+	( flip . flip maybe )
+		( showValue . toyEval env0 . alpha vars . toyParse ) expr $
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
-			_		-> case toyEval env $ alpha
-						( getVars env0 ) $
-							toyParse inp of
-				Let ps	-> return $ setPats
-					( map ( second $ toyEval env ) ps ) env
+			_		-> case toyEval env $ alpha vars $
+						toyParse inp of
+				Let ps	-> return $ setPats ps env
+--					( second ( toyEval env ) `map` ps ) env
 				ret	-> showValue ret >> return env
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
