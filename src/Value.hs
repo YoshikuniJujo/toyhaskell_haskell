@@ -59,7 +59,7 @@ instance Show Value where
 	show ( Complex n [ ] )	= n
 	show ( Complex n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++
 					")"
-	show ( Apply f a )	= "(" ++ show f ++ " " ++ show a ++ ")"
+	show ( Apply f a )	= "( " ++ show f ++ " " ++ show a ++ " )"
 	show ( Function _ )	= "<function>"
 	show ( IOAction _ )	= "<IO>"
 	show ( Lambda vs body )	= showLambda vs body -- "<lambda>"
@@ -74,7 +74,7 @@ instance Show Value where
 
 showPair :: [ ( Pattern, Value ) ] -> String
 showPair a = unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
-	"; " ) a )
+	";" ) a )
 
 showLambda :: [ Pattern ] -> Value -> String
 showLambda vs body = "( \\" ++ unwords ( map showPattern vs ) ++ " -> " ++

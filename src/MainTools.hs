@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module MainTools ( mainGen ) where
+module MainTools ( mainGen, interpret ) where
 
 import Primitives ( initEnv )
 import Eval ( toyEval )
@@ -34,6 +34,12 @@ mainGen args _ = do
 				Let ps	-> return $ setPats -- ps env
 					( second ( toyEval env ) `map` ps ) env
 				ret	-> showValue ret >> return env
+
+interpret :: String -> String -> IO String
+interpret fn expr = do
+	env0 <- loadFile initEnv fn
+	let vars = getVars env0
+	return $ show $ toyEval env0 $ alpha vars $ toyParse expr
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
 runLoop name stat0 act = do

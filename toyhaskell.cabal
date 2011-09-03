@@ -14,6 +14,10 @@ category:	Language
 synopsis:	small subset of haskell
 description:	small subset of haskell
 
+flag test
+  description:	Enable test
+  default:	False
+
 executable runtoy
   hs-source-dirs:	src
   main-is:		runtoy.hs
@@ -27,3 +31,15 @@ executable toy
   other-modules:	MainTools, Eval, Lexer, Value, Parser
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, array
+
+executable testToy
+  if flag ( test )
+    buildable:		True
+  else
+    buildable:		False
+  hs-source-dirs:	src, tests
+  main-is:		unitTest.hs
+  other-modules:	MainTools, Eval, Lexer, Value, Parser
+  ghc-options:		-Wall
+  build-depends:	base > 3 && < 5, monads-tf, yjtools, array, HUnit
+  

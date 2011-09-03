@@ -1,0 +1,27 @@
+import Development.Hake
+import Development.Hake.FunSetRaw
+
+import System.Directory
+import Data.List
+import System.Cmd
+
+bin = "./dist/build/testToy/testToy"
+src = "./tests/unitTest.hs"
+
+hake_rules srcs = [
+
+	task "configure" [ [ "cabal", "configure", "-f", "test" ] ]
+	,
+	task "build" [ [ "cabal", "build" ] ]
+	,
+	file [ "test" ] [ bin ] $ \_ ( s : _ ) -> [ [ s ] ]
+	,
+	file [ bin ] ( src : srcs ) $ const2 [
+		[ "cabal", "build" ] ]
+
+ ]
+
+main = do
+	srcs <- filter ( not . isPrefixOf "." ) `fmap` getDirectoryContents "./src/"
+	hake $ hake_rules $ map ( "./src/" ++ ) srcs
+	system $ "touch " ++ bin
