@@ -10,8 +10,8 @@ interpret fn expr = mainGen [ "-e", expr, fn ] [ ]
 
 testMain :: [ Test ]
 testMain = [
-	( ~? "eight" ) $ ( == "8\n" ) `fmap` interpret "./tests/eight.hs" "eight",
-	( ~? "ret" ) $ ( == "20\n" ) `fmap` interpret "./tests/scope1.hs" "ret"
+	( ~? "eight" ) $ ( == "8\n" ) `fmap` interpret "./examples/eight.hs" "eight",
+	( ~? "ret" ) $ ( == "20\n" ) `fmap` interpret "./examples/scope1.hs" "ret"
  ]
 
 testAlpha :: [ Test ]
@@ -26,4 +26,4 @@ testAlpha = [
 main :: IO ()
 main = do
 	runTestTT ( test [ testMain, testAlpha ] ) >>= print
-	mainGen [ "-e", "main", "./tests/hello.hs" ] [ ] >>= putStr
+	mainGen [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
