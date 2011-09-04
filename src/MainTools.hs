@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module MainTools ( mainGen, interpret ) where
+module MainTools ( mainGen ) where
 
 import Primitives ( initEnv )
 import Eval ( toyEval )
@@ -19,27 +19,23 @@ import Data.Char ( isSpace )
 
 --------------------------------------------------------------------------------
 
-mainGen :: [ String ] -> [ String ] -> IO ()
+mainGen :: [ String ] -> [ String ] -> IO String
 mainGen args _ = do
 	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0 <- foldM loadFile initEnv fns
 	let vars = getVars env0
-	( flip . flip maybe )
-		( showValue . toyEval env0 . alpha vars . toyParse ) expr $
+	retStr <- ( flip . flip maybe )
+		( showValue . toyEval env0 . alpha vars . toyParse ) expr $ do
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
 			_		-> case toyEval env $ alpha vars $
 						toyParse inp of
 				Let ps	-> return $ setPats -- ps env
 					( second ( toyEval env ) `map` ps ) env
-				ret	-> showValue ret >> return env
-
-interpret :: String -> String -> IO String
-interpret fn expr = do
-	env0 <- loadFile initEnv fn
-	let vars = getVars env0
-	return $ show $ toyEval env0 $ alpha vars $ toyParse expr
+				ret	-> showValue ret >>= putStr >> return env
+		return ""
+	return retStr
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
 runLoop name stat0 act = do

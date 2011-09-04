@@ -5,7 +5,7 @@ import System.Environment ( getArgs )
 import Control.Arrow ( first )
 
 main :: IO ()
-main = getArgs >>= uncurry mainGen . separateArgs
+main = getArgs >>= uncurry mainGen . separateArgs >>= putStr
 
 separateArgs :: [ String ] -> ( [ String ], [ String ] )
 separateArgs [ ]		= ( [ ], [ ] )

@@ -1,14 +1,17 @@
 module Main where
 
-import MainTools
+import MainTools ( mainGen )
 import Test.HUnit
 import Alpha
 import Parser
 
+interpret :: String -> String -> IO String
+interpret fn expr = mainGen [ "-e", expr, fn ] [ ]
+
 testMain :: [ Test ]
 testMain = [
-	( ~? "eight" ) $ ( == "8" ) `fmap` interpret "./tests/eight.hs" "eight",
-	( ~? "ret" ) $ ( == "20" ) `fmap` interpret "./tests/scope1.hs" "ret"
+	( ~? "eight" ) $ ( == "8\n" ) `fmap` interpret "./tests/eight.hs" "eight",
+	( ~? "ret" ) $ ( == "20\n" ) `fmap` interpret "./tests/scope1.hs" "ret"
  ]
 
 testAlpha :: [ Test ]
@@ -23,4 +26,4 @@ testAlpha = [
 main :: IO ()
 main = do
 	runTestTT ( test [ testMain, testAlpha ] ) >>= print
-	mainGen [ "-e", "main", "./tests/hello.hs" ] [ ]
+	mainGen [ "-e", "main", "./tests/hello.hs" ] [ ] >>= putStr

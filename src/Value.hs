@@ -101,13 +101,13 @@ showStr ( Complex ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
 showStr ( Complex ":" [ Char c, s ] )		= c : showStr s
 showStr _					= "Error: bad String"
 
-showValue :: Value -> IO ()
+showValue :: Value -> IO String
 showValue ( IOAction act )	= do
 	v <- act
 	case v of
-		Nil	-> return ()
-		_	-> print v
-showValue v			= print v
+		Nil	-> return ""
+		_	-> return $ show v ++ "\n"
+showValue v			= return $ show v ++ "\n"
 
 --------------------------------------------------------------------------------
 
