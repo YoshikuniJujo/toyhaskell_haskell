@@ -17,7 +17,11 @@ testMain = [
 
 testEval :: [ Test ]
 testEval = [
-	( 8 :: Integer ) ~?= eval initEnv "8"
+	( 8 :: Integer )	~?= eval initEnv "8",
+	'h'			~?= eval initEnv "'h'",
+	"hello"			~?= eval initEnv "\"hello\"",
+	True			~?= eval initEnv "8 == 8",
+	False			~?= eval initEnv "8 == 3"
  ]
 
 testAlpha :: [ Test ]
