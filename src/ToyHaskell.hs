@@ -8,7 +8,7 @@ import Alpha ( alpha )
 import Parser ( toyParse, toyParseModule )
 import Value (
 	Value( Nil, Empty, Integer, Char, Complex, IOAction, Let, Module ),
-	showValue, Env, setPats, getVars )
+	Env, setPats, getVars )
 
 import Control.Arrow ( second )
 
@@ -48,9 +48,13 @@ evalV env = toyEval env . alpha ( getVars env ) . toyParse
 
 evalP :: Env -> String -> IO ( String, Env )
 evalP env src = case evalV env src of
-	Let ps	-> return ( "",
+	Let ps		-> return ( "",
 		setPats ( second ( toyEval env ) `map` ps ) env )
-	ret	-> ( , env ) `fmap` showValue ret
+	IOAction act	-> ( ( , env ) . showVal ) `fmap` act
+	val		-> return ( showVal val, env )
+	where
+	showVal Nil	= ""
+	showVal v	= show v ++ "\n"
 
 eval :: ToyValue a => Env -> String -> a
 eval = (.) fromToyValue . evalV

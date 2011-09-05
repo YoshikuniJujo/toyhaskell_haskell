@@ -2,7 +2,6 @@ module Value (
 	Pattern( .. ),
 	Value( .. ),
 
-	showValue,
 	match,
 
 	Env,
@@ -100,14 +99,6 @@ showStr ( Complex ":" [ Char '\\', s ] )	= '\\' : '\\' : showStr s
 showStr ( Complex ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
 showStr ( Complex ":" [ Char c, s ] )		= c : showStr s
 showStr _					= "Error: bad String"
-
-showValue :: Value -> IO String
-showValue ( IOAction act )	= do
-	v <- act
-	case v of
-		Nil	-> return ""
-		_	-> return $ show v ++ "\n"
-showValue v			= return $ show v ++ "\n"
 
 --------------------------------------------------------------------------------
 
