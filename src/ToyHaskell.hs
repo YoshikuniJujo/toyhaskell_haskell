@@ -4,7 +4,7 @@ module ToyHaskell ( Env, initEnv, load, eval, evalP ) where
 
 import Primitives ( initEnv )
 import Eval ( toyEval )
-import Alpha ( toyAlpha )
+import Alpha ( toyAlpha, alphaEnvsP )
 import Parser ( toyParse, toyParseModule )
 import Value (
 	Value( Nil, Empty, Integer, Char, Complex, IOAction, Let, Module ),
@@ -48,8 +48,10 @@ evalV env = toyEval env . toyAlpha ( getVars env ) . toyParse
 
 evalP :: Env -> String -> IO ( String, Env )
 evalP env src = case evalV env src of
-	Let ps		-> return ( "",
-		setPats ( second ( toyEval env ) `map` ps ) env )
+	Let ps		-> return ( "", setPats ps $ alphaEnvsP ( map fst ps ) env )
+--		let newEnv = setPats ( second ( toyEval newEnv )`map` ps ) env
+--			in newEnv )
+--		setPats ( second ( toyEval env ) `map` ps ) env )
 	IOAction act	-> ( ( , env ) . showVal ) `fmap` act
 	val		-> return ( showVal val, env )
 	where

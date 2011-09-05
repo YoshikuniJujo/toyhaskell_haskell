@@ -1,10 +1,10 @@
 {-# LANGUAGE TupleSections #-}
 
-module Alpha ( toyAlpha ) where
+module Alpha ( toyAlpha, alphaEnvsP ) where
 
 import Value (
 	Value( Identifier, Complex, Apply, Lambda, Case, Letin, Let, Module ),
-	Pattern( PatVar, PatCon ), getPatVars )
+	Pattern( PatVar, PatCon ), getPatVars, mapEnv, Env )
 import Data.List ( intersect, union )
 import Control.Arrow ( second, (***) )
 
@@ -15,6 +15,18 @@ toyAlpha pre = mkVar . alpha pre
 
 getVars :: Pattern -> [ String ]
 getVars = getPatVars
+
+alphaEnvsP :: [ Pattern ] -> Env -> Env
+alphaEnvsP ps = alphaEnvs $ getVars `concatMap` ps
+
+alphaEnvs :: [ String ] -> Env -> Env
+alphaEnvs = flip $ foldr alphaEnv
+
+alphaEnv :: String -> Env -> Env
+alphaEnv x0 = mapEnv fs ( succVar x0 ) ( succVar x0 )
+	where
+	fs x	| x == x0	= x ++ "~1"
+		| otherwise	= x
 
 alpha :: [ String ] -> Value -> Value
 alpha pre ( Complex con mems )	= Complex con $ alpha pre `map` mems

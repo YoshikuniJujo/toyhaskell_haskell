@@ -6,7 +6,8 @@ module Env (
 	setPatsToEnv,
 	getFromEnv,
 	getVarsEnv,
-	addEnvs
+	addEnvs,
+	mapEnv
 ) where
 
 import Data.Maybe ( listToMaybe )
@@ -40,3 +41,6 @@ getVarsEnv ( Env ps ) = ( \( vs, _, _ ) -> vs ) `concatMap` ps
 
 addEnvs :: Env p v -> Env p v -> Env p v
 addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2
+
+mapEnv :: ( String -> String ) -> ( p -> p ) -> ( v -> v ) -> Env p v -> Env p v
+mapEnv fs fp fv ( Env e ) = Env $ ( \( s, p, v ) -> ( map fs s, fp p, fv v ) ) `map` e

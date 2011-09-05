@@ -1,1 +1,5 @@
-[ x, y, z ] の中身が eval されない。
+2011.09.05 Mon.
+
+[*] [ x, y, z ] の中身が eval されない。
+[ ] let x = 5; y = 10 + x; z = let x = 3 in y
+[ ] let x = case 3 of 0 -> 1; _ -> 4 in x

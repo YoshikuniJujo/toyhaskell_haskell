@@ -12,11 +12,13 @@ module Value (
 	setPats,
 	getVal,
 	getVars,
-	getPatVars
+	getPatVars,
+
+	mapEnv
 ) where
 
 import Env ( getVarsEnv,
-	emptyEnv, addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv )
+	emptyEnv, addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv )
 import qualified Env as E ( Env )
 import Control.Monad ( liftM, zipWithM )
 
