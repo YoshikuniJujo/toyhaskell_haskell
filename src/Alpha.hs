@@ -1,54 +1,52 @@
 {-# LANGUAGE TupleSections #-}
 
-module Alpha ( alpha ) where
+module Alpha ( toyAlpha ) where
 
-import Value ( Value( .. ), Pattern( .. ), getPatVars )
+import Value (
+	Value( Identifier, Complex, Apply, Lambda, Case, Letin, Let, Module ),
+	Pattern( PatVar, PatCon ), getPatVars )
 import Data.List ( intersect, union )
 import Control.Arrow ( second, (***) )
 
 --------------------------------------------------------------------------------
 
+toyAlpha :: [ String ] -> Value -> Value
+toyAlpha pre = mkVar . alpha pre
+
+getVars :: Pattern -> [ String ]
+getVars = getPatVars
+
 alpha :: [ String ] -> Value -> Value
-alpha pre = mkVar . alpha_ pre
-
-alpha_ :: [ String ] -> Value -> Value
-alpha_ pre ( Complex con mems )	= Complex con $ alpha_ pre `map` mems
-alpha_ pre ( Apply fun arg )	= Apply ( alpha_ pre fun ) $ alpha_ pre arg
-alpha_ pre ( Lambda args body )	= Lambda ( mapSuccVars dups args ) $
-	alpha_ ( pre `union` vars ) $ succVars dups body
+alpha pre ( Complex con mems )	= Complex con $ alpha pre `map` mems
+alpha pre ( Apply fun arg )	= Apply ( alpha pre fun ) $ alpha pre arg
+alpha pre ( Lambda ps expr )	= Lambda ( mapSuccVars dups ps ) $
+	alpha ( pre `union` vars ) $ succVars dups expr
 	where
-	vars	= getPatVars `concatMap` args
+	vars	= getVars `concatMap` ps
 	dups	= pre `intersect` vars
-alpha_ pre ( Case val bodies )	=
-	Case ( alpha_ pre val ) $ alphaCase pre `map` bodies
-alpha_ pre ( Letin defs body )	=
-	Letin ( alphaLet pre defs ) {- ( ( second ( alpha_ newPre ) . succVars dups ) `map` defs ) -} $
-		alpha_ newPre $ succVars dups body
+alpha pre ( Case key sels )	= Case ( alpha pre key ) $ alphaC pre `map` sels
+alpha pre ( Letin defs expr )	=
+	Letin ( alphaDefs pre defs ) $ alpha newPre $ succVars dups expr
 	where
-	vars	= ( getPatVars . fst ) `concatMap` defs
+	vars	= ( getVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
-alpha_ pre ( Module defs )	= Module $ alphaLet pre defs
-alpha_ _ ( Let defs )		= Let $ second ( alpha_ [ ] ) `map` defs
-{-
-	Let $ ( second ( alpha_ newPre ) . succVars dups ) `map` defs
+alpha pre ( Module defs )	= Module $ alphaDefs pre defs
+alpha pre ( Let defs )		= Let $ second ( alpha pre ) `map` defs
+alpha _ v			= v
+
+alphaC :: [ String ] -> ( Pattern, Value ) -> ( Pattern, Value )
+alphaC pre sel@( test, _ ) = second ( alpha newPre ) $ succVars dups sel
 	where
-	vars	= ( getPatVars . fst ) `concatMap` defs
+	vars	= getVars test
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
--}
-alpha_ _ v			= v
 
-alphaCase :: [ String ] -> ( Pattern, Value ) -> ( Pattern, Value )
-alphaCase pre body@( pat, _ )	= second ( alpha_ $ pre `union` vars ) $
-	succVars ( pre `intersect` vars ) body
-	where vars = getPatVars pat
-
-alphaLet :: [ String ] -> [ ( Pattern, Value ) ] -> [ ( Pattern, Value ) ]
-alphaLet pre defs		=
-	( second ( alpha_ newPre ) . succVars dups ) `map` defs
+alphaDefs :: [ String ] -> [ ( Pattern, Value ) ] -> [ ( Pattern, Value ) ]
+alphaDefs pre defs		=
+	( second ( alpha newPre ) . succVars dups ) `map` defs
 	where
-	vars	= ( getPatVars . fst ) `concatMap` defs
+	vars	= ( getVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
 
@@ -75,8 +73,8 @@ instance ( Alpha a, Alpha b ) => Alpha ( a, b ) where
 	mkVar		= mkVar *** mkVar
 
 setNextValue :: String -> Value -> Value
-setNextValue v0 ( Lambda vs body )	=
-	Lambda ( succVarPat v0 `map` vs ) $ setNextValue v0 body
+setNextValue v0 ( Lambda vs expr )	=
+	Lambda ( succVarPat v0 `map` vs ) $ setNextValue v0 expr
 setNextValue v0 ( Identifier v1 n )
 	| v0 == v1			= Identifier v1 $ n + 1
 setNextValue v0 ( Apply v1 v2 )		=
@@ -85,8 +83,8 @@ setNextValue v0 ( Complex con vs )	=
 	Complex con $ setNextValue v0 `map` vs
 setNextValue v0 ( Case v1 ps )		=
 	Case ( setNextValue v0 v1 ) ( succVar v0 `map` ps )
-setNextValue v0 ( Letin ps body )	=
-	Letin ( succVar v0 `map` ps ) $ setNextValue v0 body
+setNextValue v0 ( Letin ps expr )	=
+	Letin ( succVar v0 `map` ps ) $ setNextValue v0 expr
 setNextValue _ v			= v
 
 succVarPat :: String -> Pattern -> Pattern
@@ -99,10 +97,10 @@ mkVarVal :: Value -> Value
 mkVarVal ( Identifier var 0 )	= Identifier var 0
 mkVarVal ( Identifier var n )	= Identifier ( var ++ "~" ++ show n ) n
 mkVarVal ( Complex con mems )	= Complex con $ mkVar `map` mems
-mkVarVal ( Apply fun arg )		= Apply ( mkVar fun ) $ mkVar arg
-mkVarVal ( Lambda args body )	= Lambda ( mkVar `map` args ) $ mkVar body
-mkVarVal ( Case val bodies )	= Case ( mkVar val ) $ mkVar `map` bodies
-mkVarVal ( Letin defs body )	= Letin ( mkVar `map` defs ) $ mkVar body
+mkVarVal ( Apply fun arg )	= Apply ( mkVar fun ) $ mkVar arg
+mkVarVal ( Lambda ps expr )	= Lambda ( mkVar `map` ps ) $ mkVar expr
+mkVarVal ( Case key sels )	= Case ( mkVar key ) $ mkVar `map` sels
+mkVarVal ( Letin defs expr )	= Letin ( mkVar `map` defs ) $ mkVar expr
 mkVarVal ( Let defs )		= Let $ mkVar `map` defs
 mkVarVal ( Module defs )	= Module $ mkVar `map` defs
 mkVarVal val			= val
