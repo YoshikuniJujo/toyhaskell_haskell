@@ -1,8 +1,8 @@
-module Primitives (
-	initEnv
-) where
+module Primitives ( initEnv ) where
 
-import Value ( Value( .. ), Env, setVars, emptyEnv )
+import Value (
+	Value( Nil, Integer, Char, Complex, Function, IOAction, Error ),
+	Env, setVars, emptyEnv )
 
 initEnv :: Env
 initEnv = setVars [
@@ -15,8 +15,7 @@ initEnv = setVars [
 	( ":",		Function makeListFun ),
 	( ">>",		Function concatMonadFun ),
 	( "return",	Function $ IOAction . return ),
-	( "putChar",	Function putCharFun ),
-	( "add",	Function $ mkBinIntFunction (+) )
+	( "putChar",	Function putCharFun )
  ] emptyEnv
 
 mkIntIntFunction :: ( Integer -> Integer ) -> Value -> Value
@@ -38,7 +37,7 @@ mkIntCompFunction p ( Integer x )	= Function $ mkIntBoolFunction $ p x
 mkIntCompFunction _ ni			= notMatchTypeError "Integer" ni
 
 makeListFun :: Value -> Value
-makeListFun v = let pushV lst = Complex ":" [ v, lst ] in Function pushV
+makeListFun h = Function $ \t -> Complex ":" [ h, t ]
 
 concatMonadFun :: Value -> Value
 concatMonadFun ( IOAction act1 ) = Function fun
