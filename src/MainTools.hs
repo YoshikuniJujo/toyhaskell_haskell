@@ -2,7 +2,7 @@
 
 module MainTools ( mainGen ) where
 
-import ToyHaskell
+import ToyHaskell ( Env, initEnv, load, evalP )
 
 import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (
@@ -18,27 +18,31 @@ mainGen :: [ String ] -> [ String ] -> IO String
 mainGen args _ = do
 	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	env0 <- foldM ( \e -> fmap ( load e ) . readFile ) initEnv fns
-	( flip . flip maybe )
-		( fmap fst . evalP env0 ) expr $ do
+	env0 <- foldM ( \e -> ( load e `fmap` ) . readFile ) initEnv fns
+	( flip . flip maybe ) ( fmap fst . evalP env0 ) expr $ do
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
 			_		-> do
 				( ret, nenv ) <- evalP env inp
 				putStr ret
 				return nenv
-		return ""
+		return "Leaving toyhaskell.\n"
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
-runLoop name stat0 act = do
-	_ <- doWhile stat0 $ \stat -> do
-		input <- prompt $ name ++ "> "
-		if input `elem` [ ":quit", ":q" ]
-			then return ( stat, False )
-			else fmap ( , True ) $ act stat input
-	putStrLn $ "Leaving " ++ name ++ "."
-	where
-	prompt p = putStr p >> hFlush stdout >> getLine
+runLoop name stat0 act = ( >> return () ) $ doWhile stat0 $ \stat -> do
+	input <- putStr ( name ++ "> " ) >> hFlush stdout >> getLine
+	if input `elem` [ ":quit", ":q" ]
+		then return ( stat, False )
+		else fmap ( , True ) $ act stat input
+
+runCmd :: String -> Env -> IO Env
+runCmd cmd env
+	| "load " `isPrefixOf` cmd	= do
+		let fn = dropWhile isSpace $ dropWhile ( not . isSpace ) cmd
+		load env `fmap` readFile fn
+	| otherwise			= do
+		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
+		return env
 
 data Option = Expr String
 
@@ -57,12 +61,3 @@ readOption args = let
 	fromOps [ ]		= Nothing
 	fromOps ( op : _ )	= case op of
 		Expr e		-> Just e
-
-runCmd :: String -> Env -> IO Env
-runCmd cmd env
-	| "load " `isPrefixOf` cmd	= do
-		let fn = dropWhile isSpace $ dropWhile ( not . isSpace ) cmd
-		load env `fmap` readFile fn
-	| otherwise			= do
-		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
-		return env
