@@ -3,7 +3,7 @@ module Eval ( toyEval ) where
 import Value ( Value(
 	Identifier, Apply, Function, Lambda, Closure, Case, Letin, Let,	Module,
 	Error ),
-	Pattern, match, Env, setVars, setPat, setPats, {- getVal, -} getPatVars )
+	Pattern, match, Env, setVars, setPat, setPats, getPatVars )
 import qualified Value ( getVal )
 import Data.Maybe ( fromMaybe )
 
@@ -18,23 +18,20 @@ toyEval env v = case noVars env v of
 getVars :: Pattern -> [ String ]
 getVars = getPatVars
 
-getVal :: String -> Env -> Maybe Value
-getVal var env = Value.getVal ( eval env ) var env
+getVal :: Env -> String -> Maybe Value
+getVal env var = Value.getVal ( eval env ) var env
 
-notElemPats :: String -> [ Pattern ] -> Bool
-notElemPats var pats = var `notElem` getVars `concatMap` pats
-
-filterVarsPats :: [ Pattern ] -> [ String ] -> [ String ]
-filterVarsPats pats vars = ( `notElemPats` pats ) `filter` vars
+filterVars :: [ Pattern ] -> [ String ] -> [ String ]
+filterVars pats vars = ( `notElem` getVars `concatMap` pats ) `filter` vars
 
 noVars :: Env -> Value -> [ String ]
-noVars env ( Identifier i _ )	= maybe [ i ] ( noVars env ) $ getVal i env
+noVars env ( Identifier i _ )	= maybe [ i ] ( noVars env ) $ getVal env i
 noVars env ( Apply f a )	= noVars env f ++ noVars env a
-noVars env ( Lambda vs body )	= vs `filterVarsPats` noVars env body
-noVars env ( Case v s )		= noVars env v ++ noVarsCase env `concatMap` s
-noVars env ( Letin defs body )	= map fst defs `filterVarsPats`
+noVars env ( Lambda vs body )	= vs `filterVars` noVars env body
+noVars env ( Case v sel )	= noVars env v ++ noVarsCase env `concatMap` sel
+noVars env ( Letin defs body )	= map fst defs `filterVars`
 	( noVars env body ++ ( noVars env . snd ) `concatMap` defs )
-noVars env ( Let defs )		= map fst defs `filterVarsPats`
+noVars env ( Let defs )		= map fst defs `filterVars`
 	( ( noVars env . snd ) `concatMap` defs )
 noVars env ( Module defs )	= noVars env ( Let defs )
 noVars _ _			= [ ]
@@ -44,7 +41,7 @@ noVarsCase env ( pat, val ) = ( `notElem` getVars pat ) `filter` noVars env val
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i _ )	=
-	eval env $ fromMaybe ( noVarError i ) $ getVal i env
+	eval env $ fromMaybe ( noVarError i ) $ getVal env i
 eval env ( Apply f a )		= case eval env f of
 	Function fun				-> fun $ eval env a
 	Closure lenv [ pat ] body		->
