@@ -1,0 +1,13 @@
+2011年  9月  5日 月曜日 15:58:54 JST
+  109   796  3869 src/Alpha.hs
+   42   323  1229 src/Env.hs
+   68   543  2592 src/Eval.hs
+  215  1186  5718 src/Lexer.hs
+   63   365  1891 src/MainTools.hs
+  163   811  3741 src/Parser.y
+   55   343  1999 src/Primitives.hs
+   65   352  1854 src/ToyHaskell.hs
+  137   853  3861 src/Value.hs
+    8    40   192 src/runtoy.hs
+   13    83   395 src/toy.hs
+  938  5695 27341 合計
