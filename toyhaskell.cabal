@@ -18,6 +18,13 @@ flag test
   description:	Enable test
   default:	False
 
+library
+  hs-source-dirs:	src
+  exposed-modules:	ToyHaskell
+  other-modules:	Eval, Lexer, Value, Parser
+  ghc-options:		-Wall
+  build-depends:	base > 3 && < 5, monads-tf, array
+
 executable runtoy
   hs-source-dirs:	src
   main-is:		runtoy.hs

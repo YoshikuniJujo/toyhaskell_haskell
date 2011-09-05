@@ -2,11 +2,7 @@
 
 module MainTools ( mainGen ) where
 
-import Primitives ( initEnv )
-import Eval ( toyEval )
-import Alpha ( alpha )
-import Parser ( toyParse, toyParseModule )
-import Value ( Value( .. ), showValue, Env, setPats, getVars )
+import ToyHaskell
 
 import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (
@@ -23,19 +19,16 @@ mainGen :: [ String ] -> [ String ] -> IO String
 mainGen args _ = do
 	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	env0 <- foldM loadFile initEnv fns
-	let vars = getVars env0
-	retStr <- ( flip . flip maybe )
-		( showValue . toyEval env0 . alpha vars . toyParse ) expr $ do
+	env0 <- foldM ( \e -> fmap ( load e ) . readFile ) initEnv fns
+	( flip . flip maybe )
+		( showValue . evalV env0 ) expr $ do
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : cmd	-> runCmd cmd env
-			_		-> case toyEval env $ alpha vars $
-						toyParse inp of
-				Let ps	-> return $ setPats -- ps env
+			_		-> case evalV env inp of
+				Let ps	-> return $ setPats
 					( second ( toyEval env ) `map` ps ) env
 				ret	-> showValue ret >>= putStr >> return env
 		return ""
-	return retStr
 
 runLoop :: String -> a -> ( a -> String -> IO a ) -> IO ()
 runLoop name stat0 act = do
@@ -70,14 +63,7 @@ runCmd :: String -> Env -> IO Env
 runCmd cmd env
 	| "load " `isPrefixOf` cmd	= do
 		let fn = dropWhile isSpace $ dropWhile ( not . isSpace ) cmd
-		loadFile env fn
+		load env `fmap` readFile fn
 	| otherwise			= do
 		putStrLn $ "unknown command ':" ++ cmd  ++ "'"
 		return env
-
-loadFile :: Env -> FilePath -> IO Env
-loadFile env fn = do
-	cnt <- readFile fn
-	case toyEval env $ alpha [ ] $ toyParseModule cnt of
-		Module ps	-> return $ setPats ps env
-		_	-> error "never occur"

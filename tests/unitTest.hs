@@ -1,6 +1,7 @@
 module Main where
 
 import MainTools ( mainGen )
+import ToyHaskell
 import Test.HUnit
 import Alpha
 import Parser
@@ -14,6 +15,11 @@ testMain = [
 	( ~? "ret" ) $ ( == "20\n" ) `fmap` interpret "./examples/scope1.hs" "ret"
  ]
 
+testEval :: [ Test ]
+testEval = [
+	( 8 :: Integer ) ~?= eval initEnv "8"
+ ]
+
 testAlpha :: [ Test ]
 testAlpha = [
 	show ( alpha [ ] $ toyParse "\\x y z -> \\x z -> \\x -> x y z" ) ~?=
@@ -25,5 +31,7 @@ testAlpha = [
 
 main :: IO ()
 main = do
-	runTestTT ( test [ testMain, testAlpha ] ) >>= print
+	runTestTT ( test [ testMain, testAlpha, testEval ] ) >>= print
 	mainGen [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
+	src <- readFile "./examples/putStr.hs"
+	eval ( load initEnv src ) "putStrLn \"Hello, world!\""
