@@ -78,7 +78,7 @@ Lexp	: '\\' APats '->' Exp	{ Lambda $2 $4 }
 	| LexpOpL		{ $1 }
 	| Let			{ Let $1 }
 
-LexpOpL	: case Exp of '{' Alts '}'
+LexpOpL	: case Exp of '{' Alts close
 				{ Case $2 $ reverse $5 }
 	| Fexp			{ $1 }
 
