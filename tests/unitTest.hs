@@ -21,7 +21,9 @@ testEval = [
 	'h'			~?= eval initEnv "'h'",
 	"hello"			~?= eval initEnv "\"hello\"",
 	True			~?= eval initEnv "8 == 8",
-	False			~?= eval initEnv "8 == 3"
+	False			~?= eval initEnv "8 == 3",
+	[ ( 1 :: Integer ), 2, 3 ]
+				~?= eval initEnv "[ 3 - 2, 2, 1 + 2 ]"
  ]
 
 testAlpha :: [ Test ]

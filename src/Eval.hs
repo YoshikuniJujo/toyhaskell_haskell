@@ -1,8 +1,8 @@
 module Eval ( toyEval ) where
 
 import Value ( Value(
-	Identifier, Apply, Function, Lambda, Closure, Case, Letin, Let,	Module,
-	Error ),
+	Identifier, Complex, Apply, Function, Lambda, Closure, Case, Letin, Let,
+	Module,	Error ),
 	Pattern, match, Env, setVars, setPat, setPats, getVal, getPatVars )
 import Data.Maybe ( fromMaybe )
 
@@ -40,6 +40,7 @@ noVarsC env ( test, expr ) = ( `notElem` getVars test ) `filter` noVars env expr
 
 eval :: Env -> Value -> Value
 eval env ( Identifier i _ )	= eval env $ fromMaybe ( noVar i ) $ getV env i
+eval env ( Complex con mems )	= Complex con $ eval env `map` mems
 eval env ( Apply f a )		= case eval env f of
 	Function fun		-> fun $ eval env a
 	Closure ce [ p ] b	-> eval ( setPat p ( eval env a ) ce ) b
