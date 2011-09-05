@@ -3,8 +3,7 @@ module Eval ( toyEval ) where
 import Value ( Value(
 	Identifier, Apply, Function, Lambda, Closure, Case, Letin, Let,	Module,
 	Error ),
-	Pattern, match, Env, setVars, setPat, setPats, getPatVars )
-import qualified Value ( getVal )
+	Pattern, match, Env, setVars, setPat, setPats, getVal, getPatVars )
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
@@ -18,17 +17,17 @@ toyEval env v = case noVars env v of
 getVars :: Pattern -> [ String ]
 getVars = getPatVars
 
-getVal :: Env -> String -> Maybe Value
-getVal env var = Value.getVal ( eval env ) var env
+getV :: Env -> String -> Maybe Value
+getV env var = getVal ( eval env ) var env
 
 filterVars :: [ Pattern ] -> [ String ] -> [ String ]
 filterVars pats vars = ( `notElem` getVars `concatMap` pats ) `filter` vars
 
 noVars :: Env -> Value -> [ String ]
-noVars env ( Identifier i _ )	= maybe [ i ] ( noVars env ) $ getVal env i
+noVars env ( Identifier i _ )	= maybe [ i ] ( noVars env ) $ getV env i
 noVars env ( Apply f a )	= noVars env f ++ noVars env a
 noVars env ( Lambda vs body )	= vs `filterVars` noVars env body
-noVars env ( Case v sel )	= noVars env v ++ noVarsCase env `concatMap` sel
+noVars env ( Case v sel )	= noVars env v ++ noVarsC env `concatMap` sel
 noVars env ( Letin defs body )	= map fst defs `filterVars`
 	( noVars env body ++ ( noVars env . snd ) `concatMap` defs )
 noVars env ( Let defs )		= map fst defs `filterVars`
@@ -36,38 +35,34 @@ noVars env ( Let defs )		= map fst defs `filterVars`
 noVars env ( Module defs )	= noVars env ( Let defs )
 noVars _ _			= [ ]
 
-noVarsCase :: Env -> ( Pattern, Value ) -> [ String ]
-noVarsCase env ( pat, val ) = ( `notElem` getVars pat ) `filter` noVars env val
+noVarsC :: Env -> ( Pattern, Value ) -> [ String ]
+noVarsC env ( pat, val ) = ( `notElem` getVars pat ) `filter` noVars env val
 
 eval :: Env -> Value -> Value
-eval env ( Identifier i _ )	=
-	eval env $ fromMaybe ( noVarError i ) $ getVal env i
+eval env ( Identifier i _ )	= eval env $ fromMaybe ( noVar i ) $ getV env i
 eval env ( Apply f a )		= case eval env f of
-	Function fun				-> fun $ eval env a
-	Closure lenv [ pat ] body		->
-		eval ( setPat pat ( eval env a ) lenv ) body
-	Closure lenv ( pat : pats ) body	->
-		Closure ( setPat pat ( eval env a ) lenv ) pats body
-	e@( Error _ )			-> e
-	_				-> notFunctionError f
+	Function fun		-> fun $ eval env a
+	Closure ce [ p ] b	-> eval ( setPat p ( eval env a ) ce ) b
+	Closure ce ( p : ps ) b	-> Closure ( setPat p ( eval env a ) ce ) ps b
+	e@( Error _ )		-> e
+	_			-> notFunction f
 eval env ( Lambda pats body )	= Closure env pats body
-eval env ( Case val bodys )	= patMatch env ( eval env val ) bodys
+eval env ( Case val bodys )	= evalC env ( eval env val ) bodys
 eval env ( Letin defs body )	= eval ( setPats defs env ) body
 eval _ v			= v
 
-patMatch :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
-patMatch _ _ [ ]				= nonExhaustiveError
-patMatch env val ( ( pat, body ) : rest )	=
-	maybe ( patMatch env val rest )
-		( flip eval body . flip setVars env ) $ match val pat
+evalC :: Env -> Value -> [ ( Pattern, Value ) ] -> Value
+evalC _ _ [ ]				= nonExhaustive
+evalC env val ( ( pat, body ) : rest )	= maybe ( evalC env val rest )
+	( flip eval body . flip setVars env ) $ match val pat
 
 --------------------------------------------------------------------------------
 
-noVarError :: String -> Value
-noVarError var = Error $ "Not in scope: `" ++ var ++ "'"
+noVar :: String -> Value
+noVar var = Error $ "Not in scope: `" ++ var ++ "'"
 
-notFunctionError :: Value -> Value
-notFunctionError nf = Error $ "Not Function: " ++ show nf
+notFunction :: Value -> Value
+notFunction nf = Error $ "Not Function: " ++ show nf
 
-nonExhaustiveError :: Value
-nonExhaustiveError = Error "Non-exhaustive patterns in case"
+nonExhaustive :: Value
+nonExhaustive = Error "Non-exhaustive patterns in case"
