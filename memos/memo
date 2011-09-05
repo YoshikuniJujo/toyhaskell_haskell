@@ -213,45 +213,6 @@ fun n = n * fun ( n - 1 )
 Pattern における変数名の変更について考える。
 setNext :: String -> Pattern -> Pattern
 
-無名再帰について。
-
-y = \f -> ( \x -> f ( x x ) ) ( \x -> f ( x x ) )
-
-factabs fact x = case x of { 0 -> 1; _ -> x * fact ( x - 1 ) }
-	|
-	V
-factabs = \fact y -> case y of { 0 -> 1; _ -> y * fact ( y - 1 ) }
-
-fac = y factabs
-	|
-	V
-fac = ( \x -> \y -> case y of { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	( \x -> \y -> case y of { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	|
-	V
-fac = ( \x y -> case y of { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	( \x y -> case y of { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	|
-	V
-fac = \y -> case y of { 0 -> 1; _ -> y * fac ( y - 1 ) }
-
-fac 3 = 3 * ( \x y -> case y of { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	( \x y -> case y of ( { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } ) 2
-	|
-	V
-fac 3 = 3 * 2 * (\x y -> case y of ( { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	( \x y -> case y of ( { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } ) 1
-	|
-	V
-fac 3 = 3 * 2 * 1 * ( \x y -> case y of ( { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } )
-	( \x y -> case y of ( { 0 -> 1; _ -> y * ( x x ) ( y - 1 ) } ) 0
-	|
-	V
-fac 3 = 3 * 2 * 1 * 1
-	|
-	V
-fac 3 = 6
-
 そろそろ github に登録したほうが良いかもしれない。
 
 2011.09.02 Fri.
