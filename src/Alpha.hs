@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module Alpha ( toyAlpha, alphaEnvsP ) where
+module Alpha ( toyAlpha, toyAlphaEnv ) where
 
 import Value (
 	Value( Identifier, Complex, Apply, Lambda, Case, Letin, Let, Module ),
@@ -16,14 +16,14 @@ toyAlpha pre = mkVar . alpha pre
 getVars :: Pattern -> [ String ]
 getVars = getPatVars
 
-alphaEnvsP :: [ Pattern ] -> Env -> Env
-alphaEnvsP ps = alphaEnvs $ getVars `concatMap` ps
+toyAlphaEnv :: [ Pattern ] -> Env -> Env
+toyAlphaEnv ps = alphaEnvS $ getVars `concatMap` ps
 
-alphaEnvs :: [ String ] -> Env -> Env
-alphaEnvs = flip $ foldr alphaEnv
+alphaEnvS :: [ String ] -> Env -> Env
+alphaEnvS = flip $ foldr alphaEnv_
 
-alphaEnv :: String -> Env -> Env
-alphaEnv x0 = mapEnv fs ( succVar x0 ) ( succVar x0 )
+alphaEnv_ :: String -> Env -> Env
+alphaEnv_ x0 = mapEnv fs ( succVar x0 ) ( succVar x0 )
 	where
 	fs x	| x == x0	= x ++ "~1"
 		| otherwise	= x

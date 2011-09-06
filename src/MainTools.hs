@@ -2,7 +2,7 @@
 
 module MainTools ( mainGen ) where
 
-import ToyHaskell ( Env, initEnv, load, evalP )
+import ToyHaskell ( Env, primitives, load, evalP )
 
 import System.IO ( hFlush, stdout )
 import System.Console.GetOpt (
@@ -16,7 +16,7 @@ mainGen :: [ String ] -> [ String ] -> IO String
 mainGen args _ = do
 	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
-	env0 <- foldM ( \e -> ( load e `fmap` ) . readFile ) initEnv fns
+	env0 <- foldM ( \e -> ( load e `fmap` ) . readFile ) primitives fns
 	( flip . flip maybe ) ( fmap fst . evalP env0 ) expr $ do
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
 			':' : str	-> let	cmd : as = words str in

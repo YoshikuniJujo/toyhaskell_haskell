@@ -17,13 +17,13 @@ testMain = [
 
 testEval :: [ Test ]
 testEval = [
-	( 8 :: Integer )	~?= eval initEnv "8",
-	'h'			~?= eval initEnv "'h'",
-	"hello"			~?= eval initEnv "\"hello\"",
-	True			~?= eval initEnv "8 == 8",
-	False			~?= eval initEnv "8 == 3",
+	( 8 :: Integer )	~?= eval primitives "8",
+	'h'			~?= eval primitives "'h'",
+	"hello"			~?= eval primitives "\"hello\"",
+	True			~?= eval primitives "8 == 8",
+	False			~?= eval primitives "8 == 3",
 	[ ( 1 :: Integer ), 2, 3 ]
-				~?= eval initEnv "[ 3 - 2, 2, 1 + 2 ]"
+				~?= eval primitives "[ 3 - 2, 2, 1 + 2 ]"
  ]
 
 testAlpha :: [ Test ]
@@ -41,4 +41,4 @@ main = do
 	runTestTT ( test [ testMain, testAlpha, testEval ] ) >>= print
 	mainGen [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
 	src <- readFile "./examples/putStr.hs"
-	eval ( load initEnv src ) "putStrLn \"Hello, world!\""
+	eval ( load primitives src ) "putStrLn \"Hello, world!\""

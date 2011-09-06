@@ -1,11 +1,11 @@
-module Primitives ( initEnv ) where
+module Primitives ( primitives ) where
 
 import Value (
 	Value( Nil, Integer, Char, Complex, Function, IOAction, Error ),
 	Env, setVars, emptyEnv )
 
-initEnv :: Env
-initEnv = setVars [
+primitives :: Env
+primitives = setVars [
 	( "+",		Function $ mkBinIntFunction (+) ),
 	( "-",		Function $ mkBinIntFunction (-) ),
 	( "*",		Function $ mkBinIntFunction (*) ),

@@ -1,16 +1,14 @@
 {-# LANGUAGE TupleSections #-}
 
-module ToyHaskell ( Env, initEnv, load, eval, evalP ) where
+module ToyHaskell ( Env, primitives, load, eval, evalP ) where
 
-import Primitives ( initEnv )
+import Primitives ( primitives )
 import Eval ( toyEval )
-import Alpha ( toyAlpha, alphaEnvsP )
+import Alpha ( toyAlpha, toyAlphaEnv )
 import Parser ( toyParse, toyParseModule )
 import Value (
 	Value( Nil, Empty, Integer, Char, Complex, IOAction, Let, Module ),
 	Env, setPats, getVars )
-
-import Control.Arrow ( second )
 
 class ToyValue a where
 	fromToyValue :: Value -> a
@@ -48,10 +46,7 @@ evalV env = toyEval env . toyAlpha ( getVars env ) . toyParse
 
 evalP :: Env -> String -> IO ( String, Env )
 evalP env src = case evalV env src of
-	Let ps		-> return ( "", setPats ps $ alphaEnvsP ( map fst ps ) env )
---		let newEnv = setPats ( second ( toyEval newEnv )`map` ps ) env
---			in newEnv )
---		setPats ( second ( toyEval env ) `map` ps ) env )
+	Let ps		-> return ( "", setPats ps $ toyAlphaEnv ( map fst ps ) env )
 	IOAction act	-> ( ( , env ) . showVal ) `fmap` act
 	val		-> return ( showVal val, env )
 	where
@@ -64,4 +59,4 @@ eval = (.) fromToyValue . evalV
 load :: Env -> String -> Env
 load e src = case toyEval e $ toyAlpha ( getVars e ) $ toyParseModule src of
 	Module ps	-> setPats ps e
-	_		-> error "never occur"
+	nm		-> error $ "never occur" ++ show nm
