@@ -1,0 +1,74 @@
+2011.09.05 Mon.
+
+Iota
+
+i x = x s k
+k x y = x
+s x y z = x z ( y z )
+
+s = k i
+
+i i => i s k => ( s s k ) k => ( \z -> s z ( k z ) ) k =>
+s k ( k k ) => ( \z -> k z ( k k z ) ) => \z -> z -> I
+
+i ( i i ) => ( i i ) s k => s k => \y z -> k z ( y z ) => \y z -> z
+
+i ( i ( i i ) ) => ( i ( i i ) ) s k => k
+
+i ( i ( i ( i i ) ) ) => i ( i ( i i ) ) s k => k s k => s
+
+i = \x -> x ( \y z w -> y w ( z w ) ) ( \v u -> v )
+
+--
+
+Jot
+
+k x y = x
+s x y z = x z ( y z )
+
+s k => \y z -> k z ( y z ) => \y z -> z
+
+e --> \x -> x
+F 0 --> F s k
+F 1 --> \x y -> F ( x y )
+
+11100 => 1110 s k => 111 s k s k => 11 ( s k ) s k => 1 ( s k s ) k =>
+( s k s ) k => ( \z -> k z ( s z ) ) k => ( \z -> z ) k => k
+
+11111000 => 1111100 s k => 111110 s k s k => 11111 s k s k s k =>
+1111 ( s k ) s k s k => 111 ( ( s k ) s ) k s k => 11 ( s k s k ) s k =>
+1 ( s k s k s ) k => s k s k s k => ( s k s k ) s k =>
+k k ( s k ) s k => k s k => s
+
+10 => 1 s k => s k => \y z -> k z ( y z ) => \y z -> z
+
+--
+
+Zot
+
+F --> F B	[F]([B])
+F --> e		\c -> c I
+B --> 0		\c -> c ( \f -> f S K )
+B --> 1		\c L -> L ( \l R -> R ( \r -> c ( l r ) ) )
+
+1 => ( \c -> c I ) ( \c L -> L ( \l R -> R ( \r -> c ( l r ) ) ) =>
+\L -> L ( \l R -> R ( \r -> l r ) )
+
+10 => ( \L -> L ( \l R -> R ( \r -> l r ) ) ) ( \c -> c ( \f -> f s k ) ) =>
+( \c -> c ( \f -> f s k ) ) ( \l R -> R ( \r -> l r ) ) ) =>
+( \l R -> R ( \r -> l r ) ) ) ( \f -> f s k ) =>
+\R -> R ( \r -> r s k )
+
+100 => 10 \c -> c ( \f -> f s k ) =>
+( \R -> R ( \r -> r s k ) ) ( \c -> c ( \f -> f s k ) ) =>
+( \c -> c ( \f -> f s k ) ) ( \r -> r s k ) =>
+( \r -> r s k ) ( \f -> f s k ) => ( \f -> f s k ) s k =>
+s s k k
+
+k I => ( \x y -> x ) ( \x -> x ) => \y x -> x
+
+100 => s s k k => I
+1010100 => k
+101010100 => s
+
+p1100100 == e
