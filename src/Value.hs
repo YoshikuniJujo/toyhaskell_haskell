@@ -5,7 +5,7 @@ module Value (
 	match,
 
 	Env,
-	emptyEnv,
+	initialize,
 	addEnvs,
 	setVars,
 	setPat,
@@ -17,8 +17,8 @@ module Value (
 	mapEnv
 ) where
 
-import Env ( getVarsEnv,
-	emptyEnv, addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv )
+import Env ( getVarsEnv, initEnv,
+	addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv )
 import qualified Env as E ( Env )
 import Control.Monad ( liftM, zipWithM )
 
@@ -122,6 +122,9 @@ getPatVars :: Pattern -> [ String ]
 getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
 getPatVars ( PatVar var _ )	= [ var ]
 getPatVars _			= [ ]
+
+initialize :: [ ( String, Value ) ] -> Env
+initialize = initEnv $ flip PatVar 0
 
 setPat :: Pattern -> Value -> Env -> Env
 setPat = setPatToEnv getPatVars

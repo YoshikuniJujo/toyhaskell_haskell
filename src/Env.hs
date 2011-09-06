@@ -1,6 +1,6 @@
 module Env (
 	Env,
-	emptyEnv,
+	initEnv,
 	setsToEnv,
 	setPatToEnv,
 	setPatsToEnv,
@@ -16,6 +16,9 @@ data Env p v = Env [ ( [ String ], p, v ) ]
 
 emptyEnv :: Env p v
 emptyEnv = Env [ ]
+
+initEnv :: ( String -> p ) -> [ ( String, v ) ] -> Env p v
+initEnv pv defs = setsToEnv pv defs emptyEnv
 
 setToEnv :: ( String -> p ) -> String -> v -> Env p v -> Env p v
 setToEnv pv var val ( Env ps ) = Env $ ( [ var ], pv var, val ) : ps
