@@ -12,7 +12,7 @@ module Value (
 	setPats,
 	getVal,
 	getVars,
-	getPatVars,
+	patVars,
 
 	mapEnv
 ) where
@@ -35,11 +35,11 @@ data Value =
 	Empty					|
 	Integer Integer				|
 	Char Char				|
-	Function ( Value -> Value )		|
+	Fun ( Value -> Value )		|
 	IOAction ( IO Value )			|
-	Identifier String Int			|
-	Complex String [ Value ]		|
-	Apply Value Value			|
+	Var String Int				|
+	Comp String [ Value ]		|
+	App Value Value			|
 	Lambda [ Pattern ] Value		|
 	Closure Env [ Pattern ] Value		|
 	Case Value [ ( Pattern, Value ) ]	|
@@ -51,17 +51,17 @@ data Value =
 instance Show Value where
 	show Nil		= "()"
 	show Empty		= "[]"
-	show ( Identifier i _ )	= i -- ++ show n
+	show ( Var i _ )	= i -- ++ show n
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
-	show v@( Complex ":" [ Char _, _ ] )
+	show v@( Comp ":" [ Char _, _ ] )
 				= "\"" ++ showStr v ++ "\""
-	show v@( Complex ":" _ )= "[" ++ showL v ++ "]"
-	show ( Complex n [ ] )	= n
-	show ( Complex n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++
+	show v@( Comp ":" _ )= "[" ++ showL v ++ "]"
+	show ( Comp n [ ] )	= n
+	show ( Comp n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++
 					")"
-	show ( Apply f a )	= "( " ++ show f ++ " " ++ show a ++ " )"
-	show ( Function _ )	= "<function>"
+	show ( App f a )	= "( " ++ show f ++ " " ++ show a ++ " )"
+	show ( Fun _ )		= "<function>"
 	show ( IOAction _ )	= "<IO>"
 	show ( Lambda vs body )	= showLambda vs body -- "<lambda>"
 	show ( Closure _ _ _ )	= "<closure>"
@@ -91,15 +91,15 @@ showPattern ( PatVar var _ )	= var -- ++ show n
 showPattern p			= show p
 
 showL :: Value -> String
-showL ( Complex ":" [ v, Empty ] )	= show v
-showL ( Complex ":" [ v, c ] )		= show v ++ "," ++ showL c
+showL ( Comp ":" [ v, Empty ] )	= show v
+showL ( Comp ":" [ v, c ] )		= show v ++ "," ++ showL c
 showL _					= "Error: bad List"
 
 showStr :: Value -> String
 showStr Empty					= ""
-showStr ( Complex ":" [ Char '\\', s ] )	= '\\' : '\\' : showStr s
-showStr ( Complex ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
-showStr ( Complex ":" [ Char c, s ] )		= c : showStr s
+showStr ( Comp ":" [ Char '\\', s ] )	= '\\' : '\\' : showStr s
+showStr ( Comp ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
+showStr ( Comp ":" [ Char c, s ] )		= c : showStr s
 showStr _					= "Error: bad String"
 
 --------------------------------------------------------------------------------
@@ -112,11 +112,14 @@ match _ PatUScore		= Just [ ]
 match ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
 	| otherwise	= Nothing
-match ( Complex name1 vals ) ( PatCon name0 pats )
+match ( Comp name1 vals ) ( PatCon name0 pats )
 	| name1 == name0	= liftM concat $ zipWithM match vals pats
 	| otherwise		= Nothing
 match Empty PatEmpty		= Just [ ]
 match _ _			= Nothing
+
+patVars :: Pattern -> [ String ]
+patVars = getPatVars
 
 getPatVars :: Pattern -> [ String ]
 getPatVars ( PatCon _ pats )	= concatMap getPatVars pats

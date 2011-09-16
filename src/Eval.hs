@@ -1,9 +1,8 @@
 module Eval ( toyEval ) where
 
 import Value ( Value(
-	Identifier, Complex, Apply, Function, Lambda, Closure, Case, Letin, Let,
-	Module,	Error ),
-	Pattern, match, Env, setVars, setPat, setPats, getVal, getPatVars )
+	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Error ),
+	Pattern, match, Env, setVars, setPat, setPats, getVal, patVars )
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
@@ -14,15 +13,12 @@ toyEval env val = case noVars env val of
 	vars	-> Error $ unlines $ map errMsg vars
 	where errMsg var = "\tNot in scope: `" ++ var ++ "'"
 
-getVars :: Pattern -> [ String ]
-getVars = getPatVars
-
 getV :: Env -> String -> Maybe Value
 getV env var = getVal ( eval env ) var env
 
 noVars :: Env -> Value -> [ String ]
-noVars env ( Identifier i _ )	= maybe [ i ] ( noVars env ) $ env `getV` i
-noVars env ( Apply f a )	= noVars env f ++ noVars env a
+noVars env ( Var i _ )		= maybe [ i ] ( noVars env ) $ env `getV` i
+noVars env ( App f a )		= noVars env f ++ noVars env a
 noVars env ( Lambda ps expr )	= ps `filterVars` noVars env expr
 noVars env ( Case key sels )	= noVars env key ++ noVarsC env `concatMap` sels
 noVars env ( Letin defs expr )	= map fst defs `filterVars`
@@ -33,19 +29,19 @@ noVars env ( Module defs )	= noVars env ( Let defs )
 noVars _ _			= [ ]
 
 filterVars :: [ Pattern ] -> [ String ] -> [ String ]
-filterVars pats = filter ( `notElem` getVars `concatMap` pats )
+filterVars pats = filter ( `notElem` patVars `concatMap` pats )
 
 noVarsC :: Env -> ( Pattern, Value ) -> [ String ]
-noVarsC env ( test, expr ) = ( `notElem` getVars test ) `filter` noVars env expr
+noVarsC env ( test, expr ) = ( `notElem` patVars test ) `filter` noVars env expr
 
 eval :: Env -> Value -> Value
-eval env ( Identifier i _ )	= eval env $ fromMaybe ( noVar i ) $ getV env i
-eval env ( Complex con mems )	= Complex con $ eval env `map` mems
-eval env ( Apply f a )		= case eval env f of
-	Function fun		-> fun $ eval env a
+eval env ( Var i _ )	= eval env $ fromMaybe ( noVar i ) $ getV env i
+eval env ( Comp con mems )	= Comp con $ eval env `map` mems
+eval env ( App f a )		= case eval env f of
+	Fun fun			-> fun $ eval env a
 	Closure ce [ p ] b	-> eval ( setPat p ( eval env a ) ce ) b
 	Closure ce ( p : ps ) b	-> Closure ( setPat p ( eval env a ) ce ) ps b
-	e@( Error _ )		-> e
+	err@( Error _ )		-> err
 	_			-> notFunction f
 eval env ( Lambda ps expr )	= Closure env ps expr
 eval env ( Case key sels )	= evalC env ( eval env key ) sels

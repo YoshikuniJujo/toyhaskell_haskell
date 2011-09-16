@@ -7,7 +7,7 @@ import Eval ( toyEval )
 import Alpha ( toyAlpha, toyAlphaEnv )
 import Parser ( toyParse, toyParseModule )
 import Value (
-	Value( Nil, Empty, Integer, Char, Complex, IOAction, Let, Module ),
+	Value( Nil, Empty, Integer, Char, Comp, IOAction, Let, Module ),
 	Env, setPats, getVars )
 
 class ToyValue a where
@@ -18,8 +18,8 @@ instance ToyValue () where
 	fromToyValue _		= error "Not ()"
 
 instance ToyValue Bool where
-	fromToyValue ( Complex "True" [ ] )	= True
-	fromToyValue ( Complex "False" [ ] )	= False
+	fromToyValue ( Comp "True" [ ] )	= True
+	fromToyValue ( Comp "False" [ ] )	= False
 	fromToyValue _				= error "Not Bool"
 
 instance ToyValue Integer where
@@ -34,7 +34,7 @@ instance ToyValue a => ToyValue [ a ] where
 	fromToyValue lst	= map fromToyValue $ fromToyList lst
 		where
 		fromToyList Empty			= [ ]
-		fromToyList ( Complex ":" [ h, t ] )	= h : fromToyList t
+		fromToyList ( Comp ":" [ h, t ] )	= h : fromToyList t
 		fromToyList _				= error "Not list"
 
 instance ToyValue a => ToyValue ( IO a ) where

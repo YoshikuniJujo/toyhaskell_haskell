@@ -63,7 +63,7 @@ import "monads-tf" Control.Monad.State ( when, get )
 Module	: module conid where '{' Decls '}'
 				{ Module $5 }
 
-Exp	: LexpOpL Op Exp	{ Apply ( Apply ( Identifier $2 0 ) $1 ) $3 }
+Exp	: LexpOpL Op Exp	{ App ( App ( Var $2 0 ) $1 ) $3 }
 	| Lexp			{ $1 }
 
 Op	: varsym		{ $1 }
@@ -90,10 +90,10 @@ Alts	: Alt			{ [ $1 ] }
 Alt	: Pat '->' Exp		{ ( $1, $3 ) }
 
 Fexp	: Aexp			{ $1 }
-	| Fexp Aexp		{ Apply $1 $2 }
+	| Fexp Aexp		{ App $1 $2 }
 
-Aexp	: varid			{ Identifier $1 0 }
-	| conid			{ Complex $1 [ ] }
+Aexp	: varid			{ Var $1 0 }
+	| conid			{ Comp $1 [ ] }
 	| integer		{ Integer $1 }
 	| char			{ Char $1 }
 	| string		{ makeString $1 }
@@ -104,8 +104,8 @@ Aexp	: varid			{ Identifier $1 0 }
 Elems	: {- empty -}		{ Empty }
 	| Elems_		{ $1 }
 
-Elems_	: Exp			{ Complex ":" [ $1, Empty ] }
-	| Exp ',' Elems_	{ Complex ":" [ $1, $3 ] }
+Elems_	: Exp			{ Comp ":" [ $1, Empty ] }
+	| Exp ',' Elems_	{ Comp ":" [ $1, $3 ] }
 
 Let	: let '{' Decls close	{ $3 }
 
@@ -153,9 +153,9 @@ toyParseModule input = toyParserModule `evalParse` input
 
 makeString :: String -> Value
 makeString ""			= Empty
-makeString ( '\\' : 'n' : cs )	= Complex ":" [ Char '\n', makeString cs ]
-makeString ( '\\' : '\\' : cs )	= Complex ":" [ Char '\\', makeString cs ]
-makeString ( c : cs )		= Complex ":" [ Char c, makeString cs ]
+makeString ( '\\' : 'n' : cs )	= Comp ":" [ Char '\n', makeString cs ]
+makeString ( '\\' : '\\' : cs )	= Comp ":" [ Char '\\', makeString cs ]
+makeString ( c : cs )		= Comp ":" [ Char c, makeString cs ]
 
 happyError :: Parse a
 happyError = get >>= error . ( "parse error: " ++ ) . show
