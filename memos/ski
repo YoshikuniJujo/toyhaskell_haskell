@@ -72,3 +72,48 @@ k I => ( \x y -> x ) ( \x -> x ) => \y x -> x
 101010100 => s
 
 p1100100 == e
+
+church number
+
+0 == k I
+1 == \f x -> f x => s k s ? I
+
+[x]x => I
+[x]y => K y
+[x](FA) => S [X]F [x]A
+[x](\x -> E) => K([X]E)
+[x](\y -> E) => [x]([y]E)
+
+--
+
+s ( ( s ( k s ) ) ( ( s ( k k ) ) i ) )
+-   ------------- -------------------
+=> s $ s ( k s ) ( s ( k k ) i )
+=> \x y -> s ( k s ) ( s ( k k ) i ) y ( x y )
+=> \x y -> k s y ( s ( k k ) i y ) ( x y )
+=> \x y -> s ( s ( k k ) i y ) ( x y )
+=> \x y z -> s ( k k ) i y z ( x y z )
+=> \x y z -> k k y ( i y ) z ( x y z )
+=> \x y z -> k y z ( x y z )
+=> \x y z -> y ( x y z )
+=> \g f x -> f ( g f x )
+
+( \p -> p ( \x y -> x ) ) ( \x y -> y )
+=> ( \x y -> y ) ( \x y -> x )
+=> \y -> y
+
+( \p -> p ( \x y -> y ) ) ( \x y -> y )
+=> ( \x y -> y ) ( \x y -> y )
+=> \y -> y
+
+\f -> t ( f h )
+\f -> ( \f -> I ( f K ) ) ( f S )
+\f -> f S K
+
+[1] = \c L -> L ( \l R -> R ( \r -> c ( l r ) ) )
+[0] = \c -> c ( \f -> f S K )
+
+list = \f -> t ( f h )
+
+list w = ( \f -> t' ( f h' ) ( w h ) =>
+t' ( ( w h ) h' )
