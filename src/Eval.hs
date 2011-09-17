@@ -10,7 +10,7 @@ import Data.Maybe ( fromMaybe )
 toyEval :: Env -> Value -> Value
 toyEval env val = case noVars env val of
 	[ ]	-> eval env val
-	vars	-> Error $ unlines ( map errMsg vars ) -- ++ "\n" ++ show env ++ "\n\n" ++ show val
+	vars	-> Error $ unlines ( map errMsg vars )
 	where errMsg ( var, n ) = "\tNot in scope: `" ++ var ++ case n of
 		0 -> "'"
 		_ -> "~" ++ show n ++ "'"
@@ -36,7 +36,7 @@ filterVars :: [ Pattern ] -> [ Var ] -> [ Var ]
 filterVars pats = filter ( `notElem` patVars `concatMap` pats )
 
 eval :: Env -> Value -> Value
-eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n env ) $ env `get` ( v, n )
+eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n ) $ env `get` ( v, n )
 eval env ( Comp con mems )	= Comp con $ eval env `map` mems
 eval env ( App f a )		= case eval env f of
 	Fun fun			-> fun $ eval env a
@@ -56,8 +56,10 @@ eval _ v			= v
 
 --------------------------------------------------------------------------------
 
-noVar :: String -> Int -> Env -> Value
-noVar var n e = Error $ "Not in scope: `" ++ var ++ "' here" ++ show n ++ " " ++ show e
+noVar :: String -> Int -> Value
+noVar var n = Error $ "Not in scope: `" ++ var ++ case n of
+	0 -> "~" ++ show n  ++ "'"
+	_ -> "'"
 
 notFunction :: Value -> Value
 notFunction nf = Error $ "Not Function: " ++ show nf
