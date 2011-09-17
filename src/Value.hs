@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Value (
 	Pattern( .. ),
 	Value( .. ),
@@ -14,13 +16,14 @@ module Value (
 	getVars,
 	patVars,
 
-	mapEnv
+	mapEnv, Var
 ) where
 
 import Env ( getVarsEnv, initEnv,
-	addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv )
+	addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv, Var )
 import qualified Env as E ( Env )
 import Control.Monad ( liftM, zipWithM )
+import Control.Arrow ( first )
 
 data Pattern =
 	PatVar String Int		|
@@ -51,7 +54,8 @@ data Value =
 instance Show Value where
 	show Nil		= "()"
 	show Empty		= "[]"
-	show ( Var i _ )	= i -- ++ show n
+	show ( Var i 0 )	= i
+	show ( Var i n )	= i ++ "~" ++ show n
 	show ( Integer n )	= show n
 	show ( Char c )		= show c
 	show v@( Comp ":" [ Char _, _ ] )
@@ -67,7 +71,9 @@ instance Show Value where
 	show ( Closure _ _ _ )	= "<closure>"
 	show ( Case v ps )	= showCase v ps
 	show ( Letin a b )	= "let " ++ showPair a ++ " in " ++ show b
-	show ( Module _ )	= "<module>"
+	show ( Module m )	= "module " ++
+		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
+		"; " ) m )
 	show ( Let a )		= "let " ++
 		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
 		"; " ) a )
@@ -87,7 +93,8 @@ showCase v ps = "case " ++ show v ++ " of { " ++
 	++ " }"
 
 showPattern :: Pattern -> String
-showPattern ( PatVar var _ )	= var -- ++ show n
+showPattern ( PatVar var 0 )	= var
+showPattern ( PatVar var n )	= var ++ "~" ++ show n
 showPattern p			= show p
 
 showL :: Value -> String
@@ -106,8 +113,8 @@ showStr _					= "Error: bad String"
 
 type Env = E.Env Pattern Value
 
-match :: Value -> Pattern -> Maybe [ ( String, Value ) ]
-match val ( PatVar var _ )	= Just [ ( var, val ) ]
+match :: Value -> Pattern -> Maybe [ ( Var, Value ) ]
+match val ( PatVar var n )	= Just [ ( ( var, n ), val ) ]
 match _ PatUScore		= Just [ ]
 match ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
@@ -118,16 +125,19 @@ match ( Comp name1 vals ) ( PatCon name0 pats )
 match Empty PatEmpty		= Just [ ]
 match _ _			= Nothing
 
-patVars :: Pattern -> [ String ]
+patVars :: Pattern -> [ Var ]
 patVars = getPatVars
 
-getPatVars :: Pattern -> [ String ]
+getPatVars :: Pattern -> [ Var ]
 getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
-getPatVars ( PatVar var _ )	= [ var ]
+getPatVars ( PatVar var n )	= [ ( var, n ) ]
 getPatVars _			= [ ]
 
 initialize :: [ ( String, Value ) ] -> Env
-initialize = initEnv $ flip PatVar 0
+initialize = initialize' . map ( first ( , 0 ) )
+
+initialize' :: [ ( Var, Value ) ] -> Env
+initialize' = initEnv $ flip PatVar 0 . fst
 
 setPat :: Pattern -> Value -> Env -> Env
 setPat = setPatToEnv getPatVars
@@ -135,11 +145,11 @@ setPat = setPatToEnv getPatVars
 setPats :: [ ( Pattern, Value ) ] -> Env -> Env
 setPats = setPatsToEnv getPatVars
 
-setVars :: [ ( String, Value ) ] -> Env -> Env
-setVars = setsToEnv ( flip PatVar 0 )
+setVars :: [ ( Var, Value ) ] -> Env -> Env
+setVars = setsToEnv ( flip PatVar 0 . fst )
 
-getVars :: Env -> [ String ]
+getVars :: Env -> [ Var ]
 getVars = getVarsEnv
 
-getVal :: ( Value -> Value ) -> String -> Env -> Maybe Value
+getVal :: ( Value -> Value ) -> Var -> Env -> Maybe Value
 getVal = getFromEnv match

@@ -2,7 +2,7 @@ module Eval ( toyEval ) where
 
 import Value ( Value(
 	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Error ),
-	Pattern, match, patVars, Env, setVars, setPat, setPats, getVal )
+	Pattern, match, patVars, Env, setVars, setPat, setPats, getVal, Var )
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
@@ -10,14 +10,16 @@ import Data.Maybe ( fromMaybe )
 toyEval :: Env -> Value -> Value
 toyEval env val = case noVars env val of
 	[ ]	-> eval env val
-	vars	-> Error $ unlines $ map errMsg vars
-	where errMsg var = "\tNot in scope: `" ++ var ++ "'"
+	vars	-> Error $ unlines ( map errMsg vars ) -- ++ "\n" ++ show env ++ "\n\n" ++ show val
+	where errMsg ( var, n ) = "\tNot in scope: `" ++ var ++ case n of
+		0 -> "'"
+		_ -> "~" ++ show n ++ "'"
 
-get :: Env -> String -> Maybe Value
+get :: Env -> Var -> Maybe Value
 get env var = getVal ( eval env ) var env
 
-noVars :: Env -> Value -> [ String ]
-noVars env ( Var v _ )		= maybe [ v ] ( noVars env ) $ env `get` v
+noVars :: Env -> Value -> [ Var ]
+noVars env ( Var v n )		= maybe [ ( v, n ) ] ( noVars env ) $ env `get` ( v, n )
 noVars env ( App f a )		= noVars env f ++ noVars env a
 noVars env ( Lambda ps ex )	= ps `filterVars` noVars env ex
 noVars env ( Case key sels )	= noVars env key ++ nvc `concatMap` sels
@@ -30,11 +32,11 @@ noVars env ( Module defs )	= noVars env ( Let defs )
 noVars _ _			= [ ]
 
 infixl	8 `filterVars`
-filterVars :: [ Pattern ] -> [ String ] -> [ String ]
+filterVars :: [ Pattern ] -> [ Var ] -> [ Var ]
 filterVars pats = filter ( `notElem` patVars `concatMap` pats )
 
 eval :: Env -> Value -> Value
-eval env ( Var v _ )		= eval env $ fromMaybe ( noVar v ) $ env `get` v
+eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n env ) $ env `get` ( v, n )
 eval env ( Comp con mems )	= Comp con $ eval env `map` mems
 eval env ( App f a )		= case eval env f of
 	Fun fun			-> fun $ eval env a
@@ -54,8 +56,8 @@ eval _ v			= v
 
 --------------------------------------------------------------------------------
 
-noVar :: String -> Value
-noVar var = Error $ "Not in scope: `" ++ var ++ "'"
+noVar :: String -> Int -> Env -> Value
+noVar var n e = Error $ "Not in scope: `" ++ var ++ "' here" ++ show n ++ " " ++ show e
 
 notFunction :: Value -> Value
 notFunction nf = Error $ "Not Function: " ++ show nf
