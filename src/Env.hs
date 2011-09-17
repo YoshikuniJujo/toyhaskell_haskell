@@ -12,7 +12,7 @@ module Env (
 
 import Data.Maybe ( listToMaybe )
 
-data Env p v = Env [ ( [ String ], p, v ) ]
+data Env p v = Env [ ( [ String ], p, v ) ] deriving Show
 
 emptyEnv :: Env p v
 emptyEnv = Env [ ]

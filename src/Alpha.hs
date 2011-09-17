@@ -1,10 +1,11 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Alpha ( toyAlpha, toyAlphaEnv ) where
 
 import Value (
 	Value( Var, Comp, App, Lambda, Case, Letin, Let, Module ),
-	Pattern( PatVar, PatCon ), patVars, mapEnv, Env )
+	Pattern( PatVar, PatCon ), patVars, Env, mapEnv )
 import Data.List ( intersect, union )
 import Control.Arrow ( second, (***) )
 
@@ -14,13 +15,10 @@ toyAlpha :: [ String ] -> Value -> Value
 toyAlpha pre = mkVar . alpha pre
 
 toyAlphaEnv :: [ Pattern ] -> Env -> Env
-toyAlphaEnv ps = alphaEnvS $ patVars `concatMap` ps
+toyAlphaEnv ps = flip ( foldr alphaEnv )  $ patVars `concatMap` ps
 
-alphaEnvS :: [ String ] -> Env -> Env
-alphaEnvS = flip $ foldr alphaEnv_
-
-alphaEnv_ :: String -> Env -> Env
-alphaEnv_ x0 = mapEnv fs ( succVar x0 ) ( succVar x0 )
+alphaEnv :: String -> Env -> Env
+alphaEnv x0 = mapEnv ( succVar x0 ) ( mkVar . succVar x0 ) ( mkVar . succVar x0 )
 	where
 	fs x	| x == x0	= x ++ "~1"
 		| otherwise	= x
@@ -68,6 +66,14 @@ mapSuccVars = map . succVars
 class Alpha sv where
 	succVar	:: String -> sv -> sv
 	mkVar	:: sv -> sv
+
+instance Alpha String where
+	succVar x0 x1
+		| x0 == x1			= x1 ++ "~1"
+		| x0 == takeWhile ( /= '~' ) x1	= x0 ++ "~" ++
+			show ( 1 + ( read $ tail $ dropWhile ( /= '~' ) x1 :: Int ) )
+		| otherwise			= x1
+	mkVar		= id
 
 instance Alpha Pattern where
 	succVar	= succVarPat

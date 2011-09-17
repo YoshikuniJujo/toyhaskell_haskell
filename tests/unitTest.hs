@@ -5,9 +5,13 @@ import ToyHaskell
 import Test.HUnit
 import Alpha
 import Parser
+import Value
 
 interpret :: String -> String -> IO String
 interpret fn expr = mainGen [ "-e", expr, fn ] [ ]
+
+testEnv :: Env
+testEnv = initialize [ ( "x", Integer 8 ), ( "y", Var "x" 0 ) ]
 
 testMain :: [ Test ]
 testMain = [
@@ -41,4 +45,5 @@ main = do
 	runTestTT ( test [ testMain, testAlpha, testEval ] ) >>= print
 	mainGen [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
 	src <- readFile "./examples/putStr.hs"
+	print $ toyAlphaEnv [ PatVar "x" 0 ] $ toyAlphaEnv [ PatVar "x" 0 ] testEnv
 	eval ( load primitives src ) "putStrLn \"Hello, world!\""
