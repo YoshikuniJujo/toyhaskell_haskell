@@ -25,3 +25,17 @@
     8    40   192 src/runtoy.hs
    11    56   298 src/toy.hs
   960  5841 27958 合計
+
+2011年  9月 17日 土曜日 16:58:40 JST
+  136  1026  4621 src/Alpha.hs
+   52   417  1517 src/Env.hs
+   66   569  2549 src/Eval.hs
+  215  1186  5718 src/Lexer.hs
+   57   355  1815 src/MainTools.hs
+  163   811  3705 src/Parser.y
+   54   341  1893 src/Primitives.hs
+   62   351  1837 src/ToyHaskell.hs
+  155   969  4274 src/Value.hs
+    8    40   192 src/runtoy.hs
+    8    39   212 src/toy.hs
+  976  6104 28333 合計
