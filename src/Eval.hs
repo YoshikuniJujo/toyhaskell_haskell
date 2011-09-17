@@ -2,7 +2,7 @@ module Eval ( toyEval ) where
 
 import Value ( Value(
 	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Error ),
-	Pattern, match, patVars, Env, setVars, setPat, setPats, getVal, Var )
+	Pattern, match, patVars, Env, setVars, setPat, setPats, getVal, Var( V ) )
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
@@ -11,7 +11,7 @@ toyEval :: Env -> Value -> Value
 toyEval env val = case noVars env val of
 	[ ]	-> eval env val
 	vars	-> Error $ unlines ( map errMsg vars )
-	where errMsg ( var, n ) = "\tNot in scope: `" ++ var ++ case n of
+	where errMsg ( V var n ) = "\tNot in scope: `" ++ var ++ case n of
 		0 -> "'"
 		_ -> "~" ++ show n ++ "'"
 
@@ -19,7 +19,7 @@ get :: Env -> Var -> Maybe Value
 get env var = getVal ( eval env ) var env
 
 noVars :: Env -> Value -> [ Var ]
-noVars env ( Var v n )		= maybe [ ( v, n ) ] ( noVars env ) $ env `get` ( v, n )
+noVars env ( Var v n )		= maybe [ V v n ] ( noVars env ) $ env `get` V v n
 noVars env ( App f a )		= noVars env f ++ noVars env a
 noVars env ( Lambda ps ex )	= ps `filterVars` noVars env ex
 noVars env ( Case key sels )	= noVars env key ++ nvc `concatMap` sels
@@ -36,7 +36,7 @@ filterVars :: [ Pattern ] -> [ Var ] -> [ Var ]
 filterVars pats = filter ( `notElem` patVars `concatMap` pats )
 
 eval :: Env -> Value -> Value
-eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n ) $ env `get` ( v, n )
+eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n ) $ env `get` V v n
 eval env ( Comp con mems )	= Comp con $ eval env `map` mems
 eval env ( App f a )		= case eval env f of
 	Fun fun			-> fun $ eval env a

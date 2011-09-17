@@ -16,11 +16,11 @@ module Value (
 	getVars,
 	patVars,
 
-	mapEnv, Var
+	mapEnv, Var( V ), varName, mkVar, varVol
 ) where
 
 import Env ( getVarsEnv, initEnv,
-	addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv, Var )
+	addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv, Var( V ), varName, mkVar, varVol )
 import qualified Env as E ( Env )
 import Control.Monad ( liftM, zipWithM )
 import Control.Arrow ( first )
@@ -114,7 +114,7 @@ showStr _					= "Error: bad String"
 type Env = E.Env Pattern Value
 
 match :: Value -> Pattern -> Maybe [ ( Var, Value ) ]
-match val ( PatVar var n )	= Just [ ( ( var, n ), val ) ]
+match val ( PatVar var n )	= Just [ ( V var n, val ) ]
 match _ PatUScore		= Just [ ]
 match ( Integer i1 ) ( PatInteger i0 )
 	| i1 == i0	= Just [ ]
@@ -130,14 +130,14 @@ patVars = getPatVars
 
 getPatVars :: Pattern -> [ Var ]
 getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
-getPatVars ( PatVar var n )	= [ ( var, n ) ]
+getPatVars ( PatVar var n )	= [ V var n ]
 getPatVars _			= [ ]
 
 initialize :: [ ( String, Value ) ] -> Env
-initialize = initialize' . map ( first ( , 0 ) )
+initialize = initialize' . map ( first mkVar )
 
 initialize' :: [ ( Var, Value ) ] -> Env
-initialize' = initEnv $ flip PatVar 0 . fst
+initialize' = initEnv $ flip PatVar 0 . varName
 
 setPat :: Pattern -> Value -> Env -> Env
 setPat = setPatToEnv getPatVars
@@ -146,7 +146,7 @@ setPats :: [ ( Pattern, Value ) ] -> Env -> Env
 setPats = setPatsToEnv getPatVars
 
 setVars :: [ ( Var, Value ) ] -> Env -> Env
-setVars = setsToEnv ( flip PatVar 0 . fst )
+setVars = setsToEnv ( flip PatVar 0 . varName )
 
 getVars :: Env -> [ Var ]
 getVars = getVarsEnv

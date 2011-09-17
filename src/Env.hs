@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Env (
 	Env,
 	initEnv,
@@ -8,12 +10,25 @@ module Env (
 	getVarsEnv,
 	addEnvs,
 	mapEnv,
-	Var
+	Var( V ),
+	mkVar,
+	succVar,
+	varName,
+	varVol
 ) where
 
 import Data.Maybe ( listToMaybe )
 
-type Var = ( String, Int )
+data Var = V { varName :: String, varVol :: Int } deriving Eq
+
+instance Show Var where
+	show ( V v n ) = v ++ "~" ++ show n
+
+mkVar :: String -> Var
+mkVar = flip V 0
+
+succVar :: Var -> Var
+succVar ( V v n ) = V v $ succ n
 
 data Env p v = Env [ ( [ Var ], p, v ) ] deriving Show
 
