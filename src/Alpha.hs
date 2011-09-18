@@ -2,22 +2,25 @@ module Alpha ( toyAlpha, toyAlphaEnv ) where
 
 import Value (
 	Value( Var, Comp, App, Lambda, Case, Letin, Let, Module ),
-	Pattern( PatVar, PatCon ), patVars, Env, mapEnv,
+	Pattern( PatVar, PatCon ), Env, mapEnv,
 	Var( V, varName, varVol ), mkVar )
+import qualified Value ( patVars )
 import Data.List ( intersect, union )
 import Control.Arrow ( second, (***) )
 
 --------------------------------------------------------------------------------
 
-toyAlpha :: [ Var ] -> Value -> Value
-toyAlpha pre = alpha $ map varName pre
+toyAlpha :: [ String ] -> Value -> Value
+toyAlpha = alpha
 
 toyAlphaEnv :: [ Pattern ] -> Env -> Env
-toyAlphaEnv ps = flip ( foldr alphaEnv )  $ patVars `concatMap` ps
+toyAlphaEnv = flip ( foldr alphaEnv )  . ( patVars `concatMap` )
 
-alphaEnv :: Var -> Env -> Env
-alphaEnv v = let vn = varName v in
-	mapEnv ( succVar vn ) ( succVar vn ) ( succVar vn )
+patVars :: Pattern -> [ String ]
+patVars = map varName . Value.patVars
+
+alphaEnv :: String -> Env -> Env
+alphaEnv v = mapEnv ( succVar v ) ( succVar v ) ( succVar v )
 
 alpha :: [ String ] -> Value -> Value
 alpha pre ( Comp con mems )	= Comp con $ alpha pre `map` mems
@@ -25,13 +28,13 @@ alpha pre ( App fun arg )	= App ( alpha pre fun ) $ alpha pre arg
 alpha pre ( Lambda ps expr )	= Lambda ( mapSuccVars dups ps ) $
 	alpha ( pre `union` vars ) $ succVars dups expr
 	where
-	vars	= map varName $ patVars `concatMap` ps
+	vars	= patVars `concatMap` ps
 	dups	= pre `intersect` vars
 alpha pre ( Case key sels )	= Case ( alpha pre key ) $ alphaC pre `map` sels
 alpha pre ( Letin defs expr )	=
 	Letin ( alphaDefs pre defs ) $ alpha newPre $ succVars dups expr
 	where
-	vars	= map varName $ ( patVars . fst ) `concatMap` defs
+	vars	= ( patVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
 alpha pre ( Module defs )	= Module $ alphaDefs pre defs
@@ -41,7 +44,7 @@ alpha _ v			= v
 alphaC :: [ String ] -> ( Pattern, Value ) -> ( Pattern, Value )
 alphaC pre sel@( test, _ ) = second ( alpha newPre ) $ succVars dups sel
 	where
-	vars	= map varName $ patVars test
+	vars	= patVars test
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
 
@@ -49,7 +52,7 @@ alphaDefs :: [ String ] -> [ ( Pattern, Value ) ] -> [ ( Pattern, Value ) ]
 alphaDefs pre defs		=
 	( second ( alpha newPre ) . succVars dups ) `map` defs
 	where
-	vars	= map varName $ ( patVars . fst ) `concatMap` defs
+	vars	= ( patVars . fst ) `concatMap` defs
 	dups	= pre `intersect` vars
 	newPre	= pre `union` vars
 

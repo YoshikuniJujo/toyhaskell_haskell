@@ -148,7 +148,7 @@ setPats = setPatsToEnv getPatVars
 setVars :: [ ( Var, Value ) ] -> Env -> Env
 setVars = setsToEnv ( flip PatVar 0 . varName )
 
-getVars :: Env -> [ Var ]
+getVars :: Env -> [ String ]
 getVars = getVarsEnv
 
 getVal :: ( Value -> Value ) -> Var -> Env -> Maybe Value

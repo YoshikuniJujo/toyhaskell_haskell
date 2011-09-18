@@ -57,8 +57,8 @@ getFromEnv m f var ( Env ps ) = do
 	m ( f val ) pat >>= lookup var
 	where one ( x, _, _ ) = x
 
-getVarsEnv :: Env p v -> [ Var ]
-getVarsEnv ( Env ps ) = ( \( vs, _, _ ) -> vs ) `concatMap` ps
+getVarsEnv :: Env p v -> [ String ]
+getVarsEnv ( Env ps ) = ( \( vs, _, _ ) -> map varName vs ) `concatMap` ps
 
 addEnvs :: Env p v -> Env p v -> Env p v
 addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2
