@@ -125,8 +125,8 @@ match ( Comp name1 vals ) ( PatCon name0 pats )
 match Empty PatEmpty		= Just [ ]
 match _ _			= Nothing
 
-patVars :: Pattern -> [ Var ]
-patVars = getPatVars
+patVars :: Pattern -> [ String ]
+patVars = map varName . getPatVars
 
 getPatVars :: Pattern -> [ Var ]
 getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
