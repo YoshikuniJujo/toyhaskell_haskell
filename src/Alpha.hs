@@ -23,13 +23,13 @@ alphaEnv v = mapEnv ( succVar v ) ( succVar v ) ( succVar v )
 alpha :: [ String ] -> Value -> Value
 alpha pre ( Comp con mems )	= Comp con $ alpha pre `map` mems
 alpha pre ( App fun arg )	= App ( alpha pre fun ) $ alpha pre arg
-alpha pre ( Lambda ps expr )	= let ( dups, np ) = getDP pre ps in
-	Lambda ( mapSuccVars dups ps ) $ alpha np $ succVars dups expr
+alpha pre ( Lambda ps ex )	= let ( dups, np ) = getDP pre ps in
+	Lambda ( mapSuccVars dups ps ) $ alpha np $ succVars dups ex
 alpha pre ( Case key sels )	= Case ( alpha pre key ) $ ac `map` sels
 	where ac sel@( cond, _ ) = let ( dups, np ) = getDP pre [ cond ] in
 		second ( alpha np ) $ succVars dups sel
-alpha pre ( Letin defs expr )	= let ( dups, np ) = getDP pre $ map fst defs in
-	Letin ( alphaDefs pre defs ) $ alpha np $ succVars dups expr
+alpha pre ( Letin defs ex )	= let ( dups, np ) = getDP pre $ map fst defs in
+	Letin ( alphaDefs pre defs ) $ alpha np $ succVars dups ex
 alpha pre ( Module defs )	= Module $ alphaDefs pre defs
 alpha pre ( Let defs )		= Let $ second ( alpha pre ) `map` defs
 alpha _ v			= v
@@ -52,29 +52,27 @@ class Alpha sv where
 	succVar	:: String -> sv -> sv
 
 instance Alpha Var where
-	succVar x0 v@( V x1 n )
-		| x0 == x1	= V x1 $ n + 1
-		| otherwise	= v
+	succVar v v1@( V x n )
+		| v == x	= V x $ n + 1
+		| otherwise	= v1
 
 instance Alpha Pattern where
-	succVar v0 ( PatVar v1 n )
-		| v0 == v1		= PatVar v1 $ n + 1
-	succVar v0 ( PatCon c pats )	= PatCon c $ succVar v0 `map` pats
+	succVar v ( PatVar x n )
+		| v == x		= PatVar x $ n + 1
+	succVar v ( PatCon c mems )	= PatCon c $ succVar v `map` mems
 	succVar _ p			= p
 
 instance Alpha Value where
-	succVar v0 ( Lambda vs expr )	=
-		Lambda ( succVar v0 `map` vs ) $ succVar v0 expr
-	succVar v0 ( Var v1 n )
-		| v0 == v1			= Var v1 $ n + 1
-	succVar v0 ( App v1 v2 )		=
-		App ( succVar v0 v1 ) ( succVar v0 v2 )
-	succVar v0 ( Comp con vs )	=
-		Comp con $ succVar v0 `map` vs
-	succVar v0 ( Case v1 ps )		=
-		Case ( succVar v0 v1 ) ( succVar v0 `map` ps )
-	succVar v0 ( Letin ps expr )	=
-		Letin ( succVar v0 `map` ps ) $ succVar v0 expr
+	succVar v ( Lambda ps ex )	=
+		Lambda ( succVar v `map` ps ) $ succVar v ex
+	succVar v ( Var x n )
+		| v == x		= Var x $ n + 1
+	succVar v ( App f a )		= App ( succVar v f ) ( succVar v a )
+	succVar v ( Comp con mems )	= Comp con $ succVar v `map` mems
+	succVar v ( Case key sels )	=
+		Case ( succVar v key ) ( succVar v `map` sels )
+	succVar v ( Letin defs ex )	=
+		Letin ( succVar v `map` defs ) $ succVar v ex
 	succVar _ v			= v
 
 instance ( Alpha a, Alpha b ) => Alpha ( a, b ) where
