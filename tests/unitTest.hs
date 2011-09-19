@@ -32,9 +32,9 @@ testEval = [
 
 testAlpha :: [ Test ]
 testAlpha = [
-	show ( toyAlpha [ ] $ toyParse "\\x y z -> \\x z -> \\x -> x y z" ) ~?=
+	show ( alpha [ ] $ toyParse "\\x y z -> \\x z -> \\x -> x y z" ) ~?=
 		"( \\x y z -> ( \\x~1 z~1 -> ( \\x~2 -> ( ( x~2 y ) z~1 ) ) ) )",
-	show ( toyAlpha [ ] $ toyParse
+	show ( alpha [ ] $ toyParse
 		"let x = 3; y = 2; z = 1; in \\x z -> \\x -> x y z" ) ~?=
 		"let z = 1; y = 2; x = 3; in " ++
 		"( \\x~1 z~1 -> ( \\x~2 -> ( ( x~2 y ) z~1 ) ) )"
@@ -45,5 +45,5 @@ main = do
 	runTestTT ( test [ testMain, testAlpha, testEval ] ) >>= print
 	mainGen [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
 	src <- readFile "./examples/putStr.hs"
-	print $ toyAlphaEnv [ PatVar "x" 0 ] $ toyAlphaEnv [ PatVar "x" 0 ] testEnv
+	print $ alphaEnv [ PatVar "x" 0 ] $ alphaEnv [ PatVar "x" 0 ] testEnv
 	eval ( load primitives src ) "putStrLn \"Hello, world!\""
