@@ -5,7 +5,7 @@ module ToyHaskell ( Env, primitives, load, eval, evalP ) where
 import Primitives ( primitives )
 import Eval ( toyEval )
 import Alpha ( alpha, alphaEnv )
-import Parser ( toyParse, toyParseModule )
+import Parser ( parse, parseModule )
 import Value (
 	Value( Nil, Empty, Integer, Char, Comp, IOAction, Let, Module ),
 	Env, setPats, getVars )
@@ -42,7 +42,7 @@ instance ToyValue a => ToyValue ( IO a ) where
 	fromToyValue _			= error "Not IO"
 
 evalV :: Env -> String -> Value
-evalV env = toyEval env . alpha ( getVars env ) . toyParse
+evalV env = toyEval env . alpha ( getVars env ) . parse
 
 evalP :: Env -> String -> IO ( String, Env )
 evalP env src = case evalV env src of
@@ -57,6 +57,6 @@ eval :: ToyValue a => Env -> String -> a
 eval = (.) fromToyValue . evalV
 
 load :: Env -> String -> Env
-load e src = case toyEval e $ alpha ( getVars e ) $ toyParseModule src of
+load e src = case toyEval e $ alpha ( getVars e ) $ parseModule src of
 	Module ps	-> setPats ps e
 	nm		-> error $ "never occur" ++ show nm

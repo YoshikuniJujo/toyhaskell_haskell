@@ -10,19 +10,22 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 
 module Parser (
-	toyParse,
-	toyParseModule
+	parse,
+	parseModule
  ) where
 
-import Lexer -- ( toyLexer, makeParserInput )
+import Lexer ( Parse, evalParse,
+	Token( ReservedId, ReservedOp, Special, TokString, VarSym, Conid, TokChar, Varid, TokEOF,
+	TokInteger ), popIndents,
+	toyLexer )
 import Value ( Value( .. ), Pattern( .. ) )
 
 import "monads-tf" Control.Monad.State ( when, get )
 
 }
 
-%name		toyParser	Exp
-%name		toyParserModule	Module
+%name		parser	Exp
+%name		parserModule	Module
 %monad		{ Parse }
 %lexer		{ toyLexer } { TokEOF }
 %tokentype	{ Token }
@@ -145,11 +148,11 @@ PatLst_	: LPat			{ PatCon ":" [ $1, PatEmpty ] }
 
 {
 
-toyParse :: String -> Value
-toyParse input = toyParser `evalParse` input
+parse :: String -> Value
+parse input = parser `evalParse` input
 
-toyParseModule :: String -> Value
-toyParseModule input = toyParserModule `evalParse` input
+parseModule :: String -> Value
+parseModule input = parserModule `evalParse` input
 
 makeString :: String -> Value
 makeString ""			= Empty
