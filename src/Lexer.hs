@@ -1,7 +1,7 @@
 module Lexer (
 	Parse,
 	Token( .. ),
-	toyLexer,
+	lexer,
 	evalParse,
 	popIndents
 ) where
@@ -12,15 +12,15 @@ import Control.Monad.State ( State, evalState, put, get, gets )
 --------------------------------------------------------------------------------
 
 data Token =
-	Varid String		|
-	Conid String		|
-	VarSym String		|
 	TokInteger Integer	|
 	TokChar Char		|
 	TokString String	|
 	Special Char		|
 	ReservedOp String	|
 	ReservedId String	|
+	VarSym String		|
+	Varid String		|
+	Conid String		|
 	NewLine			|
 	TokEOF			|
 	AddBrace Int		|
@@ -42,8 +42,8 @@ reservedId = [
  ]
 reservedOp = [ "..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
-toyLexer :: ( Token -> Parse a ) -> Parse a
-toyLexer cont = preprocessor >>= cont
+lexer :: ( Token -> Parse a ) -> Parse a
+lexer cont = preprocessor >>= cont
 
 preprocessor :: Parse Token
 preprocessor = do
@@ -69,7 +69,7 @@ preprocessor = do
 
 addLayoutTokens :: Parse Token
 addLayoutTokens = do
-	( t, _ ) <- lexer
+	( t, _ ) <- lexer'
 	case t of
 		ReservedId res | res `elem` keywords	-> do
 			nt <- peekNextToken
@@ -89,12 +89,12 @@ addLayoutTokens = do
 peekNextToken :: Parse ( Token, Int )
 peekNextToken = lexerNoNL >>= \ret -> pushBuf ret >> return ret
 	where
-	lexerNoNL = lexer >>= \t -> case t of
+	lexerNoNL = lexer' >>= \t -> case t of
 		( NewLine, _ )	-> lexerNoNL
 		_		-> return t
 
-lexer :: Parse ( Token, Int )
-lexer = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
+lexer' :: Parse ( Token, Int )
+lexer' = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
 	src	<- gets source
 	cs	<- gets cols
 	let ( t, fin, rest ) = lexeme getToken src

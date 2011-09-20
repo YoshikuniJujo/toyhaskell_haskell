@@ -20,7 +20,7 @@ noVars :: Env -> Value -> [ String ]
 noVars env ( Var v n )		= maybe [ v ] ( noVars env ) $ env `get` V v n
 noVars env ( App f a )		= noVars env f ++ noVars env a
 noVars env ( Lambda ps ex )	= ps `filterVars` noVars env ex
-noVars env ( Case key sels )	= noVars env key ++ nvc `concatMap` sels
+noVars env ( Case key alts )	= noVars env key ++ nvc `concatMap` alts
 	where nvc ( pat, ex ) = [ pat ] `filterVars` noVars env ex
 noVars env ( Letin defs ex )	=
 	map fst defs `filterVars` noVars env ex ++ noVars env ( Let defs )
@@ -43,7 +43,7 @@ eval env ( App f a )		= case eval env f of
 	err@( Error _ )		-> err
 	_			-> notFunction f
 eval env ( Lambda ps ex )	= Closure env ps ex
-eval env ( Case key sels )	= ec sels
+eval env ( Case key alts )	= ec alts
 	where
 	ec [ ]			= nonExhaustive
 	ec ( ( pat, ex ) : r )	= let k = eval env key in
