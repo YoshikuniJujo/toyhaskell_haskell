@@ -1,9 +1,9 @@
 module Lexer (
 	Parse,
-	Token( .. ),
-	lexer,
 	evalParse,
-	popIndents
+	popIndent,
+	Token( .. ),
+	lexer
 ) where
 
 import Control.Arrow ( first )
@@ -48,22 +48,22 @@ lexer cont = preprocessor >>= cont
 preprocessor :: Parse Token
 preprocessor = do
 	t	<- addLayoutTokens
-	mm	<- peekIndents
+	mm	<- peekIndent
 	case t of
 		Indent n	-> case mm of
 			Just m	| m == n	-> return $ Special ';'
 				| n < m		-> do
-					_ <- popIndents
+					_ <- popIndent
 					pushBuf ( t, 0 )
 					return $ Special '}'
 			_			-> preprocessor
-		AddBrace n	-> pushIndents n >> return ( Special '{' )
+		AddBrace n	-> pushIndent n >> return ( Special '{' )
 		Special '}'	-> case mm of
-			Just 0	-> popIndents >> return t
+			Just 0	-> popIndent >> return t
 			_	-> error "bad close brace"
-		Special '{'	-> pushIndents 0 >> return t
+		Special '{'	-> pushIndent 0 >> return t
 		TokEOF		-> ( flip . maybe ) ( return t ) mm $ \_ -> do
-			_ <- popIndents
+			_ <- popIndent
 			return $ Special '}'
 		_		-> return t
 
@@ -195,20 +195,20 @@ popBuf = do
 		t : ts	-> put stat { buffer = ts } >> return ( Just t )
 		_	-> return Nothing
 
-pushIndents :: Int -> Parse ()
-pushIndents m = do
+pushIndent :: Int -> Parse ()
+pushIndent m = do
 	stat@ParseState { indents = ma } <- get
 	put stat { indents = m : ma }
 
-popIndents :: Parse ( Maybe Int )
-popIndents = do
+popIndent :: Parse ( Maybe Int )
+popIndent = do
 	stat@ParseState { indents = ma } <- get
 	case ma of
 		m : ms	-> put stat { indents = ms } >> return ( Just m )
 		_	-> return Nothing
 
-peekIndents :: Parse ( Maybe Int )
-peekIndents = do
+peekIndent :: Parse ( Maybe Int )
+peekIndent = do
 	ma <- gets indents
 	case ma of
 		m : _	-> return $ Just m

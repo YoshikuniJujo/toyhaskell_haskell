@@ -14,7 +14,7 @@ module Parser (
 	parseModule
  ) where
 
-import Lexer ( Parse, evalParse, popIndents, lexer,
+import Lexer ( Parse, evalParse, popIndent, lexer,
 	Token( TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
 		VarSym, Varid, Conid, TokEOF ) )
 import Value (
@@ -143,7 +143,7 @@ Op	: varsym			{ $1 }
 
 close	: '}'				{ () }
 	| error				{% do
-					mm <- popIndents
+					mm <- popIndent
 					when ( maybe True ( == 0 ) mm ) $
 						happyError }
 
