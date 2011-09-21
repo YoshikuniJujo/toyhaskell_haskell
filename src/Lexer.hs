@@ -34,15 +34,15 @@ reservedId = [
  ]
 reservedOp = [ "..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
-type Lexer = String -> ( Token, String, String )
+type Lexer = String -> ( Token, ( String, String ) )
 
 lexer :: Lexer
-lexer ""			= ( TokEOF, "", "" )
-lexer ( '\n' : cs )		= ( NewLine, "\n", cs )
+lexer ""			= ( TokEOF, ( "", "" ) )
+lexer ( '\n' : cs )		= ( NewLine, ( "\n", cs ) )
 lexer ( '\'' : cs )		= lexerChar cs
 lexer ( '"' : cs )		= lexerString cs
 lexer ca@( c : cs )
-	| c `elem` special	= ( Special c, [ c ], cs )
+	| c `elem` special	= ( Special c, ( [ c ], cs ) )
 	| c `elem` small	= spanToken ( small ++ large ++ digit ) mkTkV
 	| c `elem` large	= spanToken ( small ++ large ++ digit ) ConId
 	| c `elem` ":"		= spanToken symbol mkTkC
@@ -51,14 +51,14 @@ lexer ca@( c : cs )
         | otherwise		= error $ "lexer failed: " ++ ca
 	where
 	spanToken chType f = let ( ret, rest ) = span ( `elem` chType ) ca in
-		( f ret, ret, rest )
+		( f ret, ( ret, rest ) )
 	mkTkV v	= ( if v `elem` reservedId then ReservedId else VarId ) v
 	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
 	mkTkC o = ( if o `elem` reservedOp then ReservedOp else ConSym ) o
 
 lexerChar :: Lexer
 lexerChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in
-	( TokChar $ readChar ret, '\'' : ret ++ "'", rest )
+	( TokChar $ readChar ret, ( '\'' : ret ++ "'", rest ) )
 	where
 	readChar "\\n"	= '\n'
 	readChar [ c ]	= c
@@ -66,13 +66,13 @@ lexerChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in
 
 lexerString :: Lexer
 lexerString ca = let ( ret, '"' : rest ) = span ( /= '"' ) ca in
-	( TokString ret, '"' : ret ++ "\"", rest )
+	( TokString ret, ( '"' : ret ++ "\"", rest ) )
 
 lexeme :: Lexer -> Lexer
 lexeme lx src = let
-	( t, fin, rest )	= lx src
+	( t, ( fin, rest ) )	= lx src
 	( ws, rest' )		= gw rest in
-	( t, fin ++ ws, rest' )
+	( t, ( fin ++ ws, rest' ) )
 	where
 	gw ca@( '-' : '-' : _ )	= first ( c ++ ) $ gw r
 		where ( c, r ) = span ( /= '\n' ) ca

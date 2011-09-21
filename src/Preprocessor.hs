@@ -15,21 +15,24 @@ import Control.Monad.State ( State, evalState, put, get, gets )
 type Parse = State ParseState
 
 data ParseState = ParseState {
-	indents	:: [ Int ],
-	lns	:: Int,
-	cols	:: Int,
 	source	:: String,
+	cols	:: Int,
+	indents	:: [ Int ],
 	buffer	:: [ ( Token, Int ) ]
  } deriving Show
 
 evalParse :: Parse a -> String -> a
 evalParse m src = m `evalState` ParseState {
-	indents	= [ ],
-	lns	= 1,
-	cols	= 1,
 	source	= src,
+	cols	= 1,
+	indents	= [ ],
 	buffer	= [ ]
  }
+
+updateSrc :: ( String, String ) -> Parse ()
+updateSrc ( lexed, src ) = do
+	putSrc src
+	updatePos lexed
 
 putSrc :: String -> Parse ()
 putSrc src = do
@@ -38,14 +41,14 @@ putSrc src = do
 
 updatePos :: String -> Parse ()
 updatePos str = do
-	stat@ParseState { lns = ls, cols = cs } <- get
-	let ( nls, ncs ) = up ls cs str
-	put stat { lns = nls, cols = ncs }
+	stat@ParseState { cols = cs } <- get
+	let ncs = up cs str
+	put stat { cols = ncs }
 	where
-	up l c ""		= ( l, c )
-	up l _ ( '\n' : cs )	= up ( l + 1 ) 1 cs
-	up l c ( '\t' : cs )	= up l ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
-	up l c ( _ : cs )	= up l ( c + 1 ) cs
+	up c ""			= c
+	up _ ( '\n' : cs )	= up 1 cs
+	up c ( '\t' : cs )	= up ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
+	up c ( _ : cs )		= up ( c + 1 ) cs
 
 pushBuf :: ( Token, Int ) -> Parse ()
 pushBuf t = do
@@ -140,7 +143,6 @@ getToken :: Parse ( Token, Int )
 getToken = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
 	src	<- gets source
 	cs	<- gets cols
-	let ( t, fin, rest ) = lexeme lexer src
-	updatePos fin
-	putSrc rest
+	let ( t, newSrc ) = lexeme lexer src
+	updateSrc newSrc
 	return ( t, cs )
