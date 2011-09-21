@@ -14,7 +14,7 @@ module Parser (
 	parseModule
  ) where
 
-import Lexer ( Parse, evalParse, popIndent, prep,
+import Preprocessor ( Parse, evalParse, popIndent, prep,
 	Token( TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
 		VarSym, ConSym, VarId, ConId, TokEOF ) )
 import Value (
