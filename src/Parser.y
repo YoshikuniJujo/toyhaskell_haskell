@@ -14,7 +14,7 @@ module Parser (
 	parseModule
  ) where
 
-import Lexer ( Parse, evalParse, popIndent, lexer,
+import Lexer ( Parse, evalParse, popIndent, prep,
 	Token( TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
 		VarSym, ConSym, VarId, ConId, TokEOF ) )
 import Value (
@@ -29,7 +29,7 @@ import "monads-tf" Control.Monad.State ( when, get )
 %name		parser		Exp
 %name		parserModule	Module
 %monad		{ Parse }
-%lexer		{ lexer }	{ TokEOF }
+%lexer		{ prep }	{ TokEOF }
 %tokentype	{ Token }
 
 %token

@@ -3,7 +3,7 @@ module Lexer (
 	evalParse,
 	popIndent,
 	Token( .. ),
-	lexer
+	prep
 ) where
 
 import Control.Arrow ( first )
@@ -43,8 +43,8 @@ reservedId = [
  ]
 reservedOp = [ "..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
-lexer :: ( Token -> Parse a ) -> Parse a
-lexer = ( preprocessor >>= )
+prep :: ( Token -> Parse a ) -> Parse a
+prep = ( preprocessor >>= )
 
 preprocessor :: Parse Token
 preprocessor = do
@@ -75,7 +75,7 @@ preprocessor = do
 
 addLayoutTokens :: Parse Token
 addLayoutTokens = do
-	( t, _ ) <- lexer'
+	( t, _ ) <- getToken
 	case t of
 		ReservedId res | res `elem` keywords	-> do
 			nt <- peekNextToken
@@ -95,34 +95,34 @@ addLayoutTokens = do
 peekNextToken :: Parse ( Token, Int )
 peekNextToken = lexerNoNL >>= \ret -> pushBuf ret >> return ret
 	where
-	lexerNoNL = lexer' >>= \t -> case t of
+	lexerNoNL = getToken >>= \t -> case t of
 		( NewLine, _ )	-> lexerNoNL
 		_		-> return t
 
-lexer' :: Parse ( Token, Int )
-lexer' = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
+getToken :: Parse ( Token, Int )
+getToken = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
 	src	<- gets source
 	cs	<- gets cols
-	let ( t, fin, rest ) = lexeme getToken src
+	let ( t, fin, rest ) = lexeme lexer src
 	updatePos fin
 	putSrc rest
 	return ( t, cs )
 
 type Lexer = String -> ( Token, String, String )
 
-getToken :: Lexer
-getToken ""			= ( TokEOF, "", "" )
-getToken ( '\n' : cs )		= ( NewLine, "\n", cs )
-getToken ( '\'' : cs )		= getTokenChar cs
-getToken ( '"' : cs )		= getTokenString cs
-getToken ca@( c : cs )
+lexer :: Lexer
+lexer ""			= ( TokEOF, "", "" )
+lexer ( '\n' : cs )		= ( NewLine, "\n", cs )
+lexer ( '\'' : cs )		= lexerChar cs
+lexer ( '"' : cs )		= lexerString cs
+lexer ca@( c : cs )
 	| c `elem` special	= ( Special c, [ c ], cs )
 	| c `elem` small	= spanToken ( small ++ large ++ digit ) mkTkV
 	| c `elem` large	= spanToken ( small ++ large ++ digit ) ConId
 	| c `elem` ":"		= spanToken symbol mkTkC
 	| c `elem` symbol	= spanToken symbol mkTkO
 	| c `elem` digit	= spanToken digit ( TokInteger . read )
-        | otherwise		= error $ "getToken failed: " ++ ca
+        | otherwise		= error $ "lexer failed: " ++ ca
 	where
 	spanToken chType f = let ( ret, rest ) = span ( `elem` chType ) ca in
 		( f ret, ret, rest )
@@ -130,16 +130,16 @@ getToken ca@( c : cs )
 	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
 	mkTkC o = ( if o `elem` reservedOp then ReservedOp else ConSym ) o
 
-getTokenChar :: Lexer
-getTokenChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in
+lexerChar :: Lexer
+lexerChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in
 	( TokChar $ readChar ret, '\'' : ret ++ "'", rest )
 	where
 	readChar "\\n"	= '\n'
 	readChar [ c ]	= c
 	readChar _	= error "bad charactor literal"
 
-getTokenString :: Lexer
-getTokenString ca = let ( ret, '"' : rest ) = span ( /= '"' ) ca in
+lexerString :: Lexer
+lexerString ca = let ( ret, '"' : rest ) = span ( /= '"' ) ca in
 	( TokString ret, '"' : ret ++ "\"", rest )
 
 lexeme :: Lexer -> Lexer
