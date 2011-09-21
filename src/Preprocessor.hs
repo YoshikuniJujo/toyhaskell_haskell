@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Preprocessor (
 	Parse,
 	evalParse,
@@ -55,6 +57,9 @@ pushBuf t = do
 	stat@ParseState { buffer = buf } <- get
 	put stat { buffer = t : buf }
 
+pushBufToken :: Token -> Parse ()
+pushBufToken = pushBuf . ( , 0 )
+
 popBuf :: Parse ( Maybe ( Token, Int ) )
 popBuf = do
 	stat@ParseState { buffer = buf } <- get
@@ -88,21 +93,21 @@ prep = ( preprocessor >>= )
 
 preprocessor :: Parse Token
 preprocessor = do
-	t	<- addLayoutTokens
+	t	<- addLayout
 	mm	<- peekIndent
 	case t of
 		Indent n	-> case mm of
 			Just m	| m == n	-> return $ Special ';'
 				| n < m		-> do
 					_ <- popIndent
-					pushBuf ( t, 0 )
+					pushBufToken t
 					return $ Special '}'
 			_			-> preprocessor
 		AddBrace n	-> case mm of
 			Just m	| n > m	-> pushIndent n >> return ( Special '{' )
 			Nothing	| n > 0	-> pushIndent n >> return ( Special '{' )
-			_		-> do	pushBuf ( Indent n, 0 )
-						pushBuf ( Special '}', 0 )
+			_		-> do	pushBufToken $ Indent n
+						pushBufToken $ Special '}'
 						return $ Special '{'
 		Special '}'	-> case mm of
 			Just 0	-> popIndent >> return t
@@ -113,36 +118,37 @@ preprocessor = do
 			return $ Special '}'
 		_		-> return t
 
-addLayoutTokens :: Parse Token
-addLayoutTokens = do
-	( t, _ ) <- getToken
-	case t of
-		ReservedId res | res `elem` keywords	-> do
-			nt <- peekNextToken
-			case nt of
-				( Special '{', _ )	-> return ()
-				( TokEOF, _ )		->
-					pushBuf ( AddBrace 0, 0 )
-				( _, cs )		->
-					pushBuf ( AddBrace cs, 0 )
-			return t
-		NewLine					->
-			fmap ( Indent . snd ) peekNextToken
-		_					-> return t
+addLayout :: Parse Token
+addLayout = do
+	( tok, _ ) <- getToken
+	case tok of
+		ReservedId res
+			| res `elem` keywords	-> do
+				next <- peekTok
+				case next of
+					( Special '{', _ )	-> return ()
+					( TokEOF, _ )		->
+						pushBufToken $ AddBrace 0
+					( _, cs )		->
+						pushBufToken $ AddBrace cs
+				return tok
+		NewLine				-> fmap ( Indent . snd ) peekTok
+		_				-> return tok
 	where
 	keywords = [ "where", "let", "do", "of" ]
+	peekTok = getNext >>= \next -> pushBuf next >> return next
+	getNext = getToken >>= \tok -> case tok of
+		( NewLine, _ )	-> getNext
+		_		-> return tok
 
-peekNextToken :: Parse ( Token, Int )
-peekNextToken = lexerNoNL >>= \ret -> pushBuf ret >> return ret
-	where
-	lexerNoNL = getToken >>= \t -> case t of
-		( NewLine, _ )	-> lexerNoNL
-		_		-> return t
+infixr 2 $$
+( $$ ) :: ( a -> b ) -> a -> b
+( $$ ) = ( $ )
 
 getToken :: Parse ( Token, Int )
-getToken = popBuf >>= \mt -> ( flip . flip maybe ) return mt $ do
+getToken = popBuf >>= flip maybe return $$ do
 	src	<- gets source
 	cs	<- gets cols
-	let ( t, newSrc ) = lexeme lexer src
+	let ( tok, newSrc ) = lexeme lexer src
 	updateSrc newSrc
-	return ( t, cs )
+	return ( tok, cs )

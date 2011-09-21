@@ -254,3 +254,9 @@ Var を alpha 変換した後に直接、Var String Int の形のまま使うこ
 
 次は、Parser.y の refactoring。
 残りは、Lexer, Value, Env 。
+
+2011.09.21 Wed.
+
+残りは、Preprocessor, Lexer, Value, Env。
+で、今は、addLayout の refactoring が終了したところ。
+次は preprocessor の refactoring から。
