@@ -16,7 +16,7 @@ module Parser (
 
 import Lexer ( Parse, evalParse, popIndent, lexer,
 	Token( TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
-		VarSym, Varid, Conid, TokEOF ) )
+		VarSym, ConSym, Varid, Conid, TokEOF ) )
 import Value (
 	Value( Nil, Empty, Integer, Char, Var, Comp, App, Lambda, Case, Letin,
 		Module, Let ),
@@ -60,6 +60,7 @@ import "monads-tf" Control.Monad.State ( when, get )
 	where	{ ReservedId "where" }
 	'_'	{ ReservedId "_" }
 	varsym	{ VarSym $$ }
+	consym	{ ConSym $$ }
 	varid	{ Varid $$ }
 	conid	{ Conid $$ }
 
@@ -70,7 +71,7 @@ Module	: module conid where '{' Decls '}'	{ Module $5 }
 Exp	: InfExp			{ $1 }
 	| Let				{ Let $1 }
 
-InfExp	: LexpL Op InfExp		{ App ( App ( Var $2 0 ) $1 ) $3 }
+InfExp	: LexpL Op InfExp		{ $2 $1 $3 }
 	| Lexp				{ $1 }
 
 Lexp	: '\\' APats '->' Exp		{ Lambda $2 $4 }
@@ -120,7 +121,7 @@ Decl	: Pat '=' Exp			{ ( $1, $3 ) }
 APats	: APat				{ [ $1 ] }
 	| APat APats			{ $1 : $2 }
 
-Pat	: LPat ':' Pat			{ PatCon ":" [ $1, $3 ] }
+Pat	: LPat Conop Pat		{ PatCon $2 [ $1, $3 ] }
 	| LPat				{ $1 }
 
 LPat	: APat				{ $1 }
@@ -137,8 +138,11 @@ PatLst	: {- empty -}			{ PatEmpty }
 PatLst_	: Pat				{ PatCon ":" [ $1, PatEmpty ] }
 	| Pat ',' PatLst_		{ PatCon ":" [ $1, $3 ] }
 
-Op	: varsym			{ $1 }
-	| '`' varid '`'			{ $2 }
+Op	: varsym			{ \x y -> App ( App ( Var $1 0 ) x ) y }
+	| '`' varid '`'			{ \x y -> App ( App ( Var $2 0 ) x ) y }
+	| Conop				{ \x y -> Comp $1 [ x, y ] }
+
+Conop	: consym			{ $1 }
 	| ':'				{ ":" }
 
 close	: '}'				{ () }

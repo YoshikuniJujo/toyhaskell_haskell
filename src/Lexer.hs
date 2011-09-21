@@ -19,6 +19,7 @@ data Token =
 	ReservedOp String	|
 	ReservedId String	|
 	VarSym String		|
+	ConSym String		|
 	Varid String		|
 	Conid String		|
 	NewLine			|
@@ -113,6 +114,7 @@ getToken ca@( c : cs )
 	| c `elem` special	= ( Special c, [ c ], cs )
 	| c `elem` small	= spanToken ( small ++ large ++ digit ) mkTkV
 	| c `elem` large	= spanToken ( small ++ large ++ digit ) Conid
+	| c `elem` ":"		= spanToken symbol mkTkC
 	| c `elem` symbol	= spanToken symbol mkTkO
 	| c `elem` digit	= spanToken digit ( TokInteger . read )
         | otherwise		= error $ "getToken failed: " ++ ca
@@ -121,6 +123,7 @@ getToken ca@( c : cs )
 		( f ret, ret, rest )
 	mkTkV v	= ( if v `elem` reservedId then ReservedId else Varid ) v
 	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
+	mkTkC o = ( if o `elem` reservedOp then ReservedOp else ConSym ) o
 
 getTokenChar :: Lexer
 getTokenChar ca = let ( ret, '\'' : rest ) = span ( /= '\'' ) ca in

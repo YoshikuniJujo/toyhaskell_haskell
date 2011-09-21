@@ -12,7 +12,6 @@ primitives = initialize [
 	( "div",	Fun $ mkBinIntFunction div ),
 	( "^",		Fun $ mkBinIntFunction (^) ),
 	( "==",		Fun $ mkIntCompFunction (==) ),
-	( ":",		Fun makeList ),
 	( ">>",		Fun concatMonad ),
 	( "return",	Fun $ IOAction . return ),
 	( "putChar",	Fun putCharFun )
@@ -34,9 +33,6 @@ mkIntBoolFunction _ ni			= notMatchTypeError "Integer" ni
 mkIntCompFunction :: ( Integer -> Integer -> Bool ) -> Value -> Value
 mkIntCompFunction p ( Integer x )	= Fun $ mkIntBoolFunction $ p x
 mkIntCompFunction _ ni			= notMatchTypeError "Integer" ni
-
-makeList :: Value -> Value
-makeList h = Fun $ \t -> Comp ":" [ h, t ]
 
 concatMonad :: Value -> Value
 concatMonad ( IOAction act1 ) = Fun fun
