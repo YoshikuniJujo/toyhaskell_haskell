@@ -16,7 +16,7 @@ module Parser (
 
 import Lexer ( Parse, evalParse, popIndent, lexer,
 	Token( TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
-		VarSym, ConSym, Varid, Conid, TokEOF ) )
+		VarSym, ConSym, VarId, ConId, TokEOF ) )
 import Value (
 	Value( Nil, Empty, Integer, Char, Var, Comp, App, Lambda, Case, Letin,
 		Module, Let ),
@@ -61,8 +61,8 @@ import "monads-tf" Control.Monad.State ( when, get )
 	'_'	{ ReservedId "_" }
 	varsym	{ VarSym $$ }
 	consym	{ ConSym $$ }
-	varid	{ Varid $$ }
-	conid	{ Conid $$ }
+	varid	{ VarId $$ }
+	conid	{ ConId $$ }
 
 %%
 

@@ -20,31 +20,31 @@ data Token =
 	ReservedId String	|
 	VarSym String		|
 	ConSym String		|
-	Varid String		|
-	Conid String		|
+	VarId String		|
+	ConId String		|
 	NewLine			|
 	TokEOF			|
 	AddBrace Int		|
 	Indent Int
 	deriving ( Show, Eq )
 
-small, large, digit, special, symbol :: String
+small, large, symbol, digit, special :: String
 small	= "abcdefghijklmnopqrstuvwxyz_"
 large	= "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-digit	= "0123456789"
 symbol	= "!#$%&*+./<=>?@\\^|-~:"
-special = "(),;[]{}`"
+digit	= "0123456789"
+special = "(),;[]`{}"
 
 reservedId, reservedOp :: [ String ]
 reservedId = [
 	"case", "class", "data", "default", "deriving", "do", "else", "foreign",
-	 "if", "import", "in", "infix", "infixl", "infixr", "instance", "let",
+	"if", "import", "in", "infix", "infixl", "infixr", "instance", "let",
 	"module", "newtype", "of", "then", "type", "where", "_"
  ]
 reservedOp = [ "..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>" ]
 
 lexer :: ( Token -> Parse a ) -> Parse a
-lexer cont = preprocessor >>= cont
+lexer = ( preprocessor >>= )
 
 preprocessor :: Parse Token
 preprocessor = do
@@ -58,7 +58,12 @@ preprocessor = do
 					pushBuf ( t, 0 )
 					return $ Special '}'
 			_			-> preprocessor
-		AddBrace n	-> pushIndent n >> return ( Special '{' )
+		AddBrace n	-> case mm of
+			Just m	| n > m	-> pushIndent n >> return ( Special '{' )
+			Nothing	| n > 0	-> pushIndent n >> return ( Special '{' )
+			_		-> do	pushBuf ( Indent n, 0 )
+						pushBuf ( Special '}', 0 )
+						return $ Special '{'
 		Special '}'	-> case mm of
 			Just 0	-> popIndent >> return t
 			_	-> error "bad close brace"
@@ -113,7 +118,7 @@ getToken ( '"' : cs )		= getTokenString cs
 getToken ca@( c : cs )
 	| c `elem` special	= ( Special c, [ c ], cs )
 	| c `elem` small	= spanToken ( small ++ large ++ digit ) mkTkV
-	| c `elem` large	= spanToken ( small ++ large ++ digit ) Conid
+	| c `elem` large	= spanToken ( small ++ large ++ digit ) ConId
 	| c `elem` ":"		= spanToken symbol mkTkC
 	| c `elem` symbol	= spanToken symbol mkTkO
 	| c `elem` digit	= spanToken digit ( TokInteger . read )
@@ -121,7 +126,7 @@ getToken ca@( c : cs )
 	where
 	spanToken chType f = let ( ret, rest ) = span ( `elem` chType ) ca in
 		( f ret, ret, rest )
-	mkTkV v	= ( if v `elem` reservedId then ReservedId else Varid ) v
+	mkTkV v	= ( if v `elem` reservedId then ReservedId else VarId ) v
 	mkTkO o	= ( if o `elem` reservedOp then ReservedOp else VarSym ) o
 	mkTkC o = ( if o `elem` reservedOp then ReservedOp else ConSym ) o
 
