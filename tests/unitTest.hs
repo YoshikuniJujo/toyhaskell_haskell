@@ -1,6 +1,6 @@
 module Main where
 
-import MainTools ( mainGen )
+import qualified MainTools as T ( main )
 import ToyHaskell
 import Test.HUnit
 import Alpha
@@ -8,7 +8,7 @@ import Parser
 import Value
 
 interpret :: String -> String -> IO String
-interpret fn expr = mainGen [ "-e", expr, fn ] [ ]
+interpret fn expr = T.main [ "-e", expr, fn ] [ ]
 
 testEnv :: Env
 testEnv = initialize [ ( "x", Integer 8 ), ( "y", Var "x" 0 ) ]
@@ -44,7 +44,7 @@ testAlpha = [
 main :: IO ()
 main = do
 	runTestTT ( test [ testMain, testAlpha, testEval ] ) >>= print
-	mainGen [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
+	T.main [ "-e", "main", "./examples/hello.hs" ] [ ] >>= putStr
 	src <- readFile "./examples/putStr.hs"
 	print $ alphaEnv [ PatVar "x" 0 ] $ alphaEnv [ PatVar "x" 0 ] testEnv
 	eval ( load primitives src ) "putStrLn \"Hello, world!\""

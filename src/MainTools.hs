@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module MainTools ( mainGen ) where
+module MainTools ( main ) where
 
 import ToyHaskell ( Env, primitives, load, evalP )
 
@@ -12,15 +12,15 @@ import Control.Monad.Tools ( doWhile )
 
 --------------------------------------------------------------------------------
 
-mainGen :: [ String ] -> [ String ] -> IO String
-mainGen args _ = do
+main :: [ String ] -> [ String ] -> IO String
+main args _ = do
 	let ( expr, fns, errs ) = readOption args
 	mapM_ putStr errs
 	env0 <- foldM ( \e -> ( load e `fmap` ) . readFile ) primitives fns
 	( flip . flip maybe ) ( fmap fst . evalP env0 ) expr $ do
 		runLoop "toyhaskell" env0 $ \env inp -> case inp of
-			':' : str	-> let	cmd : as = words str in
-						runCmd env cmd as
+			':' : str	-> let	cmd : args' = words str in
+						runCmd env cmd args'
 			_		-> do
 				( ret, env' ) <- evalP env inp
 				putStr ret
@@ -46,12 +46,11 @@ options = [
 	Option "e" [ ] ( ReqArg Expr "haskell expression" ) "run expression"
  ]
 
-readOption ::
-	[ String ] -> ( Maybe String, [ FilePath ], [ String ] )
+readOption :: [ String ] -> ( Maybe String, [ FilePath ], [ String ] )
 readOption args = let
 	( opts, fns, errs )	= getOpt RequireOrder options args
 	expr			= fromOps opts in
 	( expr, fns, errs )
 	where
 	fromOps [ ]		= Nothing
-	fromOps ( op : _ )	= case op of Expr e -> Just e
+	fromOps ( Expr e : _ )	= Just e

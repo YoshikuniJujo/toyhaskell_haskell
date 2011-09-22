@@ -95,8 +95,7 @@ showCase key alts = "case " ++ show key ++ " of { " ++
 	++ " }"
 
 showDefs :: [ ( Pattern, Value ) ] -> String
-showDefs defs =
-	unwordsMap ( \( p, v ) -> showPat p ++ " = " ++ show v ++ ";" ) defs
+showDefs = unwordsMap ( \( p, v ) -> showPat p ++ " = " ++ show v ++ ";" )
 
 showPat :: Pattern -> String
 showPat ( PatVar var 0 )	= var

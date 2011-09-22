@@ -1,8 +1,8 @@
 module Main where
 
-import MainTools ( mainGen )
+import qualified MainTools as T ( main )
 import System.Environment ( getArgs )
 import Control.Arrow ( second )
 
 main :: IO ()
-main = getArgs >>= uncurry mainGen . second tail . span ( /= "--" ) >>= putStr
+main = getArgs >>= uncurry T.main . second tail . span ( /= "--" ) >>= putStr
