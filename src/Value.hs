@@ -43,64 +43,6 @@ data Value =
 	Let [ ( Pattern, Value ) ]		|
 	Error String
 
-instance Show Value where
-	show Nil		= "()"
-	show Empty		= "[]"
-	show ( Var i 0 )	= i
-	show ( Var i n )	= i ++ "~" ++ show n
-	show ( Integer n )	= show n
-	show ( Char c )		= show c
-	show v@( Comp ":" [ Char _, _ ] )
-				= "\"" ++ showStr v ++ "\""
-	show v@( Comp ":" _ )= "[" ++ showList v ++ "]"
-	show ( Comp n [ ] )	= n
-	show ( Comp n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++
-					")"
-	show ( App f a )	= "( " ++ show f ++ " " ++ show a ++ " )"
-	show ( Fun _ )		= "<function>"
-	show ( IOAction _ )	= "<IO>"
-	show ( Lambda vs body )	= showLambda vs body
-	show ( Closure _ _ _ )	= "<closure>"
-	show ( Case v ps )	= showCase v ps
-	show ( Letin a b )	= "let " ++ showPair a ++ " in " ++ show b
-	show ( Module m )	= "module " ++
-		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
-		"; " ) m )
-	show ( Let a )		= "let " ++
-		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
-		"; " ) a )
-	show ( Error msg )	= "Error: " ++ msg
-
-showPair :: [ ( Pattern, Value ) ] -> String
-showPair a = unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
-	";" ) a )
-
-showLambda :: [ Pattern ] -> Value -> String
-showLambda vs body = "( \\" ++ unwords ( map showPattern vs ) ++ " -> " ++
-	show body ++ " )"
-
-showCase :: Value -> [ ( Pattern, Value ) ] -> String
-showCase v ps = "case " ++ show v ++ " of { " ++
-	unwords ( map ( \( p, v' ) -> showPattern p ++ " -> " ++ show v' ++ "; " ) ps )
-	++ " }"
-
-showPattern :: Pattern -> String
-showPattern ( PatVar var 0 )	= var
-showPattern ( PatVar var n )	= var ++ "~" ++ show n
-showPattern p			= show p
-
-showList :: Value -> String
-showList ( Comp ":" [ v, Empty ] )	= show v
-showList ( Comp ":" [ v, c ] )		= show v ++ "," ++ showList c
-showList _				= "Error: bad List"
-
-showStr :: Value -> String
-showStr Empty					= ""
-showStr ( Comp ":" [ Char '\\', s ] )	= '\\' : '\\' : showStr s
-showStr ( Comp ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
-showStr ( Comp ":" [ Char c, s ] )		= c : showStr s
-showStr _					= "Error: bad String"
-
 data Pattern =
 	PatVar String Int		|
 	PatCon String [ Pattern ]	|
@@ -109,12 +51,67 @@ data Pattern =
 	PatEmpty
 	deriving ( Eq, Show )
 
+instance Show Value where
+	show Nil		= "()"
+	show Empty		= "[]"
+	show ( Integer n )	= show n
+	show ( Char c )		= show c
+	show ( Fun _ )		= "<function>"
+	show ( IOAction _ )	= "<IO>"
+	show ( Var i 0 )	= i
+	show ( Var i n )	= i ++ "~" ++ show n
+	show v@( Comp ":" [ Char _, _ ] )
+				= "\"" ++ showStr v ++ "\""
+	show v@( Comp ":" _ )	= "[" ++ showList v ++ "]"
+	show ( Comp n [ ] )	= n
+	show ( Comp n mems )	= "(" ++ n ++ " " ++ unwordsMap show mems ++ ")"
+	show ( App f a )	= "( " ++ show f ++ " " ++ show a ++ " )"
+	show ( Lambda ps ex )	= showLambda ps ex
+	show ( Closure _ _ _ )	= "<closure>"
+	show ( Case key alts )	= showCase key alts
+	show ( Letin defs ex )	= "let " ++ showDefs defs ++ " in " ++ show ex
+	show ( Module defs )	= "module " ++ showDefs defs
+	show ( Let defs )	= "let " ++  showDefs defs
+	show ( Error msg )	= "Error: " ++ msg
+
+showStr :: Value -> String
+showStr Empty				= ""
+showStr ( Comp ":" [ Char '\\', s ] )	= '\\' : '\\' : showStr s
+showStr ( Comp ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
+showStr ( Comp ":" [ Char c, s ] )	= c : showStr s
+showStr _				= "Error: bad String"
+
+showList :: Value -> String
+showList ( Comp ":" [ v, Empty ] )	= show v
+showList ( Comp ":" [ v, lst ] )	= show v ++ "," ++ showList lst
+showList _				= "Error: bad List"
+
+showLambda :: [ Pattern ] -> Value -> String
+showLambda ps ex = "( \\" ++ unwordsMap showPat ps ++ " -> " ++ show ex ++ " )"
+
+showCase :: Value -> [ ( Pattern, Value ) ] -> String
+showCase key alts = "case " ++ show key ++ " of { " ++
+	unwordsMap ( \( p, ex ) -> showPat p ++ " -> " ++ show ex ++ "; " ) alts
+	++ " }"
+
+showDefs :: [ ( Pattern, Value ) ] -> String
+showDefs defs =
+	unwordsMap ( \( p, v ) -> showPat p ++ " = " ++ show v ++ ";" ) defs
+
+showPat :: Pattern -> String
+showPat ( PatVar var 0 )	= var
+showPat ( PatVar var n )	= var ++ "~" ++ show n
+showPat p			= show p
+
+unwordsMap :: ( a -> String ) -> [ a ] -> String
+unwordsMap = ( . ) unwords . map
+
 match :: Value -> Pattern -> Maybe [ ( Var, Value ) ]
 match val ( PatVar var n )	= Just [ ( V var n, val ) ]
 match _ PatUScore		= Just [ ]
 match ( Integer i1 ) ( PatInteger i0 )
-	| i1 == i0	= Just [ ]
-	| otherwise	= Nothing
+	| i1 == i0		= Just [ ]
+	| otherwise		= Nothing
 match ( Comp name1 vals ) ( PatCon name0 pats )
 	| name1 == name0	= liftM concat $ zipWithM match vals pats
 	| otherwise		= Nothing
