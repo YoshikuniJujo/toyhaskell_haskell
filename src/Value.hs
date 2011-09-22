@@ -1,27 +1,26 @@
 {-# LANGUAGE TupleSections #-}
 
 module Value (
-	Pattern( .. ),
 	Value( .. ),
-
+	Pattern( .. ),
+	patVars,
 	match,
 
 	Env,
+	Var( V ),
 	initialize,
-	addEnvs,
 	setVars,
 	setPat,
 	setPats,
 	getVal,
 	getVars,
-	patVars,
-
-	mapEnv, Var( V ), varName, mkVar, varVol
+	mapEnv
 ) where
 
-import Env ( getVarsEnv, initEnv,
-	addEnvs, setsToEnv, setPatToEnv, setPatsToEnv, getFromEnv, mapEnv, Var( V ), varName, mkVar, varVol )
-import qualified Env as E ( Env )
+import Env ( getVars,
+	mapEnv,
+	Var( V ), vName )
+import qualified Env ( Env, initialize, setPat, setPats, setVars, getVal )
 import Control.Monad ( liftM, zipWithM )
 import Control.Arrow ( first )
 
@@ -38,11 +37,11 @@ data Value =
 	Empty					|
 	Integer Integer				|
 	Char Char				|
-	Fun ( Value -> Value )		|
+	Fun ( Value -> Value )			|
 	IOAction ( IO Value )			|
 	Var String Int				|
-	Comp String [ Value ]		|
-	App Value Value			|
+	Comp String [ Value ]			|
+	App Value Value				|
 	Lambda [ Pattern ] Value		|
 	Closure Env [ Pattern ] Value		|
 	Case Value [ ( Pattern, Value ) ]	|
@@ -109,10 +108,6 @@ showStr ( Comp ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
 showStr ( Comp ":" [ Char c, s ] )		= c : showStr s
 showStr _					= "Error: bad String"
 
---------------------------------------------------------------------------------
-
-type Env = E.Env Pattern Value
-
 match :: Value -> Pattern -> Maybe [ ( Var, Value ) ]
 match val ( PatVar var n )	= Just [ ( V var n, val ) ]
 match _ PatUScore		= Just [ ]
@@ -126,30 +121,28 @@ match Empty PatEmpty		= Just [ ]
 match _ _			= Nothing
 
 patVars :: Pattern -> [ String ]
-patVars = map varName . getPatVars
+patVars = map vName . getPatVars
 
 getPatVars :: Pattern -> [ Var ]
-getPatVars ( PatCon _ pats )	= concatMap getPatVars pats
+getPatVars ( PatCon _ pats )	= getPatVars `concatMap` pats
 getPatVars ( PatVar var n )	= [ V var n ]
 getPatVars _			= [ ]
 
+--------------------------------------------------------------------------------
+
+type Env = Env.Env Pattern Value
+
 initialize :: [ ( String, Value ) ] -> Env
-initialize = initialize' . map ( first mkVar )
+initialize = Env.initialize ( flip PatVar 0 . vName ) . map ( first $ flip V 0 )
 
-initialize' :: [ ( Var, Value ) ] -> Env
-initialize' = initEnv $ flip PatVar 0 . varName
+setPat :: Env -> Pattern -> Value -> Env
+setPat = Env.setPat getPatVars
 
-setPat :: Pattern -> Value -> Env -> Env
-setPat = setPatToEnv getPatVars
+setPats :: Env -> [ ( Pattern, Value ) ] -> Env
+setPats = Env.setPats getPatVars
 
-setPats :: [ ( Pattern, Value ) ] -> Env -> Env
-setPats = setPatsToEnv getPatVars
+setVars :: Env -> [ ( Var, Value ) ] -> Env
+setVars = Env.setVars ( \( V x n ) -> PatVar x n )
 
-setVars :: [ ( Var, Value ) ] -> Env -> Env
-setVars = setsToEnv ( flip PatVar 0 . varName )
-
-getVars :: Env -> [ String ]
-getVars = getVarsEnv
-
-getVal :: ( Value -> Value ) -> Var -> Env -> Maybe Value
-getVal = getFromEnv match
+getVal :: ( Value -> Value ) -> Env -> Var -> Maybe Value
+getVal = Env.getVal match

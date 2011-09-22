@@ -14,7 +14,7 @@ toyEval env val = case noVars env val of
 	where errMsg var = "\tNot in scope: `" ++ var ++ "'"
 
 get :: Env -> Var -> Maybe Value
-get env var = getVal ( eval env ) var env
+get env = getVal ( eval env ) env
 
 noVars :: Env -> Value -> [ String ]
 noVars env ( Var v n )		= maybe [ v ] ( noVars env ) $ env `get` V v n
@@ -38,8 +38,8 @@ eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n ) $ env `get` V v n
 eval env ( Comp con mems )	= Comp con $ eval env `map` mems
 eval env ( App f a )		= case eval env f of
 	Fun fun			-> fun $ eval env a
-	Closure ce [ p ] e	-> eval ( setPat p ( eval env a ) ce ) e
-	Closure ce ( p : ps ) e	-> Closure ( setPat p ( eval env a ) ce ) ps e
+	Closure ce [ p ] e	-> eval ( setPat ce p ( eval env a ) ) e
+	Closure ce ( p : ps ) e	-> Closure ( setPat ce p ( eval env a ) ) ps e
 	err@( Error _ )		-> err
 	_			-> notFunction f
 eval env ( Lambda ps ex )	= Closure env ps ex
@@ -47,8 +47,8 @@ eval env ( Case key alts )	= ec alts
 	where
 	ec [ ]			= nonExhaustive
 	ec ( ( pat, ex ) : r )	= let k = eval env key in
-		maybe ( ec r ) ( flip eval ex . flip setVars env ) $ match k pat
-eval env ( Letin defs ex )	= eval ( setPats defs env ) ex
+		maybe ( ec r ) ( flip eval ex . setVars env ) $ match k pat
+eval env ( Letin defs ex )	= eval ( setPats env defs ) ex
 eval _ v			= v
 
 

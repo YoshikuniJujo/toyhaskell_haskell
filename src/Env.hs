@@ -2,30 +2,24 @@
 
 module Env (
 	Env,
-	initEnv,
-	setsToEnv,
-	setPatToEnv,
-	setPatsToEnv,
-	getFromEnv,
-	getVarsEnv,
-	addEnvs,
+	initialize,
+	setVars,
+	setPat,
+	setPats,
+	getVal,
+	getVars,
 	mapEnv,
 	Var( V ),
-	mkVar,
 	succVar,
-	varName,
-	varVol
+	vName
 ) where
 
 import Data.Maybe ( listToMaybe )
 
-data Var = V { varName :: String, varVol :: Int } deriving Eq
+data Var = V { vName :: String, _varVol :: Int } deriving Eq
 
 instance Show Var where
 	show ( V v n ) = v ++ "~" ++ show n
-
-mkVar :: String -> Var
-mkVar = flip V 0
 
 succVar :: Var -> Var
 succVar ( V v n ) = V v $ succ n
@@ -35,33 +29,30 @@ data Env p v = Env [ ( [ Var ], p, v ) ] deriving Show
 emptyEnv :: Env p v
 emptyEnv = Env [ ]
 
-initEnv :: ( Var -> p ) -> [ ( Var, v ) ] -> Env p v
-initEnv pv defs = setsToEnv pv defs emptyEnv
+initialize :: ( Var -> p ) -> [ ( Var, v ) ] -> Env p v
+initialize pv defs = setVars pv emptyEnv defs
 
 setToEnv :: ( Var -> p ) -> Var -> v -> Env p v -> Env p v
 setToEnv pv var val ( Env ps ) = Env $ ( [ var ], pv var, val ) : ps
 
-setsToEnv :: ( Var -> p ) -> [ ( Var, v ) ] -> Env p v -> Env p v
-setsToEnv pv = flip $ foldr $ uncurry ( setToEnv pv )
+setVars :: ( Var -> p ) -> Env p v -> [ ( Var, v ) ] -> Env p v
+setVars pv = foldr $ uncurry ( setToEnv pv )
 
-setPatToEnv :: ( p -> [ Var ] ) -> p -> v -> Env p v -> Env p v
-setPatToEnv gpv pat val ( Env env ) = Env $ ( gpv pat, pat, val ) : env
+setPat :: ( p -> [ Var ] ) -> Env p v -> p -> v -> Env p v
+setPat gpv ( Env env ) pat val = Env $ ( gpv pat, pat, val ) : env
 
-setPatsToEnv :: ( p -> [ Var ] ) -> [ ( p, v ) ] -> Env p v -> Env p v
-setPatsToEnv gpv = flip $ foldr $ uncurry ( setPatToEnv gpv )
+setPats :: ( p -> [ Var ] ) -> Env p v -> [ ( p, v ) ] -> Env p v
+setPats gpv = foldr $ uncurry ( flip . ( flip $ setPat gpv ) )
 
-getFromEnv :: ( v -> p -> Maybe [ ( Var, v ) ] ) -> ( v -> v ) -> Var ->
-	Env p v -> Maybe v
-getFromEnv m f var ( Env ps ) = do
+getVal :: ( v -> p -> Maybe [ ( Var, v ) ] ) -> ( v -> v ) ->
+	Env p v -> Var -> Maybe v
+getVal m f ( Env ps ) var = do
 	( _, pat, val ) <- listToMaybe $ filter ( ( var `elem` ) . one ) ps
 	m ( f val ) pat >>= lookup var
 	where one ( x, _, _ ) = x
 
-getVarsEnv :: Env p v -> [ String ]
-getVarsEnv ( Env ps ) = ( \( vs, _, _ ) -> map varName vs ) `concatMap` ps
-
-addEnvs :: Env p v -> Env p v -> Env p v
-addEnvs ( Env ps1 ) ( Env ps2 ) = Env $ ps1 ++ ps2
+getVars :: Env p v -> [ String ]
+getVars ( Env ps ) = ( \( vs, _, _ ) -> map vName vs ) `concatMap` ps
 
 mapEnv :: ( Var -> Var ) -> ( p -> p ) -> ( v -> v ) -> Env p v -> Env p v
 mapEnv fs fp fv ( Env e ) = Env $ ( \( s, p, v ) -> ( map fs s, fp p, fv v ) ) `map` e

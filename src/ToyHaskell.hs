@@ -46,7 +46,8 @@ evalV env = toyEval env . alpha ( getVars env ) . parse
 
 evalP :: Env -> String -> IO ( String, Env )
 evalP env src = case evalV env src of
-	Let ps		-> return ( "", setPats ps $ alphaEnv ( map fst ps ) env )
+	Let ps		-> return
+		( "", setPats ( alphaEnv ( map fst ps ) env ) ps )
 	IOAction act	-> ( ( , env ) . showVal ) `fmap` act
 	val		-> return ( showVal val, env )
 	where
@@ -58,5 +59,5 @@ eval = (.) fromToyValue . evalV
 
 load :: Env -> String -> Env
 load e src = case toyEval e $ alpha ( getVars e ) $ parseModule src of
-	Module ps	-> setPats ps e
+	Module ps	-> setPats e ps
 	nm		-> error $ "never occur" ++ show nm
