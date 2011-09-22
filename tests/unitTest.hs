@@ -16,7 +16,8 @@ testEnv = initialize [ ( "x", Integer 8 ), ( "y", Var "x" 0 ) ]
 testMain :: [ Test ]
 testMain = [
 	( ~? "eight" ) $ ( == "8\n" ) `fmap` interpret "./examples/eight.hs" "eight",
-	( ~? "ret" ) $ ( == "20\n" ) `fmap` interpret "./examples/scope1.hs" "ret"
+	( ~? "ret" ) $ ( == "20\n" ) `fmap` interpret "./examples/scope1.hs" "ret",
+	( ~? "case" ) $ ( == "3\n" ) `fmap` interpret "./examples/case.hs" "three"
  ]
 
 testEval :: [ Test ]
