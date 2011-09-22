@@ -7,7 +7,7 @@ import Eval ( toyEval )
 import Alpha ( alpha, alphaEnv )
 import Parser ( parse, parseModule )
 import Value (
-	Value( Nil, Empty, Integer, Char, Comp, IOAction, Let, Module ),
+	Value( Nil, Empty, Integer, Char, IOAction, Comp, Module, Let ),
 	Env, setPats, getVars )
 
 class ToyValue a where
@@ -31,7 +31,7 @@ instance ToyValue Char where
 	fromToyValue _		= error "Not Char"
 
 instance ToyValue a => ToyValue [ a ] where
-	fromToyValue lst	= map fromToyValue $ fromToyList lst
+	fromToyValue lst = map fromToyValue $ fromToyList lst
 		where
 		fromToyList Empty			= [ ]
 		fromToyList ( Comp ":" [ h, t ] )	= h : fromToyList t
@@ -46,8 +46,8 @@ evalV env = toyEval env . alpha ( getVars env ) . parse
 
 evalP :: Env -> String -> IO ( String, Env )
 evalP env src = case evalV env src of
-	Let ps		-> return
-		( "", setPats ( alphaEnv ( map fst ps ) env ) ps )
+	Let defs	->
+		return ( "", setPats ( alphaEnv ( map fst defs ) env ) defs )
 	IOAction act	-> ( ( , env ) . showVal ) `fmap` act
 	val		-> return ( showVal val, env )
 	where
@@ -58,6 +58,6 @@ eval :: ToyValue a => Env -> String -> a
 eval = (.) fromToyValue . evalV
 
 load :: Env -> String -> Env
-load e src = case toyEval e $ alpha ( getVars e ) $ parseModule src of
-	Module ps	-> setPats e ps
-	nm		-> error $ "never occur" ++ show nm
+load env src = case toyEval env $ alpha ( getVars env ) $ parseModule src of
+	Module ps	-> setPats env ps
+	nm		-> error $ "not module: " ++ show nm
