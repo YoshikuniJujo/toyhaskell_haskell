@@ -70,9 +70,9 @@ lexerString ca = let ( ret, '"' : rest ) = span ( /= '"' ) ca in
 
 lexeme :: Lexer -> Lexer
 lexeme lx src = let
-	( t, ( fin, rest ) )	= lx src
+	( t, ( lexed, rest ) )	= lx src
 	( ws, rest' )		= gw rest in
-	( t, ( fin ++ ws, rest' ) )
+	( t, ( lexed ++ ws, rest' ) )
 	where
 	gw ca@( '-' : '-' : _ )	= first ( c ++ ) $ gw r
 		where ( c, r ) = span ( /= '\n' ) ca
