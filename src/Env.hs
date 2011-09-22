@@ -10,13 +10,13 @@ module Env (
 	getVars,
 	mapEnv,
 	Var( V ),
-	succVar,
-	vName
+	succVar
 ) where
 
 import Data.Maybe ( listToMaybe )
+import Control.Arrow ( first )
 
-data Var = V { vName :: String, _varVol :: Int } deriving Eq
+data Var = V String Int deriving Eq
 
 instance Show Var where
 	show ( V v n ) = v ++ "~" ++ show n
@@ -26,11 +26,12 @@ succVar ( V v n ) = V v $ succ n
 
 data Env p v = Env [ ( [ Var ], p, v ) ] deriving Show
 
-emptyEnv :: Env p v
-emptyEnv = Env [ ]
+empty :: Env p v
+empty = Env [ ]
 
-initialize :: ( Var -> p ) -> [ ( Var, v ) ] -> Env p v
-initialize pv defs = setVars pv emptyEnv defs
+initialize :: ( String -> p ) -> [ ( String, v ) ] -> Env p v
+initialize pv defs =
+	setVars ( pv . \( V x _ ) -> x ) empty $ map ( first $ flip V 0 ) defs
 
 setToEnv :: ( Var -> p ) -> Var -> v -> Env p v -> Env p v
 setToEnv pv var val ( Env ps ) = Env $ ( [ var ], pv var, val ) : ps
@@ -52,7 +53,7 @@ getVal m f ( Env ps ) var = do
 	where one ( x, _, _ ) = x
 
 getVars :: Env p v -> [ String ]
-getVars ( Env ps ) = ( \( vs, _, _ ) -> map vName vs ) `concatMap` ps
+getVars ( Env ps ) = ( \( vs, _, _ ) -> map ( \( V x _ ) -> x ) vs ) `concatMap` ps
 
 mapEnv :: ( Var -> Var ) -> ( p -> p ) -> ( v -> v ) -> Env p v -> Env p v
 mapEnv fs fp fv ( Env e ) = Env $ ( \( s, p, v ) -> ( map fs s, fp p, fv v ) ) `map` e

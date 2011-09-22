@@ -17,20 +17,11 @@ module Value (
 	mapEnv
 ) where
 
-import Env ( getVars,
-	mapEnv,
-	Var( V ), vName )
-import qualified Env ( Env, initialize, setPat, setPats, setVars, getVal )
+import Env ( Var( V ), getVars, mapEnv )
+import qualified Env ( Env, initialize, setVars, setPat, setPats, getVal )
 import Control.Monad ( liftM, zipWithM )
-import Control.Arrow ( first )
 
-data Pattern =
-	PatVar String Int		|
-	PatCon String [ Pattern ]	|
-	PatInteger Integer		|
-	PatUScore			|
-	PatEmpty
-	deriving ( Eq, Show )
+--------------------------------------------------------------------------------
 
 data Value =
 	Nil					|
@@ -78,6 +69,14 @@ instance Show Value where
 		"; " ) a )
 	show ( Error msg )	= "Error: " ++ msg
 
+data Pattern =
+	PatVar String Int		|
+	PatCon String [ Pattern ]	|
+	PatInteger Integer		|
+	PatUScore			|
+	PatEmpty
+	deriving ( Eq, Show )
+
 showPair :: [ ( Pattern, Value ) ] -> String
 showPair a = unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
 	";" ) a )
@@ -121,28 +120,28 @@ match Empty PatEmpty		= Just [ ]
 match _ _			= Nothing
 
 patVars :: Pattern -> [ String ]
-patVars = map vName . getPatVars
+patVars = map ( \( V x _ ) -> x ) . patToVars
 
-getPatVars :: Pattern -> [ Var ]
-getPatVars ( PatCon _ pats )	= getPatVars `concatMap` pats
-getPatVars ( PatVar var n )	= [ V var n ]
-getPatVars _			= [ ]
+patToVars :: Pattern -> [ Var ]
+patToVars ( PatCon _ pats )	= patToVars `concatMap` pats
+patToVars ( PatVar var n )	= [ V var n ]
+patToVars _			= [ ]
 
 --------------------------------------------------------------------------------
 
 type Env = Env.Env Pattern Value
 
 initialize :: [ ( String, Value ) ] -> Env
-initialize = Env.initialize ( flip PatVar 0 . vName ) . map ( first $ flip V 0 )
-
-setPat :: Env -> Pattern -> Value -> Env
-setPat = Env.setPat getPatVars
-
-setPats :: Env -> [ ( Pattern, Value ) ] -> Env
-setPats = Env.setPats getPatVars
+initialize = Env.initialize ( flip PatVar 0 )
 
 setVars :: Env -> [ ( Var, Value ) ] -> Env
 setVars = Env.setVars ( \( V x n ) -> PatVar x n )
+
+setPat :: Env -> Pattern -> Value -> Env
+setPat = Env.setPat patToVars
+
+setPats :: Env -> [ ( Pattern, Value ) ] -> Env
+setPats = Env.setPats patToVars
 
 getVal :: ( Value -> Value ) -> Env -> Var -> Maybe Value
 getVal = Env.getVal match
