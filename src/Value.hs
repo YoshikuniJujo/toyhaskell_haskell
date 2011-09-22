@@ -17,6 +17,8 @@ module Value (
 	mapEnv
 ) where
 
+import Prelude hiding ( showList )
+
 import Env ( Var( V ), getVars, mapEnv )
 import qualified Env ( Env, initialize, setVars, setPat, setPats, getVal )
 import Control.Monad ( liftM, zipWithM )
@@ -50,14 +52,14 @@ instance Show Value where
 	show ( Char c )		= show c
 	show v@( Comp ":" [ Char _, _ ] )
 				= "\"" ++ showStr v ++ "\""
-	show v@( Comp ":" _ )= "[" ++ showL v ++ "]"
+	show v@( Comp ":" _ )= "[" ++ showList v ++ "]"
 	show ( Comp n [ ] )	= n
 	show ( Comp n vs )	= "(" ++ n ++ " " ++ unwords ( map show vs ) ++
 					")"
 	show ( App f a )	= "( " ++ show f ++ " " ++ show a ++ " )"
 	show ( Fun _ )		= "<function>"
 	show ( IOAction _ )	= "<IO>"
-	show ( Lambda vs body )	= showLambda vs body -- "<lambda>"
+	show ( Lambda vs body )	= showLambda vs body
 	show ( Closure _ _ _ )	= "<closure>"
 	show ( Case v ps )	= showCase v ps
 	show ( Letin a b )	= "let " ++ showPair a ++ " in " ++ show b
@@ -68,14 +70,6 @@ instance Show Value where
 		unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
 		"; " ) a )
 	show ( Error msg )	= "Error: " ++ msg
-
-data Pattern =
-	PatVar String Int		|
-	PatCon String [ Pattern ]	|
-	PatInteger Integer		|
-	PatUScore			|
-	PatEmpty
-	deriving ( Eq, Show )
 
 showPair :: [ ( Pattern, Value ) ] -> String
 showPair a = unwords ( map ( \( p, v ) -> showPattern p ++ " = " ++ show v ++
@@ -95,10 +89,10 @@ showPattern ( PatVar var 0 )	= var
 showPattern ( PatVar var n )	= var ++ "~" ++ show n
 showPattern p			= show p
 
-showL :: Value -> String
-showL ( Comp ":" [ v, Empty ] )	= show v
-showL ( Comp ":" [ v, c ] )		= show v ++ "," ++ showL c
-showL _					= "Error: bad List"
+showList :: Value -> String
+showList ( Comp ":" [ v, Empty ] )	= show v
+showList ( Comp ":" [ v, c ] )		= show v ++ "," ++ showList c
+showList _				= "Error: bad List"
 
 showStr :: Value -> String
 showStr Empty					= ""
@@ -106,6 +100,14 @@ showStr ( Comp ":" [ Char '\\', s ] )	= '\\' : '\\' : showStr s
 showStr ( Comp ":" [ Char '\n', s ] )	= '\\' : 'n' : showStr s
 showStr ( Comp ":" [ Char c, s ] )		= c : showStr s
 showStr _					= "Error: bad String"
+
+data Pattern =
+	PatVar String Int		|
+	PatCon String [ Pattern ]	|
+	PatInteger Integer		|
+	PatUScore			|
+	PatEmpty
+	deriving ( Eq, Show )
 
 match :: Value -> Pattern -> Maybe [ ( Var, Value ) ]
 match val ( PatVar var n )	= Just [ ( V var n, val ) ]

@@ -260,3 +260,10 @@ Var を alpha 変換した後に直接、Var String Int の形のまま使うこ
 残りは、Preprocessor, Lexer, Value, Env。
 で、今は、addLayout の refactoring が終了したところ。
 次は preprocessor の refactoring から。
+
+2011.09.22 Thu.
+
+残りは、Value, Env だ。
+で、Env の refactoring が終わったところで、一度 master に merge しよう。
+それから引き続き再度 top からの refactoring をする。
+特に toyEval の名前の変更について、等。
