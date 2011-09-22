@@ -24,7 +24,7 @@ data ParseState = ParseState {
  } deriving Show
 
 evalParse :: Parse a -> String -> a
-evalParse m src = m `evalState` ParseState {
+m `evalParse` src = m `evalState` ParseState {
 	source	= src,
 	cols	= 1,
 	indents	= [ ],
@@ -33,29 +33,18 @@ evalParse m src = m `evalState` ParseState {
 
 updateSrc :: ( String, String ) -> Parse ()
 updateSrc ( lexed, src ) = do
-	putSrc src
-	updatePos lexed
-
-putSrc :: String -> Parse ()
-putSrc src = do
-	stat <- get
-	put stat { source = src }
-
-updatePos :: String -> Parse ()
-updatePos str = do
 	stat@ParseState { cols = cs } <- get
-	let ncs = up cs str
-	put stat { cols = ncs }
+	put stat { source = src, cols = step cs lexed }
 	where
-	up c ""			= c
-	up _ ( '\n' : cs )	= up 1 cs
-	up c ( '\t' : cs )	= up ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
-	up c ( _ : cs )		= up ( c + 1 ) cs
+	step c ""		= c
+	step _ ( '\n' : cs )	= step 1 cs
+	step c ( '\t' : cs )	= step ( 8 * ( c `div` 8 + 1 ) + 1 ) cs
+	step c ( _ : cs )	= step ( c + 1 ) cs
 
 pushBuf :: ( Token, Int ) -> Parse ()
-pushBuf t = do
+pushBuf tok = do
 	stat@ParseState { buffer = buf } <- get
-	put stat { buffer = t : buf }
+	put stat { buffer = tok : buf }
 
 pushBufToken :: Token -> Parse ()
 pushBufToken = pushBuf . ( , 0 )
@@ -82,9 +71,9 @@ popIndent = do
 peekIndent :: Parse ( Maybe Int )
 peekIndent = do
 	ma <- gets indents
-	case ma of
-		m : _	-> return $ Just m
-		_	-> return Nothing
+	return $ case ma of
+		m : _	-> Just m
+		_	-> Nothing
 
 --------------------------------------------------------------------------------
 
@@ -93,14 +82,14 @@ prep = ( preprocessor >>= )
 
 preprocessor :: Parse Token
 preprocessor = do
-	t	<- addLayout
+	tok	<- addLayout
 	mm	<- peekIndent
-	case t of
+	case tok of
 		Indent n	-> case mm of
 			Just m	| m == n	-> return $ Special ';'
 				| n < m		-> do
 					_ <- popIndent
-					pushBufToken t
+					pushBufToken tok
 					return $ Special '}'
 			_			-> preprocessor
 		AddBrace n	-> case mm of
@@ -110,13 +99,13 @@ preprocessor = do
 						pushBufToken $ Special '}'
 						return $ Special '{'
 		Special '}'	-> case mm of
-			Just 0	-> popIndent >> return t
+			Just 0	-> popIndent >> return tok
 			_	-> error "bad close brace"
-		Special '{'	-> pushIndent 0 >> return t
-		TokEOF		-> ( flip . maybe ) ( return t ) mm $ \_ -> do
+		Special '{'	-> pushIndent 0 >> return tok
+		TokEOF		-> ( flip . maybe ) ( return tok ) mm $ \_ -> do
 			_ <- popIndent
 			return $ Special '}'
-		_		-> return t
+		_		-> return tok
 
 addLayout :: Parse Token
 addLayout = do
