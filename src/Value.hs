@@ -91,7 +91,7 @@ showLambda ps ex = "( \\" ++ unwordsMap showPat ps ++ " -> " ++ show ex ++ " )"
 
 showCase :: Value -> [ ( Pattern, Value ) ] -> String
 showCase key alts = "case " ++ show key ++ " of { " ++
-	unwordsMap ( \( p, ex ) -> showPat p ++ " -> " ++ show ex ++ "; " ) alts
+	unwordsMap ( \( t, ex ) -> showPat t ++ " -> " ++ show ex ++ "; " ) alts
 	++ " }"
 
 showDefs :: [ ( Pattern, Value ) ] -> String

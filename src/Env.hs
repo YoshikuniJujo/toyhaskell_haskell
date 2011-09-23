@@ -14,7 +14,7 @@ import Data.Maybe ( listToMaybe )
 import Control.Arrow ( first )
 
 data Var = V String Int deriving Eq
-instance Show Var where show ( V v n ) = v ++ "~" ++ show n
+instance Show Var where show ( V x n ) = x ++ "~" ++ show n
 
 data Env p v = Env [ ( [ Var ], p, v ) ] deriving Show
 

@@ -2,7 +2,8 @@ module Eval ( toyEval ) where
 
 import Value ( Value(
 	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Err ),
-	Pattern, match, patVars, Env, setVars, setPat, setPats, getVal, Var( V ) )
+	Pattern, match, patVars,
+	Env, setVars, setPat, setPats, getVal, Var( V ) )
 import Data.Maybe ( fromMaybe )
 
 --------------------------------------------------------------------------------
@@ -17,16 +18,17 @@ get :: Env -> Var -> Maybe Value
 get env = getVal ( eval env ) env
 
 noVars :: Env -> Value -> [ String ]
-noVars env ( Var v n )		= maybe [ v ] ( noVars env ) $ env `get` V v n
+noVars env ( Var x n )		= maybe [ x ] ( noVars env ) $ env `get` V x n
+noVars env ( Comp _ mems )	= noVars env `concatMap` mems
 noVars env ( App f a )		= noVars env f ++ noVars env a
 noVars env ( Lambda ps ex )	= ps `filterVars` noVars env ex
 noVars env ( Case key alts )	= noVars env key ++ nvc `concatMap` alts
-	where nvc ( pat, ex ) = [ pat ] `filterVars` noVars env ex
+	where nvc ( test, ex ) = [ test ] `filterVars` noVars env ex
 noVars env ( Letin defs ex )	=
-	map fst defs `filterVars` noVars env ex ++ noVars env ( Let defs )
-noVars env ( Let defs )		=
+	map fst defs `filterVars` noVars env ex ++ noVars env ( Module defs )
+noVars env ( Module defs )	=
 	map fst defs `filterVars` ( noVars env . snd ) `concatMap` defs
-noVars env ( Module defs )	= noVars env ( Let defs )
+noVars env ( Let defs )		= noVars env ( Module defs )
 noVars _ _			= [ ]
 
 infixl	8 `filterVars`
@@ -34,7 +36,7 @@ filterVars :: [ Pattern ] -> [ String ] -> [ String ]
 filterVars pats = filter ( `notElem` patVars `concatMap` pats )
 
 eval :: Env -> Value -> Value
-eval env ( Var v n )		= eval env $ fromMaybe ( noVar v n ) $ env `get` V v n
+eval env ( Var x n )		= eval env $ fromMaybe ( noVar x n ) $ env `get` V x n
 eval env ( Comp con mems )	= Comp con $ eval env `map` mems
 eval env ( App f a )		= case eval env f of
 	Fun fun			-> fun $ eval env a
@@ -46,8 +48,8 @@ eval env ( Lambda ps ex )	= Closure env ps ex
 eval env ( Case key alts )	= ec alts
 	where
 	ec [ ]			= nonExhaustive
-	ec ( ( pat, ex ) : r )	= let k = eval env key in
-		maybe ( ec r ) ( flip eval ex . setVars env ) $ match k pat
+	ec ( ( test, ex ) : r )	= let k = eval env key in
+		maybe ( ec r ) ( flip eval ex . setVars env ) $ match k test
 eval env ( Letin defs ex )	= eval ( setPats env defs ) ex
 eval _ v			= v
 
@@ -55,7 +57,7 @@ eval _ v			= v
 --------------------------------------------------------------------------------
 
 noVar :: String -> Int -> Value
-noVar var n = Err $ "Not in scope: `" ++ var ++ case n of
+noVar x n = Err $ "Not in scope: `" ++ x ++ case n of
 	0 -> "~" ++ show n  ++ "'"
 	_ -> "'"
 

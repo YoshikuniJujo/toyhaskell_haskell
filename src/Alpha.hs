@@ -20,8 +20,8 @@ alpha pre ( App f a )		= App ( alpha pre f ) $ alpha pre a
 alpha pre ( Lambda ps e )	= let ( dups, np ) = getDP pre ps in
 	Lambda ( map ( succVs dups ) ps ) $ alpha np $ succVs dups e
 alpha pre ( Case k alts )	= Case ( alpha pre k ) $ ac `map` alts
-	where ac sel@( test, _ ) = let ( dups, np ) = getDP pre [ test ] in
-		second ( alpha np ) $ succVs dups sel
+	where ac alt@( test, _ ) = let ( dups, np ) = getDP pre [ test ] in
+		second ( alpha np ) $ succVs dups alt
 alpha pre ( Letin ds e )	= let ( dups, np ) = getDP pre $ map fst ds in
 	Letin ( alphaDefs pre ds ) $ alpha np $ succVs dups e
 alpha pre ( Module ds )		= Module $ alphaDefs pre ds
