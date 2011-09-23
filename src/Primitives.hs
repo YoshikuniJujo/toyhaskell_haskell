@@ -1,50 +1,49 @@
 module Primitives ( primitives ) where
 
 import Value (
-	Value( Nil, Integer, Char, Comp, Fun, IOAction, Error ),
-	Env, initialize )
+	Value( Nil, Integer, Char, Comp, Fun, IOAction, Err ), Env, initialize )
 
 primitives :: Env
 primitives = initialize [
-	( "+",		Fun $ mkBinIntFunction (+) ),
-	( "-",		Fun $ mkBinIntFunction (-) ),
-	( "*",		Fun $ mkBinIntFunction (*) ),
-	( "div",	Fun $ mkBinIntFunction div ),
-	( "^",		Fun $ mkBinIntFunction (^) ),
-	( "==",		Fun $ mkIntCompFunction (==) ),
+	( "+",		Fun $ mkBinIntFun (+) ),
+	( "-",		Fun $ mkBinIntFun (-) ),
+	( "*",		Fun $ mkBinIntFun (*) ),
+	( "div",	Fun $ mkBinIntFun div ),
+	( "^",		Fun $ mkBinIntFun (^) ),
+	( "==",		Fun $ mkCompIntFun (==) ),
 	( ">>",		Fun concatMonad ),
 	( "return",	Fun $ IOAction . return ),
 	( "putChar",	Fun putCharFun )
  ]
 
-mkIntIntFunction :: ( Integer -> Integer ) -> Value -> Value
-mkIntIntFunction fun ( Integer x )	= Integer $ fun x
-mkIntIntFunction _ ni			= notMatchTypeError "Integer" ni
+mkIntFun :: ( Integer -> Integer ) -> Value -> Value
+mkIntFun f ( Integer x )	= Integer $ f x
+mkIntFun _ v			= typeError "Integer" v
 
-mkBinIntFunction :: ( Integer -> Integer -> Integer ) -> Value -> Value
-mkBinIntFunction op ( Integer x )	= Fun $ mkIntIntFunction $ op x
-mkBinIntFunction _ ni			= notMatchTypeError "Integer" ni
+mkBinIntFun :: ( Integer -> Integer -> Integer ) -> Value -> Value
+mkBinIntFun op ( Integer x )	= Fun $ mkIntFun $ op x
+mkBinIntFun _ v			= typeError "Integer" v
 
-mkIntBoolFunction :: ( Integer -> Bool ) -> Value -> Value
-mkIntBoolFunction p ( Integer x )	= if p x	then Comp "True" [ ]
-							else Comp "False" [ ]
-mkIntBoolFunction _ ni			= notMatchTypeError "Integer" ni
+mkIntBoolFun :: ( Integer -> Bool ) -> Value -> Value
+mkIntBoolFun p ( Integer x )
+	| p x			= Comp "True" [ ]
+	| otherwise		= Comp "False" [ ]
+mkIntBoolFun _ v		= typeError "Integer" v
 
-mkIntCompFunction :: ( Integer -> Integer -> Bool ) -> Value -> Value
-mkIntCompFunction p ( Integer x )	= Fun $ mkIntBoolFunction $ p x
-mkIntCompFunction _ ni			= notMatchTypeError "Integer" ni
+mkCompIntFun :: ( Integer -> Integer -> Bool ) -> Value -> Value
+mkCompIntFun p ( Integer x )	= Fun $ mkIntBoolFun $ p x
+mkCompIntFun _ v		= typeError "Integer" v
 
 concatMonad :: Value -> Value
-concatMonad ( IOAction act1 ) = Fun fun
+concatMonad ( IOAction act1 )	= Fun fun
 	where
 	fun ( IOAction act2 )	= IOAction $ act1 >> act2
-	fun v			= notMatchTypeError "IO" v
-concatMonad v			= notMatchTypeError "IO" v
+	fun v			= typeError "IO" v
+concatMonad v			= typeError "IO" v
 
 putCharFun :: Value -> Value
-putCharFun ( Char c )	= IOAction $ putChar c >> return Nil
-putCharFun v		= Error $ "putChar :: String -> IO (): " ++ show v
+putCharFun ( Char c )		= IOAction $ putChar c >> return Nil
+putCharFun v			= typeError "Char" v
 
-notMatchTypeError :: String -> Value -> Value
-notMatchTypeError typ val = Error $
-	"Couldn't match expected type `" ++ typ ++ "': " ++ show val
+typeError :: String -> Value -> Value
+typeError t v = Err $ "Couldn't match expected type `" ++ t ++ "': " ++ show v

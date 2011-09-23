@@ -1,7 +1,7 @@
 module Eval ( toyEval ) where
 
 import Value ( Value(
-	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Error ),
+	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Err ),
 	Pattern, match, patVars, Env, setVars, setPat, setPats, getVal, Var( V ) )
 import Data.Maybe ( fromMaybe )
 
@@ -10,7 +10,7 @@ import Data.Maybe ( fromMaybe )
 toyEval :: Env -> Value -> Value
 toyEval env val = case noVars env val of
 	[ ]	-> eval env val
-	vars	-> Error $ unlines ( map errMsg vars )
+	vars	-> Err $ unlines ( map errMsg vars )
 	where errMsg var = "\tNot in scope: `" ++ var ++ "'"
 
 get :: Env -> Var -> Maybe Value
@@ -40,7 +40,7 @@ eval env ( App f a )		= case eval env f of
 	Fun fun			-> fun $ eval env a
 	Closure ce [ p ] e	-> eval ( setPat ce p ( eval env a ) ) e
 	Closure ce ( p : ps ) e	-> Closure ( setPat ce p ( eval env a ) ) ps e
-	err@( Error _ )		-> err
+	err@( Err _ )		-> err
 	_			-> notFunction f
 eval env ( Lambda ps ex )	= Closure env ps ex
 eval env ( Case key alts )	= ec alts
@@ -55,12 +55,12 @@ eval _ v			= v
 --------------------------------------------------------------------------------
 
 noVar :: String -> Int -> Value
-noVar var n = Error $ "Not in scope: `" ++ var ++ case n of
+noVar var n = Err $ "Not in scope: `" ++ var ++ case n of
 	0 -> "~" ++ show n  ++ "'"
 	_ -> "'"
 
 notFunction :: Value -> Value
-notFunction nf = Error $ "Not Function: " ++ show nf
+notFunction nf = Err $ "Not Function: " ++ show nf
 
 nonExhaustive :: Value
-nonExhaustive = Error "Non-exhaustive patterns in case"
+nonExhaustive = Err "Non-exhaustive patterns in case"

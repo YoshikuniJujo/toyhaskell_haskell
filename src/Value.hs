@@ -41,7 +41,7 @@ data Value =
 	Letin [ ( Pattern, Value ) ] Value	|
 	Module [ ( Pattern, Value ) ]		|
 	Let [ ( Pattern, Value ) ]		|
-	Error String
+	Err String
 
 data Pattern =
 	PatVar String Int		|
@@ -72,7 +72,7 @@ instance Show Value where
 	show ( Letin defs ex )	= "let " ++ showDefs defs ++ " in " ++ show ex
 	show ( Module defs )	= "module " ++ showDefs defs
 	show ( Let defs )	= "let " ++  showDefs defs
-	show ( Error msg )	= "Error: " ++ msg
+	show ( Err msg )	= "Error: " ++ msg
 
 showStr :: Value -> String
 showStr Empty				= ""
