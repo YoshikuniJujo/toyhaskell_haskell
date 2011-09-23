@@ -24,4 +24,4 @@ hake_rules srcs = [
 main = do
 	srcs <- filter ( not . isPrefixOf "." ) `fmap` getDirectoryContents "./src/"
 	hake $ hake_rules $ map ( "./src/" ++ ) srcs
-	system $ "touch " ++ bin
+--	system $ "touch " ++ bin
