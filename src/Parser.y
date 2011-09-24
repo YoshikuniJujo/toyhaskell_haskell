@@ -12,17 +12,17 @@
 module Parser (
 	parse,
 	parseModule
- ) where
+) where
 
-import Preprocessor ( Parse, evalParse, popIndent, prep,
-	Token( TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
-		VarSym, ConSym, VarId, ConId, TokEOF ) )
+import Preprocessor (Parse, evalParse, popIndent, prep,
+	Token(TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
+		VarSym, ConSym, VarId, ConId, TokEOF))
 import Value (
-	Value( Nil, Empty, Integer, Char, Var, Comp, App, Lambda, Case, Letin,
-		Module, Let ),
-	Pattern( PatVar, PatCon, PatInteger, PatUScore, PatEmpty ) )
+	Value(Nil, Empty, Integer, Char, Var, Comp, App, Lambda, Case, Letin,
+		Module, Let),
+	Pattern(PatVar, PatCon, PatInteger, PatUScore, PatEmpty))
 
-import "monads-tf" Control.Monad.State ( when, get )
+import "monads-tf" Control.Monad.State (when, get)
 
 }
 
@@ -76,8 +76,8 @@ InfExp	: LexpL Op InfExp		{ $2 $1 $3 }
 
 Lexp	: '\\' APats '->' Exp		{ Lambda $2 $4 }
 	| Let in Exp			{ Letin $1 $3 }
-	| if Exp then Exp else Exp	{ Case $2 [ ( PatCon "True" [ ], $4 ),
-						( PatCon "False" [ ], $6 ) ] }
+	| if Exp then Exp else Exp	{ Case $2 [(PatCon "True" [], $4),
+						(PatCon "False" [], $6)] }
 	| LexpL				{ $1 }
 
 Let	: let '{' Decls close		{ $3 }
@@ -89,7 +89,7 @@ Fexp	: Aexp				{ $1 }
 	| Fexp Aexp			{ App $1 $2 }
 
 Aexp	: varid				{ Var $1 0 }
-	| conid				{ Comp $1 [ ] }
+	| conid				{ Comp $1 [] }
 	| integer			{ Integer $1 }
 	| char				{ Char $1 }
 	| string			{ makeString $1 }
@@ -97,31 +97,31 @@ Aexp	: varid				{ Var $1 0 }
 	| '(' Exp ')'			{ $2 }
 	| '[' Elems ']'			{ $2 }
 
-Alts	: Alt				{ [ $1 ] }
+Alts	: Alt				{ [$1] }
 	| Alts ';'			{ $1 }
 	| Alts ';' Alt			{ $3 : $1 }
-	| {- empty -}			{ [ ] }
+	| {- empty -}			{ [] }
 
-Alt	: Pat '->' Exp			{ ( $1, $3 ) }
+Alt	: Pat '->' Exp			{ ($1, $3) }
 
 Elems	: {- empty -}			{ Empty }
 	| Elems_			{ $1 }
 
-Elems_	: Exp				{ Comp ":" [ $1, Empty ] }
-	| Exp ',' Elems_		{ Comp ":" [ $1, $3 ] }
+Elems_	: Exp				{ Comp ":" [$1, Empty] }
+	| Exp ',' Elems_		{ Comp ":" [$1, $3] }
 
-Decls	: Decl				{ [ $1 ] }
+Decls	: Decl				{ [$1] }
 	| Decls ';'			{ $1 }
 	| Decls ';' Decl		{ $3 : $1 }
-	| {- empty -}			{ [ ] }
+	| {- empty -}			{ [] }
 
-Decl	: Pat '=' Exp			{ ( $1, $3 ) }
-	| varid APats '=' Exp		{ ( PatVar $1 0, Lambda $2 $4 ) }
+Decl	: Pat '=' Exp			{ ($1, $3) }
+	| varid APats '=' Exp		{ (PatVar $1 0, Lambda $2 $4) }
 
-APats	: APat				{ [ $1 ] }
+APats	: APat				{ [$1] }
 	| APat APats			{ $1 : $2 }
 
-Pat	: LPat Conop Pat		{ PatCon $2 [ $1, $3 ] }
+Pat	: LPat Conop Pat		{ PatCon $2 [$1, $3] }
 	| LPat				{ $1 }
 
 LPat	: APat				{ $1 }
@@ -135,12 +135,12 @@ APat	: varid				{ PatVar $1 0 }
 PatLst	: {- empty -}			{ PatEmpty }
 	| PatLst_			{ $1 }
 
-PatLst_	: Pat				{ PatCon ":" [ $1, PatEmpty ] }
-	| Pat ',' PatLst_		{ PatCon ":" [ $1, $3 ] }
+PatLst_	: Pat				{ PatCon ":" [$1, PatEmpty] }
+	| Pat ',' PatLst_		{ PatCon ":" [$1, $3] }
 
-Op	: varsym			{ \x y -> App ( App ( Var $1 0 ) x ) y }
-	| '`' varid '`'			{ \x y -> App ( App ( Var $2 0 ) x ) y }
-	| Conop				{ \x y -> Comp $1 [ x, y ] }
+Op	: varsym			{ \x y -> App (App (Var $1 0) x) y }
+	| '`' varid '`'			{ \x y -> App (App (Var $2 0) x) y }
+	| Conop				{ \x y -> Comp $1 [x, y] }
 
 Conop	: consym			{ $1 }
 	| ':'				{ ":" }
@@ -148,24 +148,24 @@ Conop	: consym			{ $1 }
 close	: '}'				{ () }
 	| error				{% do
 					mm <- popIndent
-					when ( maybe True ( == 0 ) mm ) $
+					when (maybe True (== 0) mm) $
 						happyError }
 
 {
 
 parse :: String -> Value
-parse = ( parser `evalParse` )
+parse = (parser `evalParse`)
 
 parseModule :: String -> Value
-parseModule = ( parserModule `evalParse` )
+parseModule = (parserModule `evalParse`)
 
 makeString :: String -> Value
 makeString ""			= Empty
-makeString ( '\\' : 'n' : cs )	= Comp ":" [ Char '\n', makeString cs ]
-makeString ( '\\' : '\\' : cs )	= Comp ":" [ Char '\\', makeString cs ]
-makeString ( c : cs )		= Comp ":" [ Char c, makeString cs ]
+makeString ('\\' : 'n' : cs)	= Comp ":" [Char '\n', makeString cs]
+makeString ('\\' : '\\' : cs)	= Comp ":" [Char '\\', makeString cs]
+makeString (c : cs)		= Comp ":" [Char c, makeString cs]
 
 happyError :: Parse a
-happyError = get >>= error . ( "parse error: " ++ ) . show
+happyError = get >>= error . ("parse error: " ++) . show
 
 }
