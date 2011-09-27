@@ -1,12 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 
-module Preprocessor (
-	Parse,
-	evalParse,
-	popIndent,
-	Token(..),
-	prep
-) where
+module Preprocessor (Parse, evalParse, popIndent, Token(..), prep) where
 
 import Lexer (Token(..), lexer, lexeme)
 

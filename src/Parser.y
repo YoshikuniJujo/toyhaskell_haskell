@@ -1,18 +1,15 @@
 {
 
 {-# LANGUAGE PackageImports #-}
-{-# OPTIONS_GHC -fno-warn-deprecated-flags #-}
-{-# OPTIONS_GHC -fno-warn-unused-matches #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
-{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+{-# OPTIONS_GHC -fno-warn-unused-matches #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
+{-# OPTIONS_GHC -fno-warn-deprecated-flags #-}
+{-# OPTIONS_GHC -fno-warn-lazy-unlifted-bindings #-}
 
-module Parser (
-	parse,
-	parseModule
-) where
+module Parser (parse, parseModule) where
 
 import Preprocessor (Parse, evalParse, popIndent, prep,
 	Token(TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
@@ -26,16 +23,18 @@ import "monads-tf" Control.Monad.State (when, get)
 
 }
 
-%name		parser		Exp
-%name		parserModule	Module
+--------------------------------------------------------------------------------
+
+%name		parser		exp
+%name		parserModule	module
 %monad		{ Parse }
 %lexer		{ prep }	{ TokEOF }
 %tokentype	{ Token }
 
 %token
-	integer	{ TokInteger $$ }
-	char	{ TokChar $$ }
-	string	{ TokString $$ }
+	Integer	{ TokInteger $$ }
+	Char	{ TokChar $$ }
+	String	{ TokString $$ }
 	'('	{ Special '(' }
 	')'	{ Special ')' }
 	','	{ Special ',' }
@@ -49,107 +48,116 @@ import "monads-tf" Control.Monad.State (when, get)
 	'='	{ ReservedOp "=" }
 	'\\'	{ ReservedOp "\\" }
 	'->'	{ ReservedOp "->" }
-	case	{ ReservedId "case" }
-	else	{ ReservedId "else" }
-	if	{ ReservedId "if" }
-	in	{ ReservedId "in" }
-	let	{ ReservedId "let" }
-	module	{ ReservedId "module" }
-	of	{ ReservedId "of" }
-	then	{ ReservedId "then" }
-	where	{ ReservedId "where" }
+	Case	{ ReservedId "case" }
+	Else	{ ReservedId "else" }
+	If	{ ReservedId "if" }
+	In	{ ReservedId "in" }
+	Let	{ ReservedId "let" }
+	Module	{ ReservedId "module" }
+	Of	{ ReservedId "of" }
+	Then	{ ReservedId "then" }
+	Where	{ ReservedId "where" }
 	'_'	{ ReservedId "_" }
-	varsym	{ VarSym $$ }
-	consym	{ ConSym $$ }
-	varid	{ VarId $$ }
-	conid	{ ConId $$ }
+	VarSym	{ VarSym $$ }
+	ConSym	{ ConSym $$ }
+	VarId	{ VarId $$ }
+	ConId	{ ConId $$ }
 
 %%
 
-Module	: module conid where '{' Decls '}'	{ Module $5 }
+--------------------------------------------------------------------------------
 
-Exp	: InfExp			{ $1 }
-	| Let				{ Let $1 }
+module	: Module ConId Where decls	{ Module $4 }
 
-InfExp	: LexpL Op InfExp		{ $2 $1 $3 }
-	| Lexp				{ $1 }
+exp	: infexp			{ $1 }
+	| Let decls			{ Let $2 }
 
-Lexp	: '\\' APats '->' Exp		{ Lambda $2 $4 }
-	| Let in Exp			{ Letin $1 $3 }
-	| if Exp then Exp else Exp	{ Case $2 [(PatCon "True" [], $4),
+infexp	: lexpL op infexp		{ $2 $1 $3 }
+	| lexp				{ $1 }
+
+lexp	: '\\' apats '->' exp		{ Lambda $2 $4 }
+	| Let decls In exp		{ Letin $2 $4 }
+	| If exp Then exp Else exp	{ Case $2 [(PatCon "True" [], $4),
 						(PatCon "False" [], $6)] }
-	| LexpL				{ $1 }
+	| lexpL				{ $1 }
 
-Let	: let '{' Decls close		{ $3 }
+lexpL	: Case exp Of '{' alts close	{ Case $2 $ reverse $5 }
+	| fexp				{ $1 }
 
-LexpL	: case Exp of '{' Alts close	{ Case $2 $ reverse $5 }
-	| Fexp				{ $1 }
+fexp	: aexp				{ $1 }
+	| fexp aexp			{ App $1 $2 }
 
-Fexp	: Aexp				{ $1 }
-	| Fexp Aexp			{ App $1 $2 }
+aexp	: var				{ $1 }
+	| gcon				{ $1 }
+	| Integer			{ Integer $1 }
+	| Char				{ Char $1 }
+	| String			{ makeString $1 }
+	| '(' exp ')'			{ $2 }
+	| '[' elems ']'			{ $2 }
 
-Aexp	: varid				{ Var $1 0 }
-	| conid				{ Comp $1 [] }
-	| integer			{ Integer $1 }
-	| char				{ Char $1 }
-	| string			{ makeString $1 }
-	| '(' ')'			{ Nil }
-	| '(' Exp ')'			{ $2 }
-	| '[' Elems ']'			{ $2 }
+elems	: exp				{ Comp ":" [$1, Empty] }
+	| exp ',' elems			{ Comp ":" [$1, $3] }
 
-Alts	: Alt				{ [$1] }
-	| Alts ';'			{ $1 }
-	| Alts ';' Alt			{ $3 : $1 }
-	| {- empty -}			{ [] }
+gcon	: '(' ')'			{ Nil }
+	| '[' ']'			{ Empty }
+	| ConId				{ Comp $1 [] }
 
-Alt	: Pat '->' Exp			{ ($1, $3) }
+var	: VarId				{ Var $1 0 }
+	| '(' VarSym ')'		{ Var $2 0 }
 
-Elems	: {- empty -}			{ Empty }
-	| Elems_			{ $1 }
+op	: varop				{ \x y -> App (App (Var $1 0) x) y }
+	| conop				{ \x y -> Comp $1 [ x, y ] }
 
-Elems_	: Exp				{ Comp ":" [$1, Empty] }
-	| Exp ',' Elems_		{ Comp ":" [$1, $3] }
+varop	: VarSym			{ $1 }
+	| '`' VarId '`'			{ $2 }
 
-Decls	: Decl				{ [$1] }
-	| Decls ';'			{ $1 }
-	| Decls ';' Decl		{ $3 : $1 }
-	| {- empty -}			{ [] }
-
-Decl	: Pat '=' Exp			{ ($1, $3) }
-	| varid APats '=' Exp		{ (PatVar $1 0, Lambda $2 $4) }
-
-APats	: APat				{ [$1] }
-	| APat APats			{ $1 : $2 }
-
-Pat	: LPat Conop Pat		{ PatCon $2 [$1, $3] }
-	| LPat				{ $1 }
-
-LPat	: APat				{ $1 }
-
-APat	: varid				{ PatVar $1 0 }
-	| integer			{ PatInteger $1 }
-	| '_'				{ PatUScore }
-	| '(' Pat ')'			{ $2 }
-	| '[' PatLst ']'		{ $2 }
-
-PatLst	: {- empty -}			{ PatEmpty }
-	| PatLst_			{ $1 }
-
-PatLst_	: Pat				{ PatCon ":" [$1, PatEmpty] }
-	| Pat ',' PatLst_		{ PatCon ":" [$1, $3] }
-
-Op	: varsym			{ \x y -> App (App (Var $1 0) x) y }
-	| '`' varid '`'			{ \x y -> App (App (Var $2 0) x) y }
-	| Conop				{ \x y -> Comp $1 [x, y] }
-
-Conop	: consym			{ $1 }
+conop	: ConSym			{ $1 }
 	| ':'				{ ":" }
+
+alts	: alt				{ [$1] }
+	| alts ';'			{ $1 }
+	| alts ';' alt			{ $3 : $1 }
+	| {- empty -}			{ [] }
+
+alt	: pat '->' exp			{ ($1, $3) }
+
+decls	: '{' decls_ close		{ $2 }
+
+decls_	: decl				{ [$1] }
+	| decls_ ';'			{ $1 }
+	| decls_ ';' decl		{ $3 : $1 }
+	| {- empty -}			{ [] }
+
+decl	: pat '=' exp			{ ($1, $3) }
+	| VarId apats '=' exp		{ (PatVar $1 0, Lambda $2 $4) }
+
+apats	: apat				{ [$1] }
+	| apat apats			{ $1 : $2 }
+
+pat	: lpat conop pat		{ PatCon $2 [$1, $3] }
+	| lpat				{ $1 }
+
+lpat	: apat				{ $1 }
+
+apat	: VarId				{ PatVar $1 0 }
+	| Integer			{ PatInteger $1 }
+	| '_'				{ PatUScore }
+	| '(' pat ')'			{ $2 }
+	| '[' patLst ']'		{ $2 }
+
+patLst	: {- empty -}			{ PatEmpty }
+	| patLst_			{ $1 }
+
+patLst_	: pat				{ PatCon ":" [$1, PatEmpty] }
+	| pat ',' patLst_		{ PatCon ":" [$1, $3] }
 
 close	: '}'				{ () }
 	| error				{% do
 					mm <- popIndent
 					when (maybe True (== 0) mm) $
 						happyError }
+
+--------------------------------------------------------------------------------
 
 {
 
