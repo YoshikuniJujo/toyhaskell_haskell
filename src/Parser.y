@@ -17,7 +17,7 @@ import Preprocessor (Parse, evalParse, popIndent, prep,
 import Value (
 	Value(Nil, Empty, Integer, Char, Var, Comp, App, Lambda, Case, Letin,
 		Module, Let),
-	Pattern(PatVar, PatCon, PatInteger, PatUScore, PatEmpty))
+	Pattern(PatNil, PatEmpty, PatInteger, PatVar, PatCon, PatUScore))
 
 import "monads-tf" Control.Monad.State (when, get)
 
@@ -58,6 +58,7 @@ import "monads-tf" Control.Monad.State (when, get)
 	Then	{ ReservedId "then" }
 	Where	{ ReservedId "where" }
 	'_'	{ ReservedId "_" }
+	'-'	{ VarSym "-" }
 	VarSym	{ VarSym $$ }
 	ConSym	{ ConSym $$ }
 	VarId	{ VarId $$ }
@@ -73,6 +74,8 @@ exp	: infexp			{ $1 }
 	| Let decls			{ Let $2 }
 
 infexp	: lexpL op infexp		{ $2 $1 $3 }
+	| '-' infexp			{ App ( App ( Var "-" 0 )
+						( Integer 0 ) ) $2 }
 	| lexp				{ $1 }
 
 lexp	: '\\' apats '->' exp		{ Lambda $2 $4 }
@@ -95,24 +98,28 @@ aexp	: var				{ $1 }
 	| '(' exp ')'			{ $2 }
 	| '[' elems ']'			{ $2 }
 
-elems	: exp				{ Comp ":" [$1, Empty] }
-	| exp ',' elems			{ Comp ":" [$1, $3] }
-
 gcon	: '(' ')'			{ Nil }
 	| '[' ']'			{ Empty }
 	| ConId				{ Comp $1 [] }
 
+varsym	: '-'				{ "-" }
+	| VarSym			{ $1 }
+
 var	: VarId				{ Var $1 0 }
-	| '(' VarSym ')'		{ Var $2 0 }
+	| '(' varsym ')'		{ Var $2 0 }
 
-op	: varop				{ \x y -> App (App (Var $1 0) x) y }
-	| conop				{ \x y -> Comp $1 [ x, y ] }
-
-varop	: VarSym			{ $1 }
+varop	: varsym			{ $1 }
 	| '`' VarId '`'			{ $2 }
 
 conop	: ConSym			{ $1 }
 	| ':'				{ ":" }
+	| '`' ConId '`'			{ $2 }
+
+op	: varop				{ \x y -> App (App (Var $1 0) x) y }
+	| conop				{ \x y -> Comp $1 [ x, y ] }
+
+elems	: exp				{ Comp ":" [$1, Empty] }
+	| exp ',' elems			{ Comp ":" [$1, $3] }
 
 alts	: alt				{ [$1] }
 	| alts ';'			{ $1 }
@@ -120,6 +127,26 @@ alts	: alt				{ [$1] }
 	| {- empty -}			{ [] }
 
 alt	: pat '->' exp			{ ($1, $3) }
+
+pat	: lpat conop pat		{ PatCon $2 [$1, $3] }
+	| lpat				{ $1 }
+
+lpat	: apat				{ $1 }
+	| '-' Integer			{ PatInteger ( - $2 ) }
+
+apat	: VarId				{ PatVar $1 0 }
+	| gconPat			{ $1 }
+	| Integer			{ PatInteger $1 }
+	| '_'				{ PatUScore }
+	| '(' pat ')'			{ $2 }
+	| '[' patLst ']'		{ $2 }
+
+gconPat	: '(' ')'			{ PatNil }
+	| '[' ']'			{ PatEmpty }
+	| ConId				{ PatCon $1 [] }
+
+patLst	: pat				{ PatCon ":" [$1, PatEmpty] }
+	| pat ',' patLst		{ PatCon ":" [$1, $3] }
 
 decls	: '{' decls_ close		{ $2 }
 
@@ -133,23 +160,6 @@ decl	: pat '=' exp			{ ($1, $3) }
 
 apats	: apat				{ [$1] }
 	| apat apats			{ $1 : $2 }
-
-pat	: lpat conop pat		{ PatCon $2 [$1, $3] }
-	| lpat				{ $1 }
-
-lpat	: apat				{ $1 }
-
-apat	: VarId				{ PatVar $1 0 }
-	| Integer			{ PatInteger $1 }
-	| '_'				{ PatUScore }
-	| '(' pat ')'			{ $2 }
-	| '[' patLst ']'		{ $2 }
-
-patLst	: {- empty -}			{ PatEmpty }
-	| patLst_			{ $1 }
-
-patLst_	: pat				{ PatCon ":" [$1, PatEmpty] }
-	| pat ',' patLst_		{ PatCon ":" [$1, $3] }
 
 close	: '}'				{ () }
 	| error				{% do

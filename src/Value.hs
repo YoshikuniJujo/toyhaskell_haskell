@@ -44,11 +44,12 @@ data Value =
 	Err String
 
 data Pattern =
+	PatNil				|
+	PatEmpty			|
+	PatInteger Integer		|
 	PatVar String Int		|
 	PatCon String [Pattern]		|
-	PatInteger Integer		|
-	PatUScore			|
-	PatEmpty
+	PatUScore
 	deriving (Eq, Show)
 
 instance Show Value where
