@@ -15,7 +15,7 @@ import Preprocessor (Parse, evalParse, popIndent, prep,
 	Token(TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
 		VarSym, ConSym, VarId, ConId, TokEOF))
 import Value (
-	Value(Nil, Empty, Integer, Char, Var, Comp, App, Lambda, Case, Letin,
+	Value(Nil, Empty, Integer, Char, Var, Con, App, Lambda, Case, Letin,
 		Module, Let),
 	Pattern(PatNil, PatEmpty, PatInteger, PatVar, PatCon, PatUScore))
 
@@ -100,7 +100,7 @@ aexp	: var				{ $1 }
 
 gcon	: '(' ')'			{ Nil }
 	| '[' ']'			{ Empty }
-	| ConId				{ Comp $1 [] }
+	| ConId				{ Con $1 [] }
 
 varsym	: '-'				{ "-" }
 	| VarSym			{ $1 }
@@ -116,10 +116,10 @@ conop	: ConSym			{ $1 }
 	| '`' ConId '`'			{ $2 }
 
 op	: varop				{ \x y -> App (App (Var $1 0) x) y }
-	| conop				{ \x y -> Comp $1 [ x, y ] }
+	| conop				{ \x y -> Con $1 [ x, y ] }
 
-elems	: exp				{ Comp ":" [$1, Empty] }
-	| exp ',' elems			{ Comp ":" [$1, $3] }
+elems	: exp				{ Con ":" [$1, Empty] }
+	| exp ',' elems			{ Con ":" [$1, $3] }
 
 alts	: alt				{ [$1] }
 	| alts ';'			{ $1 }
@@ -179,9 +179,9 @@ parseModule = (parserModule `evalParse`)
 
 makeString :: String -> Value
 makeString ""			= Empty
-makeString ('\\' : 'n' : cs)	= Comp ":" [Char '\n', makeString cs]
-makeString ('\\' : '\\' : cs)	= Comp ":" [Char '\\', makeString cs]
-makeString (c : cs)		= Comp ":" [Char c, makeString cs]
+makeString ('\\' : 'n' : cs)	= Con ":" [Char '\n', makeString cs]
+makeString ('\\' : '\\' : cs)	= Con ":" [Char '\\', makeString cs]
+makeString (c : cs)		= Con ":" [Char c, makeString cs]
 
 happyError :: Parse a
 happyError = get >>= error . ("parse error: " ++) . show

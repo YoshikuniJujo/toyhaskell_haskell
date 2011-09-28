@@ -1,7 +1,7 @@
 module Eval (toyEval) where
 
 import Value (Value(
-	Var, Comp, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Err),
+	Var, Con, App, Fun, Lambda, Closure, Case, Letin, Let, Module, Err),
 	Pattern, match, patVars,
 	Env, setVars, setPat, setPats, getVal, Var(V))
 import Data.Maybe (fromMaybe)
@@ -19,7 +19,7 @@ get env = getVal (eval env) env
 
 noVars :: Env -> Value -> [String]
 noVars env (Var x n)		= maybe [x] (noVars env) $ env `get` V x n
-noVars env (Comp _ mems)	= noVars env `concatMap` mems
+noVars env (Con _ mems)	= noVars env `concatMap` mems
 noVars env (App f a)		= noVars env f ++ noVars env a
 noVars env (Lambda ps ex)	= ps `filterVars` noVars env ex
 noVars env (Case key alts)	= noVars env key ++ nvc `concatMap` alts
@@ -37,7 +37,7 @@ filterVars pats = filter (`notElem` patVars `concatMap` pats)
 
 eval :: Env -> Value -> Value
 eval env (Var x n)		= eval env $ fromMaybe (noVar x n) $ env `get` V x n
-eval env (Comp con mems)	= Comp con $ eval env `map` mems
+eval env (Con con mems)		= Con con $ eval env `map` mems
 eval env (App f a)		= case eval env f of
 	Fun fun			-> fun $ eval env a
 	Closure ce [p] e	-> eval (setPat ce p (eval env a)) e

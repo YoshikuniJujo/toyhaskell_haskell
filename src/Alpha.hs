@@ -3,7 +3,7 @@
 module Alpha (alpha, alphaEnv) where
 
 import Value (
-	Value(Var, Comp, App, Lambda, Case, Letin, Module, Let),
+	Value(Var, Con, App, Lambda, Case, Letin, Module, Let),
 	Pattern(PatVar, PatCon), patVars, Env, mapEnv, Var(V))
 import Data.List (intersect, union)
 import Control.Arrow (second, (***), (&&&))
@@ -15,7 +15,7 @@ alphaEnv = flip (foldr ae)  . (patVars `concatMap`)
 	where ae v = mapEnv (succV v) (succV v) (succV v)
 
 alpha :: [String] -> Value -> Value
-alpha pre (Comp con mems)	= Comp con $ alpha pre `map` mems
+alpha pre (Con con mems)	= Con con $ alpha pre `map` mems
 alpha pre (App f a)		= App (alpha pre f) $ alpha pre a
 alpha pre (Lambda ps e)	= let (dups, np) = pre `iu` ps in
 	Lambda (map (succVs dups) ps) $ alpha np $ succVs dups e
@@ -57,7 +57,7 @@ instance Alpha Pattern where
 instance Alpha Value where
 	succV v (Var x n)
 		| v == x	= Var x $ n + 1
-	succV v (Comp c ms)	= Comp c $ succV v `map` ms
+	succV v (Con c ms)	= Con c $ succV v `map` ms
 	succV v (App f a)	= App (succV v f) $ succV v a
 	succV v (Lambda ps e)	= Lambda (succV v `map` ps) $ succV v e
 	succV v (Case k alts)	= Case (succV v k) (succV v `map` alts)

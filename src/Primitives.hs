@@ -1,7 +1,7 @@
 module Primitives (primitives) where
 
 import Value (
-	Value(Nil, Integer, Char, Comp, Fun, IOAction, Err), Env, initialize)
+	Value(Nil, Integer, Char, Con, Fun, IOAction, Err), Env, initialize)
 
 primitives :: Env
 primitives = initialize [
@@ -26,8 +26,8 @@ mkBinIntFun _ v			= typeError "Integer" v
 
 mkIntBoolFun :: (Integer -> Bool) -> Value -> Value
 mkIntBoolFun p (Integer x)
-	| p x			= Comp "True" []
-	| otherwise		= Comp "False" []
+	| p x			= Con "True" []
+	| otherwise		= Con "False" []
 mkIntBoolFun _ v		= typeError "Integer" v
 
 mkCompIntFun :: (Integer -> Integer -> Bool) -> Value -> Value
