@@ -6,6 +6,7 @@ import Test.HUnit
 import Alpha
 import Parser
 import Value
+import Fixity
 
 interpret :: String -> String -> IO String
 interpret fn expr = T.main ["-e", expr, fn] []
@@ -32,9 +33,9 @@ testEval = [
 
 testAlpha :: [Test]
 testAlpha = [
-	show (alpha [] $ parse "\\x y z -> \\x z -> \\x -> x y z") ~?=
+	show (alpha [] $ fixity initFix $ parse "\\x y z -> \\x z -> \\x -> x y z") ~?=
 		"(\\x y z -> (\\x~1 z~1 -> (\\x~2 -> ((x~2 y) z~1))))",
-	show (alpha [] $ parse
+	show (alpha [] $ fixity initFix $ parse
 		"let x = 3; y = 2; z = 1; in \\x z -> \\x -> x y z") ~?=
 		"let z = 1; y = 2; x = 3; in " ++
 		"(\\x~1 z~1 -> (\\x~2 -> ((x~2 y) z~1)))"

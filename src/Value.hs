@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Value (
+	Infix(..),
 	Value(..),
 	Pattern(..),
 	patVars,
@@ -25,6 +26,10 @@ import Control.Monad (liftM, zipWithM)
 
 --------------------------------------------------------------------------------
 
+data Infix	= Op String Infix Infix
+		| Value Value
+	deriving Show
+
 data Value =
 	Nil				|
 	Empty				|
@@ -41,6 +46,7 @@ data Value =
 	Letin [(Pattern, Value)] Value	|
 	Module [(Pattern, Value)]	|
 	Let [(Pattern, Value)]		|
+	Infix Infix			|
 	Err String
 
 data Pattern =

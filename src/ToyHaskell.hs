@@ -5,6 +5,7 @@ module ToyHaskell (Env, primitives, load, eval, evalP) where
 import Primitives (primitives)
 import Eval (toyEval)
 import Alpha (alpha, alphaEnv)
+import Fixity (fixity, initFix)
 import Parser (parse, parseModule)
 import Value (
 	Value(Nil, Empty, Integer, Char, IOAction, Con, Module, Let),
@@ -42,7 +43,7 @@ instance ToyValue a => ToyValue (IO a) where
 	fromToyValue _			= error "Not IO"
 
 evalV :: Env -> String -> Value
-evalV env = toyEval env . alpha (getVars env) . parse
+evalV env = toyEval env . alpha (getVars env) . fixity initFix . parse
 
 evalP :: Env -> String -> IO (String, Env)
 evalP env src = case evalV env src of
@@ -58,6 +59,6 @@ eval :: ToyValue a => Env -> String -> a
 eval = (.) fromToyValue . evalV
 
 load :: Env -> String -> Env
-load env src = case toyEval env $ alpha (getVars env) $ parseModule src of
+load env src = case toyEval env $ alpha (getVars env) $ fixity initFix $ parseModule src of
 	Module ps	-> setPats env ps
 	nm		-> error $ "not module: " ++ show nm

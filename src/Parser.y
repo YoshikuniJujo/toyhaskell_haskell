@@ -15,6 +15,7 @@ import Preprocessor (Parse, evalParse, popIndent, prep,
 	Token(TokInteger, TokChar, TokString, Special, ReservedOp, ReservedId,
 		VarSym, ConSym, VarId, ConId, TokEOF))
 import Value (
+	Infix(..),
 	Value(Nil, Empty, Integer, Char, Var, Con, App, Lambda, Case, Letin,
 		Module, Let),
 	Pattern(PatNil, PatEmpty, PatInteger, PatVar, PatCon, PatUScore))
@@ -171,11 +172,11 @@ close	: '}'				{ () }
 
 {
 
-parse :: String -> Value
-parse = (parser `evalParse`)
+parse :: String -> Infix
+parse = Value . (parser `evalParse`)
 
-parseModule :: String -> Value
-parseModule = (parserModule `evalParse`)
+parseModule :: String -> Infix
+parseModule = Value . (parserModule `evalParse`)
 
 makeString :: String -> Value
 makeString ""			= Empty

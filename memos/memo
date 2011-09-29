@@ -271,3 +271,10 @@ Var を alpha 変換した後に直接、Var String Int の形のまま使うこ
 2011.09.23 Fri.
 
 残りは、Parser.y, Preprocessor, Lexer, Value, Env の refactoring。
+
+演算子の評価順序について
+
+2011.09.29 Thu.
+
+演算子の評価順序について、infix.hs にてテストして、上手くいきそうなので、
+次は、Parser.y の exp のあたりをいじることにする。
