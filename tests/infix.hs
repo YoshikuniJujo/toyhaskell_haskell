@@ -7,6 +7,8 @@ import Parse
 import System.Environment
 import Data.Char
 import Data.List
+import Data.Function
+import Data.Maybe
 
 main :: IO ()
 main = do
@@ -26,10 +28,17 @@ data Assoc	= Left | Right | None deriving Show
 data Fixity	= Fix Assoc Int deriving Show
 data Parsed	= Fixity (String, Fixity) | Value Value deriving Show
 
+fixities :: [(String, Int)]
+fixities = [("+", 6), ("-", 6), ("*", 7), ("/", 7)]
+
+compFixity :: String -> String -> Ordering
+compFixity = on compare (fromJust . flip lookup fixities)
+
 fixToLeft :: Infix -> Value
 fixToLeft (V v)				= fixToLeftV v
-fixToLeft (Op op1 i1 (Op op2 i2 i3))	= fixToLeft $
-	Op op2 (V $ OpV op1 (fixToLeft i1) $ fixToLeft i2) i3
+fixToLeft (Op op1 i1 (Op op2 i2 i3))	= case compFixity op1 op2 of
+	LT	-> OpV op1 (fixToLeft i1) $ fixToLeft $ Op op2 i2 i3
+	_	-> fixToLeft $ Op op2 (V $ OpV op1 (fixToLeft i1) $ fixToLeft i2) i3
 fixToLeft (Op op i1 i2)			= OpV op (fixToLeft i1) (fixToLeft i2)
 
 fixToLeftV :: Value -> Value
