@@ -12,11 +12,10 @@ import Tools (mapFilter)
 
 main :: IO ()
 main = do
-	cnt	<- getArgs >>= readFile . head
-	let	parsed	= parse $ lexer cnt
-		expr	= mapFilter getValue parsed
+	parsed <- (parse . lexer) `fmap` (getArgs >>= readFile . head)
+	let	expr	= mapFilter getValue parsed
 		fix	= mapFilter getFixity parsed
-	mapM_ ( print . fixInfix fix) expr
+	mapM_ (print . fixInfix fix) expr
 	where
 	getValue (Expression v)		= Just v
 	getValue _			= Nothing
@@ -28,7 +27,7 @@ data Parsed	= FixityDecl (String, Fixity) | Expression Infix deriving Show
 data Infix	= Op String Value Infix | Atom Value deriving Show
 data Value	= Infix Infix | OpV String Value Value | Int Int
 
-data Assoc	= Left | Right | None deriving Show
+data Assoc	= Left | Right | None deriving (Eq, Show)
 data Fixity	= Fix Assoc Int deriving Show
 
 instance Show Value where
@@ -38,7 +37,8 @@ instance Show Value where
 	show (Infix i)		= showInfix i
 		where
 		showInfix (Atom v)	= show v
-		showInfix (Op op v1 v2)	= show v1 ++ " " ++ op ++ " " ++ showInfix v2
+		showInfix (Op op v1 v2)	=
+			show v1 ++ " " ++ op ++ " " ++ showInfix v2
 
 fixInfix :: [(String, Fixity)] -> Infix -> Value
 fixInfix fix = fixValue . fixToV
@@ -65,6 +65,8 @@ fixInfix fix = fixValue . fixToV
 		| Right <- assc1, Right <- assc2	= LT
 		| otherwise				= error "bad associativity"
 
+--------------------------------------------------------------------------------
+
 parse :: [Token] -> [Parsed]
 parse = fst . head . parser
 
@@ -74,19 +76,11 @@ parser = list1 parserOne >*> eof `build` fst
 parserOne, parserInfix :: Parse Token Parsed
 parserOne = parserInfix `alt` parserExp `build` Expression
 
-parserInfix = token Infixl >*> spot isNum >*> spot isSym
-	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix Left n))
-	`alt`
-	token Infixr >*> spot isNum >*> spot isSym
-	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix Right n))
-	`alt`
-	token Infixn >*> spot isNum >*> spot isSym
-	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix None n))
+parserInfix = spot isInfix >*> spot isNum >*> spot isSym
+	`build` \(TInfix assc, (Num n, Sym s)) -> FixityDecl (s, Fix assc n)
 
 parserExp :: Parse Token Infix
-parserExp =
-	parserAtom `build` Atom
-	`alt`
+parserExp = parserAtom `build` Atom `alt`
 	parserAtom >*> spot isSym >*> parserExp `build`
 		\(e1, (Sym op, e)) -> Op op e1 e
 
@@ -94,10 +88,11 @@ parserAtom :: Parse Token Value
 parserAtom =
 	spot isNum `build` (\(Num n) -> Int n)
 	`alt`
-	token OpenParen >*> parserExp >*> token CloseParen `build` Infix . fst . snd
+	token OP >*> parserExp >*> token CP `build` Infix . fst . snd
 
-data Token	= Infixl | Infixr | Infixn | Num Int | Comma | Semi | Sym String
-		| OpenParen | CloseParen
+--------------------------------------------------------------------------------
+
+data Token = TInfix Assoc | Num Int | Comma | Semi | Sym String | OP | CP
 	deriving (Eq, Show)
 
 isNum :: Token -> Bool
@@ -108,34 +103,30 @@ isSym :: Token -> Bool
 isSym (Sym _)	= True
 isSym _		= False
 
+isInfix :: Token -> Bool
+isInfix (TInfix _)	= True
+isInfix _		= False
+
 lexer :: String -> [Token]
 lexer ""				= []
 lexer (';' : cs)			= Semi : lexer cs
 lexer (',' : cs)			= Comma : lexer cs
-lexer ('(' : cs)			= OpenParen : lexer cs
-lexer (')' : cs)			= CloseParen : lexer cs
+lexer ('(' : cs)			= OP : lexer cs
+lexer (')' : cs)			= CP : lexer cs
 lexer ca@(c : cs)
 	| isSpace c			= lexer cs
-	| Just (t, r) <- getNum ca	= t : lexer r
-	| Just (t, r) <- getSym ca	= t : lexer r
-	| Just (t, r) <- getInfixes ca	= t : lexer r
+	| Just (t, r) <- num		= t : lexer r
+	| Just (t, r) <- sym		= t : lexer r
+	| Just (t, r) <- infixes	= t : lexer r
 	| otherwise			= error "lexer error"
-
-getNum :: String -> Maybe (Token, String)
-getNum ca@(c : _)
-	| isDigit c	= Just (Num $ read $ takeWhile isDigit ca,
-							dropWhile isDigit ca )
-getNum _		= Nothing
-
-getSym :: String -> Maybe (Token, String)
-getSym ca@(c : _)
-	| isSymbol c	= Just (Sym $ takeWhile isSymbol ca, dropWhile isSymbol ca)
-	where isSymbol	= (`elem` "+-*/!.^:=<>&|$")
-getSym _		= Nothing
-
-getInfixes :: String -> Maybe (Token, String)
-getInfixes ca
-	| "infixl" `isPrefixOf` ca	= Just (Infixl, drop 6 ca)
-	| "infixr" `isPrefixOf` ca	= Just (Infixr, drop 6 ca)
-	| "infix" `isPrefixOf` ca	= Just (Infixn, drop 5 ca)
-	| otherwise			= Nothing
+	where
+	isS			= (`elem` "+-*/!.^:=<>&|$")
+	num	| isDigit c	= let (t, r) = span isDigit ca in
+							Just (Num $ read t, r)
+		| otherwise	= Nothing
+	sym	| isS c		= let (t, r) = span isS ca in Just (Sym t, r)
+		| otherwise	= Nothing
+	infixes	| "infixl" `isPrefixOf` ca	= Just (TInfix Left, drop 6 ca)
+		| "infixr" `isPrefixOf` ca	= Just (TInfix Right, drop 6 ca)
+		| "infix" `isPrefixOf` ca	= Just (TInfix None, drop 5 ca)
+		| otherwise			= Nothing
