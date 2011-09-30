@@ -17,7 +17,7 @@ main = do
 	parsed <- (parse . lexer) `fmap` (getArgs >>= readFile . head)
 	let	expr	= catMaybes $ map getValue parsed
 		fix	= catMaybes $ map getFixity parsed
-	mapM_ (print . fixInfix fix) expr
+	mapM_ (print . applyFixities fix) expr
 	where
 	getValue (Expression v)		= Just v
 	getValue _			= Nothing
@@ -44,19 +44,19 @@ instance Show Value where
 
 --------------------------------------------------------------------------------
 
-fixInfix :: [(String, Fixity)] -> Infix -> Value
-fixInfix fix = fixValue . fixToV
+applyFixities :: [(String, Fixity)] -> Infix -> Value
+applyFixities fix = appVal . Infix
 	where
-	fixToV o@(Op _ _ _)	= fixToV $ fixity o
-	fixToV (Atom v)		= v
-	fixity (Atom v)		= Atom v
-	fixity (Op op1 v1 (Op op2 v2 i))	= case compFixity op1 op2 of
-		LT	-> Op op1 v1 $ fixity $ Op op2 v2 i
+	appVal (Infix i)	= appVal $ appAll i
+	appVal (OpV op v1 v2)	= OpV op (appVal v1) (appVal v2)
+	appVal v		= v
+	appAll o@(Op _ _ _)	= appAll $ appOne o
+	appAll (Atom v)		= v
+	appOne (Op op1 v1 (Op op2 v2 i))	= case compFixity op1 op2 of
+		LT	-> Op op1 v1 $ appOne $ Op op2 v2 i
 		_	-> Op op2 (OpV op1 v1 v2) i
-	fixity (Op op1 v i)			= Atom $ OpV op1 v $ Infix i
-	fixValue (Infix i)		= fixValue $ fixToV i
-	fixValue (OpV op v1 v2)	= OpV op (fixValue v1) (fixValue v2)
-	fixValue v			= v
+	appOne (Op op1 v i)			= Atom $ OpV op1 v $ Infix i
+	appOne (Atom v)				= Atom v
 	compFixity op1 op2 = case (lookup op1 fix, lookup op2 fix) of
 		( Just f1, Just f2 )	-> compInfix f1 f2
 		( Just f1, Nothing )	-> compInfix f1 (Fix Left 9)
