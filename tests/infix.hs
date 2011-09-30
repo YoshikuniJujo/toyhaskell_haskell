@@ -20,9 +20,9 @@ main = do
 	print $ mapFilter getFixity parsed
 	print $ mapFilter getValue parsed
 	mapM_ putStrLn $ map showValue exp
-	mapM_ putStrLn $ map showValue $ map fixToLeftV exp
+	mapM_ putStrLn $ map showValue $ map fixValue exp
 
-data Infix	= Op String Infix Infix | V Value deriving Show
+data Infix	= Op String Value Infix | V Value deriving Show
 data Value	= Infix Infix | OpV String Value Value | Int Int deriving Show
 data Assoc	= Left | Right | None deriving Show
 data Fixity	= Fix Assoc Int deriving Show
@@ -34,17 +34,43 @@ fixities = [("+", 6), ("-", 6), ("*", 7), ("/", 7)]
 compFixity :: String -> String -> Ordering
 compFixity = on compare (fromJust . flip lookup fixities)
 
+fixToV :: Infix -> Value
+fixToV o@(Op _ _ _)	= fixToV $ fixity o
+fixToV (V v)		= v
+
+fixValue :: Value -> Value
+fixValue (Infix i)	= fixValue $ fixToV i
+fixValue (OpV op v1 v2)	= OpV op (fixValue v1) (fixValue v2)
+fixValue v		= v
+
+fixity :: Infix -> Infix
+fixity (V v)				= V v
+fixity (Op op1 v1 (Op op2 v2 i))	= case compFixity op1 op2 of
+	LT	-> Op op1 v1 $ fixity $ Op op2 v2 i
+	_	-> Op op2 (OpV op1 v1 v2) i
+fixity (Op op1 v i)			= V $ OpV op1 v $ Infix i
+
+fixityV :: Value -> Infix
+fixityV (Infix i)			= fixity i
+{-
+fixityV v				= v
+-}
+
+{-
 fixToLeft :: Infix -> Value
 fixToLeft (V v)				= fixToLeftV v
 fixToLeft (Op op1 i1 (Op op2 i2 i3))	= case compFixity op1 op2 of
-	LT	-> OpV op1 (fixToLeft i1) $ fixToLeft $ Op op2 i2 i3
-	_	-> fixToLeft $ Op op2 (V $ OpV op1 (fixToLeft i1) $ fixToLeft i2) i3
-fixToLeft (Op op i1 i2)			= OpV op (fixToLeft i1) (fixToLeft i2)
+	LT	-> fixToLeft $ Op op1 (fixToLeftV i1) $ -- fixToLeft $
+			Op op2 (fixToLeftV i2) i3
+	_	-> fixToLeft $ Op op2 (OpV op1 (fixToLeftV i1)
+						(fixToLeftV i2)) i3
+fixToLeft (Op op i1 i2)			= OpV op i1 (fixToLeft i2)
 
 fixToLeftV :: Value -> Value
 fixToLeftV (Infix i)		= fixToLeft i
 fixToLeftV o@(OpV _ _ _ )	= o
 fixToLeftV n@(Int _)		= n
+-}
 
 showValue :: Value -> String
 showValue (Int n)		= show n
@@ -54,8 +80,7 @@ showValue (OpV op v1 v2)	=
 
 showInfix :: Infix -> String
 showInfix (V v)		= showValue v
-showInfix (Op op v1 v2)	=
-	"(" ++ showInfix v1 ++ " " ++ op ++ " " ++ showInfix v2 ++ ")"
+showInfix (Op op v1 v2)	= showValue v1 ++ " " ++ op ++ " " ++ showInfix v2
 
 mapFilter :: (a -> Maybe b) -> [a] -> [b]
 mapFilter f []		= []
@@ -83,17 +108,18 @@ parserOne = parserInfix `alt` parserExp `build` Value . Infix
 parserInfix = token Infixl >*> spot isNum >*> spot isSym
 	`build` \(_, (Num n, Sym s)) -> Fixity $ (s, Fix Left n)
 
-parserExp, parserAtom :: Parse Token Infix
+parserExp :: Parse Token Infix
 parserExp =
-	parserAtom
+	parserAtom `build` V
 	`alt`
 	parserAtom >*> spot isSym >*> parserExp `build`
 		\(e1, (Sym op, e)) -> Op op e1 e
 
+parserAtom :: Parse Token Value
 parserAtom =
-	spot isNum `build` (\(Num n) -> V (Int n))
+	spot isNum `build` (\(Num n) -> Int n)
 	`alt`
-	token OpenParen >*> parserExp >*> token CloseParen `build` fst . snd
+	token OpenParen >*> parserExp >*> token CloseParen `build` Infix . fst . snd
 
 data Token	= Infixl | Infixr | {- Infix | -} Num Int | Comma | Semi | Sym String
 		| OpenParen | CloseParen
