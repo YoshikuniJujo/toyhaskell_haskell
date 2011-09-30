@@ -3,74 +3,62 @@
 module Main where
 
 import Prelude hiding (Either(..))
-import Parse
-import System.Environment
-import Data.Char
-import Data.List
-import Data.Function
-import Data.Maybe
+import Parse (Parse, spot, token, eof, (>*>), alt, build, list1)
+import System.Environment (getArgs)
+import Data.Char (isSpace, isDigit)
+import Data.List (isPrefixOf)
+import Data.Maybe (fromJust)
+import Data.Function (on)
 
 main :: IO ()
 main = do
-	[fn]	<- getArgs
-	cnt	<- readFile fn
+	cnt	<- getArgs >>= readFile . head
 	let	parsed	= parse $ lexer cnt
 		exp	= mapFilter getValue parsed
-	putStr cnt
-	print $ mapFilter getFixity parsed
-	print $ mapFilter getValue parsed
-	mapM_ putStrLn $ map showValue exp
-	mapM_ putStrLn $ map showValue $ map fixValue exp
+		fix	= mapFilter getFixity parsed
+	mapM_ (putStrLn . showValue . fixValue fix) exp
 
-data Infix	= Op String Value Infix | V Value deriving Show
+data Parsed	= FixityDecl (String, Fixity) | Expression Value deriving Show
+
+data Infix	= Op String Value Infix | Atom Value deriving Show
 data Value	= Infix Infix | OpV String Value Value | Int Int deriving Show
+
 data Assoc	= Left | Right | None deriving Show
 data Fixity	= Fix Assoc Int deriving Show
-data Parsed	= Fixity (String, Fixity) | Value Value deriving Show
 
-fixities :: [(String, Int)]
-fixities = [("+", 6), ("-", 6), ("*", 7), ("/", 7)]
+compFixity :: [(String, Fixity)] -> String -> String -> Ordering
+compFixity fix op1 op2 = case (lookup op1 fix, lookup op2 fix) of
+	( Just f1, Just f2 )	-> compInfix f1 f2
+	( Just f1, Nothing )	-> compInfix f1 (Fix Left 9)
+	( Nothing, Just f2 )	-> compInfix (Fix Left 9) f2
+	( Nothing, Nothing )	-> compInfix (Fix Left 9) (Fix Left 9)
 
-compFixity :: String -> String -> Ordering
-compFixity = on compare (fromJust . flip lookup fixities)
+compInfix :: Fixity -> Fixity -> Ordering
+compInfix (Fix assc1 prec1) (Fix assc2 prec2)
+	| prec1 > prec2				= GT
+	| prec1 < prec2				= LT
+	| Left <- assc1, Left <- assc2		= GT
+	| Right <- assc1, Right <- assc2	= LT
+	| otherwise				= error "bad associativity"
 
-fixToV :: Infix -> Value
-fixToV o@(Op _ _ _)	= fixToV $ fixity o
-fixToV (V v)		= v
+fixToV :: [(String, Fixity)] -> Infix -> Value
+fixToV fix o@(Op _ _ _)	= fixToV fix $ fixity fix o
+fixToV fix (Atom v)	= v
 
-fixValue :: Value -> Value
-fixValue (Infix i)	= fixValue $ fixToV i
-fixValue (OpV op v1 v2)	= OpV op (fixValue v1) (fixValue v2)
-fixValue v		= v
+fixValue :: [(String, Fixity)] -> Value -> Value
+fixValue fix (Infix i)		= fixValue fix $ fixToV fix i
+fixValue fix (OpV op v1 v2)	= OpV op (fixValue fix v1) (fixValue fix v2)
+fixValue _ v			= v
 
-fixity :: Infix -> Infix
-fixity (V v)				= V v
-fixity (Op op1 v1 (Op op2 v2 i))	= case compFixity op1 op2 of
-	LT	-> Op op1 v1 $ fixity $ Op op2 v2 i
+fixity :: [(String, Fixity)] -> Infix -> Infix
+fixity _ (Atom v)			= Atom v
+fixity fix (Op op1 v1 (Op op2 v2 i))	= case compFixity fix op1 op2 of
+	LT	-> Op op1 v1 $ fixity fix $ Op op2 v2 i
 	_	-> Op op2 (OpV op1 v1 v2) i
-fixity (Op op1 v i)			= V $ OpV op1 v $ Infix i
+fixity _ (Op op1 v i)			= Atom $ OpV op1 v $ Infix i
 
-fixityV :: Value -> Infix
-fixityV (Infix i)			= fixity i
-{-
-fixityV v				= v
--}
-
-{-
-fixToLeft :: Infix -> Value
-fixToLeft (V v)				= fixToLeftV v
-fixToLeft (Op op1 i1 (Op op2 i2 i3))	= case compFixity op1 op2 of
-	LT	-> fixToLeft $ Op op1 (fixToLeftV i1) $ -- fixToLeft $
-			Op op2 (fixToLeftV i2) i3
-	_	-> fixToLeft $ Op op2 (OpV op1 (fixToLeftV i1)
-						(fixToLeftV i2)) i3
-fixToLeft (Op op i1 i2)			= OpV op i1 (fixToLeft i2)
-
-fixToLeftV :: Value -> Value
-fixToLeftV (Infix i)		= fixToLeft i
-fixToLeftV o@(OpV _ _ _ )	= o
-fixToLeftV n@(Int _)		= n
--}
+fixityV :: [(String, Fixity)] -> Value -> Infix
+fixityV fix (Infix i) = fixity fix i
 
 showValue :: Value -> String
 showValue (Int n)		= show n
@@ -79,7 +67,7 @@ showValue (OpV op v1 v2)	=
 	"(" ++ showValue v1 ++ " " ++ op ++ " " ++ showValue v2 ++ ")"
 
 showInfix :: Infix -> String
-showInfix (V v)		= showValue v
+showInfix (Atom v)	= showValue v
 showInfix (Op op v1 v2)	= showValue v1 ++ " " ++ op ++ " " ++ showInfix v2
 
 mapFilter :: (a -> Maybe b) -> [a] -> [b]
@@ -89,12 +77,12 @@ mapFilter f (x : xs)
 	| otherwise	= mapFilter f xs
 
 getValue :: Parsed -> Maybe Value
-getValue (Value v)	= Just v
+getValue (Expression v)	= Just v
 getValue _		= Nothing
 
 getFixity :: Parsed -> Maybe (String, Fixity)
-getFixity (Fixity f)	= Just f
-getFixity _		= Nothing
+getFixity (FixityDecl f)	= Just f
+getFixity _			= Nothing
 
 parse :: [Token] -> [Parsed]
 parse = fst . head . parser
@@ -103,14 +91,20 @@ parser :: Parse Token [Parsed]
 parser = list1 parserOne >*> eof `build` fst
 
 parserOne, parserInfix :: Parse Token Parsed
-parserOne = parserInfix `alt` parserExp `build` Value . Infix
+parserOne = parserInfix `alt` parserExp `build` Expression . Infix
 
 parserInfix = token Infixl >*> spot isNum >*> spot isSym
-	`build` \(_, (Num n, Sym s)) -> Fixity $ (s, Fix Left n)
+	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix Left n))
+	`alt`
+	token Infixr >*> spot isNum >*> spot isSym
+	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix Right n))
+	`alt`
+	token Infixn >*> spot isNum >*> spot isSym
+	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix None n))
 
 parserExp :: Parse Token Infix
 parserExp =
-	parserAtom `build` V
+	parserAtom `build` Atom
 	`alt`
 	parserAtom >*> spot isSym >*> parserExp `build`
 		\(e1, (Sym op, e)) -> Op op e1 e
@@ -121,7 +115,7 @@ parserAtom =
 	`alt`
 	token OpenParen >*> parserExp >*> token CloseParen `build` Infix . fst . snd
 
-data Token	= Infixl | Infixr | {- Infix | -} Num Int | Comma | Semi | Sym String
+data Token	= Infixl | Infixr | Infixn | Num Int | Comma | Semi | Sym String
 		| OpenParen | CloseParen
 	deriving (Eq, Show)
 
@@ -134,7 +128,7 @@ isSym (Sym _)	= True
 isSym _		= False
 
 isSymb :: Char -> Bool
-isSymb = (`elem` "+-*/")
+isSymb = (`elem` "+-*/!.^:=<>&|$")
 
 lexer :: String -> [Token]
 lexer ""				= []
@@ -162,4 +156,6 @@ getSym ca@(c : _)
 getInfixes :: String -> Maybe (Token, String)
 getInfixes ca
 	| "infixl" `isPrefixOf` ca	= Just (Infixl, drop 6 ca)
+	| "infixr" `isPrefixOf` ca	= Just (Infixr, drop 6 ca)
+	| "infix" `isPrefixOf` ca	= Just (Infixn, drop 5 ca)
 	| otherwise			= Nothing
