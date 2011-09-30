@@ -3,86 +3,67 @@
 module Main where
 
 import Prelude hiding (Either(..))
-import Parse (Parse, spot, token, eof, (>*>), alt, build, list1)
 import System.Environment (getArgs)
 import Data.Char (isSpace, isDigit)
 import Data.List (isPrefixOf)
-import Data.Maybe (fromJust)
-import Data.Function (on)
+
+import Parse (Parse, spot, token, eof, (>*>), alt, build, list1)
+import Tools (mapFilter)
 
 main :: IO ()
 main = do
 	cnt	<- getArgs >>= readFile . head
 	let	parsed	= parse $ lexer cnt
-		exp	= mapFilter getValue parsed
+		expr	= mapFilter getValue parsed
 		fix	= mapFilter getFixity parsed
-	mapM_ (putStrLn . showValue . fixValue fix) exp
+	mapM_ ( print . fixInfix fix) expr
+	where
+	getValue (Expression v)		= Just v
+	getValue _			= Nothing
+	getFixity (FixityDecl f)	= Just f
+	getFixity _			= Nothing
 
-data Parsed	= FixityDecl (String, Fixity) | Expression Value deriving Show
+data Parsed	= FixityDecl (String, Fixity) | Expression Infix deriving Show
 
 data Infix	= Op String Value Infix | Atom Value deriving Show
-data Value	= Infix Infix | OpV String Value Value | Int Int deriving Show
+data Value	= Infix Infix | OpV String Value Value | Int Int
 
 data Assoc	= Left | Right | None deriving Show
 data Fixity	= Fix Assoc Int deriving Show
 
-compFixity :: [(String, Fixity)] -> String -> String -> Ordering
-compFixity fix op1 op2 = case (lookup op1 fix, lookup op2 fix) of
-	( Just f1, Just f2 )	-> compInfix f1 f2
-	( Just f1, Nothing )	-> compInfix f1 (Fix Left 9)
-	( Nothing, Just f2 )	-> compInfix (Fix Left 9) f2
-	( Nothing, Nothing )	-> compInfix (Fix Left 9) (Fix Left 9)
+instance Show Value where
+	show (Int n)		= show n
+	show (OpV op v1 v2)	=
+		"(" ++ show v1 ++ " " ++ op ++ " " ++ show v2 ++ ")"
+	show (Infix i)		= showInfix i
+		where
+		showInfix (Atom v)	= show v
+		showInfix (Op op v1 v2)	= show v1 ++ " " ++ op ++ " " ++ showInfix v2
 
-compInfix :: Fixity -> Fixity -> Ordering
-compInfix (Fix assc1 prec1) (Fix assc2 prec2)
-	| prec1 > prec2				= GT
-	| prec1 < prec2				= LT
-	| Left <- assc1, Left <- assc2		= GT
-	| Right <- assc1, Right <- assc2	= LT
-	| otherwise				= error "bad associativity"
-
-fixToV :: [(String, Fixity)] -> Infix -> Value
-fixToV fix o@(Op _ _ _)	= fixToV fix $ fixity fix o
-fixToV fix (Atom v)	= v
-
-fixValue :: [(String, Fixity)] -> Value -> Value
-fixValue fix (Infix i)		= fixValue fix $ fixToV fix i
-fixValue fix (OpV op v1 v2)	= OpV op (fixValue fix v1) (fixValue fix v2)
-fixValue _ v			= v
-
-fixity :: [(String, Fixity)] -> Infix -> Infix
-fixity _ (Atom v)			= Atom v
-fixity fix (Op op1 v1 (Op op2 v2 i))	= case compFixity fix op1 op2 of
-	LT	-> Op op1 v1 $ fixity fix $ Op op2 v2 i
-	_	-> Op op2 (OpV op1 v1 v2) i
-fixity _ (Op op1 v i)			= Atom $ OpV op1 v $ Infix i
-
-fixityV :: [(String, Fixity)] -> Value -> Infix
-fixityV fix (Infix i) = fixity fix i
-
-showValue :: Value -> String
-showValue (Int n)		= show n
-showValue (Infix i)		= showInfix i
-showValue (OpV op v1 v2)	=
-	"(" ++ showValue v1 ++ " " ++ op ++ " " ++ showValue v2 ++ ")"
-
-showInfix :: Infix -> String
-showInfix (Atom v)	= showValue v
-showInfix (Op op v1 v2)	= showValue v1 ++ " " ++ op ++ " " ++ showInfix v2
-
-mapFilter :: (a -> Maybe b) -> [a] -> [b]
-mapFilter f []		= []
-mapFilter f (x : xs)
-	| Just y <- f x	= y : mapFilter f xs
-	| otherwise	= mapFilter f xs
-
-getValue :: Parsed -> Maybe Value
-getValue (Expression v)	= Just v
-getValue _		= Nothing
-
-getFixity :: Parsed -> Maybe (String, Fixity)
-getFixity (FixityDecl f)	= Just f
-getFixity _			= Nothing
+fixInfix :: [(String, Fixity)] -> Infix -> Value
+fixInfix fix = fixValue . fixToV
+	where
+	fixToV o@(Op _ _ _)	= fixToV $ fixity o
+	fixToV (Atom v)		= v
+	fixity (Atom v)		= Atom v
+	fixity (Op op1 v1 (Op op2 v2 i))	= case compFixity op1 op2 of
+		LT	-> Op op1 v1 $ fixity $ Op op2 v2 i
+		_	-> Op op2 (OpV op1 v1 v2) i
+	fixity (Op op1 v i)			= Atom $ OpV op1 v $ Infix i
+	fixValue (Infix i)		= fixValue $ fixToV i
+	fixValue (OpV op v1 v2)	= OpV op (fixValue v1) (fixValue v2)
+	fixValue v			= v
+	compFixity op1 op2 = case (lookup op1 fix, lookup op2 fix) of
+		( Just f1, Just f2 )	-> compInfix f1 f2
+		( Just f1, Nothing )	-> compInfix f1 (Fix Left 9)
+		( Nothing, Just f2 )	-> compInfix (Fix Left 9) f2
+		( Nothing, Nothing )	-> compInfix (Fix Left 9) (Fix Left 9)
+	compInfix (Fix assc1 prec1) (Fix assc2 prec2)
+		| prec1 > prec2				= GT
+		| prec1 < prec2				= LT
+		| Left <- assc1, Left <- assc2		= GT
+		| Right <- assc1, Right <- assc2	= LT
+		| otherwise				= error "bad associativity"
 
 parse :: [Token] -> [Parsed]
 parse = fst . head . parser
@@ -91,7 +72,7 @@ parser :: Parse Token [Parsed]
 parser = list1 parserOne >*> eof `build` fst
 
 parserOne, parserInfix :: Parse Token Parsed
-parserOne = parserInfix `alt` parserExp `build` Expression . Infix
+parserOne = parserInfix `alt` parserExp `build` Expression
 
 parserInfix = token Infixl >*> spot isNum >*> spot isSym
 	`build` (\(_, (Num n, Sym s)) -> FixityDecl (s, Fix Left n))
@@ -127,9 +108,6 @@ isSym :: Token -> Bool
 isSym (Sym _)	= True
 isSym _		= False
 
-isSymb :: Char -> Bool
-isSymb = (`elem` "+-*/!.^:=<>&|$")
-
 lexer :: String -> [Token]
 lexer ""				= []
 lexer (';' : cs)			= Semi : lexer cs
@@ -141,17 +119,19 @@ lexer ca@(c : cs)
 	| Just (t, r) <- getNum ca	= t : lexer r
 	| Just (t, r) <- getSym ca	= t : lexer r
 	| Just (t, r) <- getInfixes ca	= t : lexer r
+	| otherwise			= error "lexer error"
 
 getNum :: String -> Maybe (Token, String)
 getNum ca@(c : _)
 	| isDigit c	= Just (Num $ read $ takeWhile isDigit ca,
 							dropWhile isDigit ca )
-	| otherwise	= Nothing
+getNum _		= Nothing
 
 getSym :: String -> Maybe (Token, String)
 getSym ca@(c : _)
-	| isSymb c	= Just (Sym $ takeWhile isSymb ca, dropWhile isSymb ca)
-	| otherwise	= Nothing
+	| isSymbol c	= Just (Sym $ takeWhile isSymbol ca, dropWhile isSymbol ca)
+	where isSymbol	= (`elem` "+-*/!.^:=<>&|$")
+getSym _		= Nothing
 
 getInfixes :: String -> Maybe (Token, String)
 getInfixes ca
