@@ -6,21 +6,25 @@ import Prelude hiding (Either(..))
 import System.Environment (getArgs)
 import Data.Char (isSpace, isDigit)
 import Data.List (isPrefixOf)
+import Data.Maybe (catMaybes)
 
 import Parse (Parse, spot, token, eof, (>*>), alt, build, list1)
-import Tools (mapFilter)
+
+--------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
 	parsed <- (parse . lexer) `fmap` (getArgs >>= readFile . head)
-	let	expr	= mapFilter getValue parsed
-		fix	= mapFilter getFixity parsed
+	let	expr	= catMaybes $ map getValue parsed
+		fix	= catMaybes $ map getFixity parsed
 	mapM_ (print . fixInfix fix) expr
 	where
 	getValue (Expression v)		= Just v
 	getValue _			= Nothing
 	getFixity (FixityDecl f)	= Just f
 	getFixity _			= Nothing
+
+--------------------------------------------------------------------------------
 
 data Parsed	= FixityDecl (String, Fixity) | Expression Infix deriving Show
 
@@ -32,13 +36,13 @@ data Fixity	= Fix Assoc Int deriving Show
 
 instance Show Value where
 	show (Int n)		= show n
-	show (OpV op v1 v2)	=
-		"(" ++ show v1 ++ " " ++ op ++ " " ++ show v2 ++ ")"
-	show (Infix i)		= showInfix i
-		where
-		showInfix (Atom v)	= show v
-		showInfix (Op op v1 v2)	=
-			show v1 ++ " " ++ op ++ " " ++ showInfix v2
+	show (OpV op v1 v2)	= "(" ++ show v1 ++ " " ++ op ++ " " ++ show v2
+									++ ")"
+	show (Infix i)		= si i
+		where	si (Atom v)	= show v
+			si (Op op v i')	= show v ++ " " ++ op ++ " " ++ si i'
+
+--------------------------------------------------------------------------------
 
 fixInfix :: [(String, Fixity)] -> Infix -> Value
 fixInfix fix = fixValue . fixToV
@@ -68,27 +72,23 @@ fixInfix fix = fixValue . fixToV
 --------------------------------------------------------------------------------
 
 parse :: [Token] -> [Parsed]
-parse = fst . head . parser
+parse = fst . head . (list1 parserOne >*> eof `build` fst)
 
-parser :: Parse Token [Parsed]
-parser = list1 parserOne >*> eof `build` fst
+parserOne :: Parse Token Parsed
+parserOne = parserInfix `build` FixityDecl `alt` parserExp `build` Expression
 
-parserOne, parserInfix :: Parse Token Parsed
-parserOne = parserInfix `alt` parserExp `build` Expression
-
+parserInfix :: Parse Token (String, Fixity)
 parserInfix = spot isInfix >*> spot isNum >*> spot isSym
-	`build` \(TInfix assc, (Num n, Sym s)) -> FixityDecl (s, Fix assc n)
+	`build` \(TInfix assc, (Num n, Sym s)) -> (s, Fix assc n)
 
 parserExp :: Parse Token Infix
-parserExp = parserAtom `build` Atom `alt`
-	parserAtom >*> spot isSym >*> parserExp `build`
-		\(e1, (Sym op, e)) -> Op op e1 e
+parserExp = parserAtom `build` Atom
+	`alt` parserAtom >*> spot isSym >*> parserExp
+		`build` \(v, (Sym op, i)) -> Op op v i
 
 parserAtom :: Parse Token Value
-parserAtom =
-	spot isNum `build` (\(Num n) -> Int n)
-	`alt`
-	token OP >*> parserExp >*> token CP `build` Infix . fst . snd
+parserAtom = spot isNum `build` (\(Num n) -> Int n)
+	`alt` token OP >*> parserExp >*> token CP `build` Infix . fst . snd
 
 --------------------------------------------------------------------------------
 
@@ -107,26 +107,20 @@ isInfix :: Token -> Bool
 isInfix (TInfix _)	= True
 isInfix _		= False
 
+isSymbol :: Char -> Bool
+isSymbol = (`elem` "+-*/!.^:=<>&|$")
+
 lexer :: String -> [Token]
-lexer ""				= []
-lexer (';' : cs)			= Semi : lexer cs
-lexer (',' : cs)			= Comma : lexer cs
-lexer ('(' : cs)			= OP : lexer cs
-lexer (')' : cs)			= CP : lexer cs
+lexer ""		= []
+lexer (';' : cs)	= Semi : lexer cs
+lexer (',' : cs)	= Comma : lexer cs
+lexer ('(' : cs)	= OP : lexer cs
+lexer (')' : cs)	= CP : lexer cs
 lexer ca@(c : cs)
-	| isSpace c			= lexer cs
-	| Just (t, r) <- num		= t : lexer r
-	| Just (t, r) <- sym		= t : lexer r
-	| Just (t, r) <- infixes	= t : lexer r
+	| isSpace c	= lexer cs
+	| isDigit c	= let (t, r) = span isDigit ca in Num (read t) : lexer r
+	| isSymbol c	= let (t, r) = span isSymbol ca in Sym t : lexer r
+	| "infixl" `isPrefixOf` ca	= TInfix Left : lexer (drop 6 ca)
+	| "infixr" `isPrefixOf` ca	= TInfix Right : lexer (drop 6 ca)
+	| "infix" `isPrefixOf` ca	= TInfix None : lexer (drop 5 ca)
 	| otherwise			= error "lexer error"
-	where
-	isS			= (`elem` "+-*/!.^:=<>&|$")
-	num	| isDigit c	= let (t, r) = span isDigit ca in
-							Just (Num $ read t, r)
-		| otherwise	= Nothing
-	sym	| isS c		= let (t, r) = span isS ca in Just (Sym t, r)
-		| otherwise	= Nothing
-	infixes	| "infixl" `isPrefixOf` ca	= Just (TInfix Left, drop 6 ca)
-		| "infixr" `isPrefixOf` ca	= Just (TInfix Right, drop 6 ca)
-		| "infix" `isPrefixOf` ca	= Just (TInfix None, drop 5 ca)
-		| otherwise			= Nothing
