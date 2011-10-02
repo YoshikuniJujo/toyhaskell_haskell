@@ -1,27 +1,34 @@
+{-# LANGUAGE PatternGuards #-}
+
 module Fixity (fixity, initFix) where
 
+import Prelude hiding (Either(Right, Left))
+
 import Value
+import Control.Arrow
 
 data Assoc	= Left | Right | None
 data Fixity	= Fix Assoc Int
 
 initFix :: [(String, Fixity)]
-initFix = []
+initFix = [
+	("+", Fix Left 6),
+	("-", Fix Left 6),
+	("*", Fix Left 7)
+ ]
 
 fixity :: [(String, Fixity)] -> Infix -> Value
 fixity fl = fixityVal fl . Infix
-{-
-fixity _ (Value v)	= v
-fixity fl (Op op x y)	= App (App (Var op 0) $ fixity fl x) $ fixity fl y
-fixity fl (Con con vs)	= Con con $ map (fixity fl) vs
-fixity _ (Op op x y)	= App (App (Var op 0) x) y
-fixity _ v		= v
--}
 
 fixityVal :: [(String, Fixity)] -> Value -> Value
-fixityVal fl (Infix i)	= fixityVal fl $ fixityAll fl i
--- fixityVal _ (
-fixityVal _ v		= v
+fixityVal fl (Infix i)		= fixityVal fl $ fixityAll fl i
+fixityVal fl (Con con mems)	= Con con $ map (fixityVal fl) mems
+fixityVal fl (App f a)		= App (fixityVal fl f) $ fixityVal fl a
+fixityVal fl (Lambda ps expr)	= Lambda ps $ fixityVal fl expr
+fixityVal fl (Case key alts)	= Case (fixityVal fl key) $ map (second $ fixityVal fl) alts
+fixityVal fl (Letin defs expr)	= Letin (map (second $ fixityVal fl) defs) $ fixityVal fl expr
+fixityVal fl (Module defs)	= Module (map (second $ fixityVal fl) defs)
+fixityVal _ v			= v
 
 fixityAll :: [(String, Fixity)] -> Infix -> Value
 fixityAll _ (Value v)	= v
@@ -35,4 +42,17 @@ fixityOne _ (Op op1 v i)		= Value $ App (App (Var op1 0) v) $ Infix i
 fixityOne _ i@(Value _)			= i
 
 compFixity :: [(String, Fixity)] -> String -> String -> Ordering
-compFixity _ _ _ = GT
+compFixity fix op1 op2 = case (lookup op1 fix, lookup op2 fix) of
+	( Just f1, Just f2 )	-> compInfix f1 f2
+	( Just f1, Nothing )	-> compInfix f1 (Fix Left 9)
+	( Nothing, Just f2 )	-> compInfix (Fix Left 9) f2
+	( Nothing, Nothing )	-> compInfix (Fix Left 9) (Fix Left 9)
+
+compInfix :: Fixity -> Fixity -> Ordering
+compInfix (Fix assc1 prec1) (Fix assc2 prec2)
+	| prec1 > prec2				= GT
+	| prec1 < prec2				= LT
+	| Left <- assc1, Left <- assc2		= GT
+	| Right <- assc1, Right <- assc2	= LT
+	| otherwise				= error "bad associativity"
+
