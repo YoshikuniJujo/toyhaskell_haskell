@@ -26,7 +26,7 @@ import Control.Monad (liftM, zipWithM)
 
 --------------------------------------------------------------------------------
 
-data Infix	= Op String Infix Infix
+data Infix	= Op String Value Infix
 		| Value Value
 	deriving Show
 
@@ -79,6 +79,7 @@ instance Show Value where
 	show (Letin defs ex)	= "let " ++ showDefs defs ++ " in " ++ show ex
 	show (Module defs)	= "module " ++ showDefs defs
 	show (Let defs)		= "let " ++  showDefs defs
+	show (Infix _)		= "<infix>"
 	show (Err msg)		= "Error: " ++ msg
 
 showStr :: Value -> String
