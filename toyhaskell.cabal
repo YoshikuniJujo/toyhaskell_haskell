@@ -21,24 +21,24 @@ flag test
 library
   hs-source-dirs:	src
   exposed-modules:	ToyHaskell
-  other-modules:	Eval, Preprocessor, Lexer, Value, Parser, Alpha,
-   Primitives, Env
+  other-modules:	Primitives, Eval, Alpha, Fixity, Parser, Preprocessor,
+                        Lexer, Value, Env
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, array
 
 executable runtoy
   hs-source-dirs:	src
   main-is:		runtoy.hs
-  other-modules:	MainTools, Eval, Preprocessor, Lexer, Value, Parser, Alpha,
-    Primitives, Env
+  other-modules:	MainTools, ToyHaskell, Primitives, Eval, Alpha, Fixity,
+                        Parser, Preprocessor, Lexer, Value, Env
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, array
 
 executable toy
   hs-source-dirs:	src
   main-is:		toy.hs
-  other-modules:	MainTools, Eval, Preprocessor, Lexer, Value, Parser, Alpha,
-    Primitives, Env
+  other-modules:	MainTools, ToyHaskell, Primitives, Eval, Alpha, Fixity,
+                        Parser, Preprocessor, Lexer, Value, Env
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, array
 
@@ -49,7 +49,7 @@ executable testToy
     buildable:		False
   hs-source-dirs:	src, tests
   main-is:		unitTest.hs
-  other-modules:	MainTools, Eval, Preprocessor, Lexer, Value, Parser, Alpha,
-    Primitives, Env
+  other-modules:	MainTools, ToyHaskell, Primitives, Eval, Alpha, Fixity,
+                        Parser, Preprocessor, Lexer, Value, Env
   ghc-options:		-Wall
   build-depends:	base > 3 && < 5, monads-tf, yjtools, array, HUnit
