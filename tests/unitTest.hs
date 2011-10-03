@@ -23,12 +23,14 @@ testMain = [
 
 testEval :: [Test]
 testEval = [
-	(8 :: Integer)	~?= eval primitives "8",
-	'h'			~?= eval primitives "'h'",
-	"hello"			~?= eval primitives "\"hello\"",
-	True			~?= eval primitives "8 == 8",
-	False			~?= eval primitives "8 == 3",
-	[(1 :: Integer), 2, 3]	~?= eval primitives "[3 - 2, 2, 1 + 2]"
+	(8 :: Integer)		~=? eval primitives "8",
+	'h'			~=? eval primitives "'h'",
+	"hello"			~=? eval primitives "\"hello\"",
+	True			~=? eval primitives "8 == 8",
+	False			~=? eval primitives "8 == 3",
+	[(1 :: Integer), 2, 3]	~=? eval primitives "[3 - 2, 2, 1 + 2]",
+	(75 :: Integer)		~=? eval primitives ( "5 + 5 * 2 * (2 + 3)"
+					++ " + 24 - 4" )
  ]
 
 testAlpha :: [Test]
