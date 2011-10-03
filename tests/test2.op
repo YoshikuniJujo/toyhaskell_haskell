@@ -1,6 +1,0 @@
-infixl	6 +
-infixl	6 -
-infixl	7 *
-infixl	7 /
-
-5 + 3 / (2 - 1)
