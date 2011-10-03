@@ -12,9 +12,36 @@ data Fixity	= Fix Assoc Int
 
 initFix :: [(String, Fixity)]
 initFix = [
-	("+", Fix Left 6),
-	("-", Fix Left 6),
-	("*", Fix Left 7)
+	("!!",		Fix Left	9),
+	(".",		Fix Right	9),
+	("^",		Fix Right	8),
+	("^^",		Fix Right	8),
+	("**",		Fix Right	8),
+	("*",		Fix Left	7),
+	("/",		Fix Left	7),
+	("div",		Fix Left	7),
+	("mod",		Fix Left	7),
+	("rem",		Fix Left	7),
+	("quot",	Fix Left	7),
+	("+",		Fix Left	6),
+	("-",		Fix Left	6),
+	(":",		Fix Right	5),
+	("++",		Fix Right	5),
+	("==",		Fix None	4),
+	("/=",		Fix None	4),
+	("<",		Fix None	4),
+	("<=",		Fix None	4),
+	(">",		Fix None	4),
+	(">=",		Fix None	4),
+	("elem",	Fix None	4),
+	("notElem",	Fix None	4),
+	("&&",		Fix Right	3),
+	("||",		Fix Right	2),
+	(">>",		Fix Left	1),
+	(">>=",		Fix Left	1),
+	("$",		Fix Right	0),
+	("$!",		Fix Right	0),
+	("seq",		Fix Right	0)
  ]
 
 fixity :: [(String, Fixity)] -> Infix -> Value
