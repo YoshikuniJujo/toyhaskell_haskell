@@ -27,7 +27,8 @@ fixityVal fl (App f a)		= App (fixityVal fl f) $ fixityVal fl a
 fixityVal fl (Lambda ps expr)	= Lambda ps $ fixityVal fl expr
 fixityVal fl (Case key alts)	= Case (fixityVal fl key) $ map (second $ fixityVal fl) alts
 fixityVal fl (Letin defs expr)	= Letin (map (second $ fixityVal fl) defs) $ fixityVal fl expr
-fixityVal fl (Module defs)	= Module (map (second $ fixityVal fl) defs)
+fixityVal fl (Module defs)	= Module $ map (second $ fixityVal fl) defs
+fixityVal fl (Let defs)		= Let $ map (second $ fixityVal fl) defs
 fixityVal _ v			= v
 
 fixityAll :: [(String, Fixity)] -> Infix -> Value
